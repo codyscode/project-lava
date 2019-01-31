@@ -19,7 +19,7 @@ typedef struct Input{
 }inputArgs;
 
 typedef struct Test{
-    int t;
+    int l;
     int p;
 }testInput;
 
@@ -35,21 +35,21 @@ void test2(int *array){
     printf("Hello %d %d %d %d", array[0], array[1], array[2], array[3]);
 }
 
-void test3(void *arg){
+void test3(testInput *arg){
     testInput *arguments = (testInput *)arg;
-    printf("Test: %d: ", arguments->t);
+    printf("Test: %d: ", (*arguments).l);
 }
 
 int main(void){
     tsc_t startTime, doneTime;
     for (int i = 0; i < 20; i++){
-        int s = 1;
         startTime = rdtsc();
+        int s = rand() % 18;
         doneTime = rdtsc();
-        testInput *t;
-        t->t = 1;
-        t->p = 2;
-        test3((void *)t);
+        testInput t;
+        t.l = 1;
+        t.p = 2;
+        test3(&t);
         printf("rng: %d\ntime: %llu\n", s, doneTime - startTime);
     }
     void (*funcPtr) = &test2;
