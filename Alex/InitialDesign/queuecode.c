@@ -68,6 +68,8 @@ typedef struct threadArgs{
     int *args;
 }threadArgs;
 
+typedef 
+
 void *input_thread(threadArgs *args){
     threadArgs *inputArgs = (threadArgs *)args;
     void *inputFunction = inputArgs->function;
@@ -84,6 +86,14 @@ void *output_thread(threadArgs *args){
     while(1){
         (*outputFunction)(*funcArgs);
     }
+}
+
+void *inputFunction(){
+
+}
+
+void *outputFunction(){
+
 }
 
 int main(int argc, char **argv){
@@ -112,12 +122,15 @@ int main(int argc, char **argv){
     int pthreadErr;
     int inputIndex;
     for(inputIndex = 0; inputIndex < inputQueuesCount; inputIndex++){
-        //Set the schedule specifically, so it doesnt inherit from the main thread
+        /*Set the schedule specifically, so it doesnt inherit from the main thread
         if(pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED)) {
             perror("pthread_attr_setinheritsched");
 	    }
+        */
         //Assigned function and arguments for the funciton for the output threads
-        threadArgs args;
+        threadArgs argsToPass;
+        argsToPass.function = &inputFunction;
+        argsToPass.args = 
 
         //create the threads
         if(pthreadErr = pthread_create(threadIDs[inputIndex], &attrs, input_thread, &threadQueues[inputIndex])){
@@ -128,13 +141,15 @@ int main(int argc, char **argv){
     //create the output threads
     int outputIndex;
     for(outputIndex = inputIndex; outputIndex < outputQueuesCount; outputIndex++){
-        //Set the schedule specifically, so it doesnt inherit from the main thread
+        /*Set the schedule specifically, so it doesnt inherit from the main thread
         if(pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED)) {
             perror("pthread_attr_setinheritsched");
 	    }
-
+        */
         //Assigned function and arguments for the funciton for the output threads
-        threadArgs args;
+        threadArgs argsToPass;
+        argsToPass.function = &outputFunction;
+        argsToPass.args = 
 
         if(pthreadErr = pthread_create(threadIDs[outputIndex], &attrs, output_thread, &args)){
             fprintf(stderr, "pthread_create: %d\n", pthreadErr);
