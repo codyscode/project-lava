@@ -52,7 +52,7 @@ int main(void){
         test3(&t);
         printf("rng: %d\ntime: %llu\n", s, doneTime - startTime);
     }
-    void (*funcPtr) = &test2;
+    void *funcPtr = &test2;
     int otherArgs[] = {10, 9, 8, 7};
     inputArgs cmdInputs;
     cmdInputs.function = funcPtr;

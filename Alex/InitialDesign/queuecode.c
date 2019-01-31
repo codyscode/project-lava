@@ -1,7 +1,15 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<pthread.h>
-#include<unistd.h>
+#define _GNU_SOURCE
+#define ONE_SECOND_MILI 1000000
+#define MAX_NUM_THREADS 16
+#define BUFFERSIZE 256
+
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <assert.h>
+#include <errno.h>
+#include <sched.h>
 
 /*
 Assumptions about structure:
@@ -12,9 +20,6 @@ Assumptions about structure:
 - "master" thread that reads data from queues for analytics
 */
 
-#define ONE_SECOND_MILI 1000000
-#define MAX_NUM_THREADS 16
-#define BUFFERSIZE 256
 
 typedef unsigned long long tsc_t;
 
@@ -64,36 +69,34 @@ typedef struct Queue {
 }queue_t;
 
 typedef struct threadArgs{
-    void *function;
+    void (*function)();
     int *args;
-}threadArgs;
+}threadArgs_t;
 
-typedef 
-
-void *input_thread(threadArgs *args){
-    threadArgs *inputArgs = (threadArgs *)args;
-    void *inputFunction = inputArgs->function;
+void *input_thread(void *args){
+    threadArgs_t *inputArgs = (threadArgs_t *)args;
+    void (*inputFunction)(int *) = inputArgs->function;
     int *funcArgs = inputArgs->args;
-    while(1){
-        (*inputFunction)(*funcArgs);
-    }
+
+    (*inputFunction)(funcArgs);
 }
 
-void *output_thread(threadArgs *args){
-    threadArgs *outputArgs = (threadArgs *)args;
-    void *outputFunction = outputArgs->function;
+void *output_thread(void *args){
+    threadArgs_t *outputArgs = (threadArgs_t *)args;
+    void (*outputFunction)(int *) = outputArgs->function;
     int *funcArgs = outputArgs->args;
-    while(1){
-        (*outputFunction)(*funcArgs);
-    }
+
+    (*outputFunction)(funcArgs);
 }
 
-void *inputFunction(){
-
+void *inputFunction(void *args){
+    int *threadNumPtr = (int *)args;
+    printf("Started Input Thread: %d\n", *threadNumPtr + 1);
 }
 
-void *outputFunction(){
-
+void *outputFunction(void *args){
+    int *threadNumPtr = (int *)args;
+    printf("Started Output Thread: %d\n", *threadNumPtr + 1);
 }
 
 int main(int argc, char **argv){
@@ -113,6 +116,7 @@ int main(int argc, char **argv){
     //Initialize items for threads
     pthread_t threadIDs[MAX_NUM_THREADS]; 
     queue_t threadQueues[MAX_NUM_THREADS];
+    threadArgs_t threadArgsToPass[MAX_NUM_THREADS];
 
     //Initialize thread attributes
     pthread_attr_t attrs;
@@ -121,42 +125,37 @@ int main(int argc, char **argv){
     //create the input threads
     int pthreadErr;
     int inputIndex;
+    void *inputFuncPtr = &inputFunction;
     for(inputIndex = 0; inputIndex < inputQueuesCount; inputIndex++){
-        /*Set the schedule specifically, so it doesnt inherit from the main thread
-        if(pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED)) {
-            perror("pthread_attr_setinheritsched");
-	    }
-        */
         //Assigned function and arguments for the funciton for the output threads
-        threadArgs argsToPass;
-        argsToPass.function = &inputFunction;
-        argsToPass.args = 
+        threadArgsToPass[inputIndex].function = inputFuncPtr;
+        threadArgsToPass[inputIndex].args = &inputIndex;
+
+        FENCE()
 
         //create the threads
-        if(pthreadErr = pthread_create(threadIDs[inputIndex], &attrs, input_thread, &threadQueues[inputIndex])){
+        if(pthreadErr = pthread_create(&threadIDs[inputIndex], &attrs, input_thread, &threadArgsToPass[inputIndex])){
             fprintf(stderr, "pthread_create: %d\n", pthreadErr);
         }
-
+        pthread_join(threadIDs[inputIndex], NULL);
     }
     //create the output threads
     int outputIndex;
-    for(outputIndex = inputIndex; outputIndex < outputQueuesCount; outputIndex++){
-        /*Set the schedule specifically, so it doesnt inherit from the main thread
-        if(pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED)) {
-            perror("pthread_attr_setinheritsched");
-	    }
-        */
+    void *outputFuncPtr = &outputFunction;
+    for(outputIndex = 0; outputIndex < outputQueuesCount; outputIndex++){
+        int trueOutputIndex = outputIndex + inputIndex;
+        
         //Assigned function and arguments for the funciton for the output threads
-        threadArgs argsToPass;
-        argsToPass.function = &outputFunction;
-        argsToPass.args = 
+        threadArgsToPass[trueOutputIndex].function = outputFuncPtr;
+        threadArgsToPass[trueOutputIndex].args = &outputIndex;
 
-        if(pthreadErr = pthread_create(threadIDs[outputIndex], &attrs, output_thread, &args)){
+        FENCE()
+
+        if(pthreadErr = pthread_create(&threadIDs[trueOutputIndex], &attrs, output_thread, &threadArgsToPass[trueOutputIndex])){
             fprintf(stderr, "pthread_create: %d\n", pthreadErr);
         }
+        pthread_join(threadIDs[trueOutputIndex], NULL);
     }
 
-
-    printf("Testing with: \n%d Input Queues \n%d Output Queues\n", inputQueuesCount, outputQueuesCount);
-    printf("%d  aa\n", '8');
+    printf("\nTesting with: \n%d Input Queues \n%d Output Queues\n", inputQueuesCount, outputQueuesCount);
 }
