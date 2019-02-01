@@ -1,7 +1,4 @@
 #define _GNU_SOURCE
-#define ONE_SECOND_MILI 1000000
-#define MAX_NUM_THREADS 16
-#define BUFFERSIZE 256
 
 #include <stdio.h>
 #include <unistd.h>
@@ -49,11 +46,16 @@ static __inline__ tsc_t rdtsc(void)
 #define FENCE() \
     asm volatile ("mfence" ::: "memory");
 
+#define ONE_SECOND_MILI 1000000
+#define MAX_NUM_THREADS 16
+#define BUFFERSIZE 100
+
+//Packets to be passed between queues
+//flow (int) - tells which flow the packet corresponds to
+//order (int) - tells which position in the flow the packet is
 typedef struct Packet{
-    int address;
-    int sourcePort;
-    int destPort;
-    int payloadSize;
+    int flow;
+    int order;
 } packet_t;
 
 //Data structure for Queue
@@ -62,31 +64,72 @@ typedef struct Packet{
 //last_written (size_t) - the last written packet to the queue
 //data (Data) - a packet
 typedef struct Queue {
-    int core;
-    int thread;
-    size_t last_written;
+    size_t lastWritten;
     packet_t data[BUFFERSIZE];
 }queue_t;
 
+//Arguments to be passed to threads
+//function (void *)()- Pointer to functions for the thread
+//args (int *) - pointer to all arguments for the functions
 typedef struct threadArgs{
     void (*function)();
-    int *args;
+    void *args;
 }threadArgs_t;
 
 void *input_thread(void *args){
+    //Get argurments and any other functions for input threads
     threadArgs_t *inputArgs = (threadArgs_t *)args;
     void (*inputFunction)(int *) = inputArgs->function;
-    int *funcArgs = inputArgs->args;
+    void *funcArgs = inputArgs->args;
 
-    (*inputFunction)(funcArgs);
+    //-------Input Thread Functionality-------
+    //Rename array for better understanding/cast it to an queue_t struct
+    queue_t *inputQueue = (queue_t *)funcArgs;
+
+    //Generate initial buffer using 5 flows
+    int flowNum[] = {0, 0, 0, 0, 0};
+    int currFlow;
+    for(int i = 0; i < BUFFERSIZE; i++){
+        currFlow = (rand() % 5) + 1;
+        (*inputQueue).data[i].flow = currFlow;
+        (*inputQueue).data[i].order = flowNum[currFlow - 1];
+        flowNum[currFlow - 1]++;
+    }
+
+    //Continuously generate input numbers until the buffer fills up, wait for the buffer to have space before writing again
+    int index = 0;
+    while(1){
+        currFlow = (rand() % 5) + 1;
+        //If the queue spot is filled then wait for the space to become available
+        while((*inputQueue).data[index].flow != 0){
+            ;
+        }
+        //Create the new packet
+        (*inputQueue).data[index].flow = currFlow;
+        (*inputQueue).data[index].order = flowNum[currFlow - 1];
+        //Update the last known packet place
+        (*inputQueue).lastWritten = index;
+        //Update the next available position in the flow
+        flowNum[currFlow - 1]++;
+        //Update the next spot to be written in the queue
+        index++;
+        index = index % BUFFERSIZE;
+    }
+    //Any Addtional Functions for threads use this:
+    //(*inputFunction)(funcArgs);
 }
 
 void *output_thread(void *args){
+    //Get argurments and any other functions for output threads
     threadArgs_t *outputArgs = (threadArgs_t *)args;
     void (*outputFunction)(int *) = outputArgs->function;
     int *funcArgs = outputArgs->args;
 
-    (*outputFunction)(funcArgs);
+    //-------Output Thread Functionality-------
+
+
+    //Any Addtional Functions for threads use this:
+    //(*outputFunction)(funcArgs);
 }
 
 void *inputFunction(void *args){
@@ -102,7 +145,7 @@ void *outputFunction(void *args){
 int main(int argc, char **argv){
     //Error checking for proper running
     if (argc < 3){
-        printf("Usage: Queues <# input queues>, <# output queues> > output.csv");
+        printf("Usage: Queues <# input queues>, <# output queues>\n");
         exit(1);
     }
     //Grab the number of input and output queues to use
@@ -129,7 +172,7 @@ int main(int argc, char **argv){
     for(inputIndex = 0; inputIndex < inputQueuesCount; inputIndex++){
         //Assigned function and arguments for the funciton for the output threads
         threadArgsToPass[inputIndex].function = inputFuncPtr;
-        threadArgsToPass[inputIndex].args = &inputIndex;
+        threadArgsToPass[inputIndex].args = &threadQueues[inputIndex];
 
         FENCE()
 
@@ -137,8 +180,8 @@ int main(int argc, char **argv){
         if(pthreadErr = pthread_create(&threadIDs[inputIndex], &attrs, input_thread, &threadArgsToPass[inputIndex])){
             fprintf(stderr, "pthread_create: %d\n", pthreadErr);
         }
-        pthread_join(threadIDs[inputIndex], NULL);
     }
+    /*
     //create the output threads
     int outputIndex;
     void *outputFuncPtr = &outputFunction;
@@ -147,15 +190,46 @@ int main(int argc, char **argv){
         
         //Assigned function and arguments for the funciton for the output threads
         threadArgsToPass[trueOutputIndex].function = outputFuncPtr;
-        threadArgsToPass[trueOutputIndex].args = &outputIndex;
+        threadArgsToPass[trueOutputIndex].args = &threadQueues[trueOutputIndex];
 
         FENCE()
 
         if(pthreadErr = pthread_create(&threadIDs[trueOutputIndex], &attrs, output_thread, &threadArgsToPass[trueOutputIndex])){
             fprintf(stderr, "pthread_create: %d\n", pthreadErr);
         }
-        pthread_join(threadIDs[trueOutputIndex], NULL);
     }
+    */
+
+   //Master thread that reads out the input queues to make sure they can be read in order
+   int initialIndices[inputQueuesCount];
+   //Set all start indices to 0 initial;y
+   for(int i = 0; i < inputQueuesCount; i++){
+       initialIndices[i] = 0;
+   }
+   //Read the queues
+   int reads = 0;
+   while(reads < 1000){
+       //Wait for queue to fill up
+       usleep(20000); // 20ms
+       //Read each input queue and output results to confirm they are in order
+       for(int threadIndex = 0; threadIndex < inputQueuesCount; threadIndex++){
+           int index = initialIndices[threadIndex];
+           while(threadQueues[threadIndex].data[index].flow != 0){
+                //Process the packet
+                printf("Thread: %d | Flow: %d | Order: %d\n", threadIndex, threadQueues[threadIndex].data[index].flow, threadQueues[threadIndex].data[index].order);
+                //Tell the queue that the position is free
+                threadQueues[threadIndex].data[index].flow = 0;
+                index++;
+                index = index % BUFFERSIZE;
+                reads++;
+                if(reads > 1000){
+                    break;
+                } 
+           }
+           initialIndices[threadIndex] = index;
+       }
+   }
+   
 
     printf("\nTesting with: \n%d Input Queues \n%d Output Queues\n", inputQueuesCount, outputQueuesCount);
 }

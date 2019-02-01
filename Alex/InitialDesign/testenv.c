@@ -40,9 +40,21 @@ void test3(testInput *arg){
     printf("Test: %d: ", (*arguments).l);
 }
 
+void test4(int arg[]){
+    int toPass[] = {22, 22, 22};
+    arg[0] = toPass[1];
+}
+
 int main(void){
     tsc_t startTime, doneTime;
+    int testArray[] = {0, 0, 0, 0, 0};
+    int testV;
     for (int i = 0; i < 20; i++){
+        int index = i;
+        index = index % 5;
+        testArray[index]++;
+        testV = testArray[index];
+        /*
         startTime = rdtsc();
         int s = rand() % 18;
         doneTime = rdtsc();
@@ -51,11 +63,18 @@ int main(void){
         t.p = 2;
         test3(&t);
         printf("rng: %d\ntime: %llu\n", s, doneTime - startTime);
+        */
+
+        printf("%d\n", testArray[index]);
     }
+    test4(testArray);
+    printf("outside: %d\n", testArray[0]);
+    /*
     void *funcPtr = &test2;
     int otherArgs[] = {10, 9, 8, 7};
     inputArgs cmdInputs;
     cmdInputs.function = funcPtr;
     cmdInputs.speed = otherArgs;
     testMethod(&cmdInputs);
+    */
 }
