@@ -156,6 +156,9 @@ int main(int argc, char **argv){
     assert(inputQueuesCount + outputQueuesCount <= MAX_NUM_THREADS);
     assert(inputQueuesCount > 0 && outputQueuesCount > 0);
 
+    //Print out testing information to the user
+    printf("\nTesting with: \n%d Input Queues \n%d Output Queues\n", inputQueuesCount, outputQueuesCount);
+
     //Initialize items for threads
     pthread_t threadIDs[MAX_NUM_THREADS]; 
     queue_t threadQueues[MAX_NUM_THREADS];
@@ -200,36 +203,63 @@ int main(int argc, char **argv){
     }
     */
 
-   //Master thread that reads out the input queues to make sure they can be read in order
-   int initialIndices[inputQueuesCount];
-   //Set all start indices to 0 initial;y
-   for(int i = 0; i < inputQueuesCount; i++){
-       initialIndices[i] = 0;
-   }
-   //Read the queues
-   int reads = 0;
-   while(reads < 1000){
-       //Wait for queue to fill up
-       usleep(20000); // 20ms
-       //Read each input queue and output results to confirm they are in order
-       for(int threadIndex = 0; threadIndex < inputQueuesCount; threadIndex++){
-           int index = initialIndices[threadIndex];
-           while(threadQueues[threadIndex].data[index].flow != 0){
+    int currIndices[inputQueuesCount];
+    //Set all start indices to 0 initially
+    for(int i = 0; i < inputQueuesCount; i++){
+        currIndices[i] = 0;
+    }
+    //Array used for checking if the packets are in the appropriate order
+    //[Thread index][flow index]
+    int nextExpectedOrder[inputQueuesCount][5 * inputQueuesCount];
+    //set all intial expected values to 0
+    for(int i = 0; i < inputQueuesCount; i++){
+        for(int j = 0; j < 5 * inputQueuesCount; j++){
+            nextExpectedOrder[i][j] = 0;
+        }
+    }
+
+    int reads = 0;
+    int maxReads = 2000;
+    //Master thread that reads out the input queues to make sure they can be read in order
+    while(reads < maxReads){
+        //Wait for queue to fill up
+        usleep(20000); // 20ms
+        //Read each input queue and output results to confirm they are in order
+        for(int threadIndex = 0; threadIndex < inputQueuesCount; threadIndex++){
+            int index = currIndices[threadIndex];
+            //While there is data to read in the queue, then read it
+            while(threadQueues[threadIndex].data[index].flow != 0){
+                int currFlow = threadQueues[threadIndex].data[index].flow;
+                //If the order is out of line (i.e the flow number is not what was expected) then break
+                if(nextExpectedOrder[threadIndex][currFlow] != threadQueues[threadIndex].data[index].order){
+                    printf("Packet out of order\n");
+                    exit(1);
+                }
+                //Otherwise increase next expected order number for the next packet in the flow
+                else{
+                    nextExpectedOrder[threadIndex][threadQueues[threadIndex].data[index].flow]++;
+                }
                 //Process the packet
                 printf("Thread: %d | Flow: %d | Order: %d\n", threadIndex, threadQueues[threadIndex].data[index].flow, threadQueues[threadIndex].data[index].order);
                 //Tell the queue that the position is free
                 threadQueues[threadIndex].data[index].flow = 0;
+                //Increment to the next spot to check in the curent queue
                 index++;
                 index = index % BUFFERSIZE;
+                //Increase the number of reads
                 reads++;
-                if(reads > 1000){
+                if(reads > maxReads){
                     break;
-                } 
-           }
-           initialIndices[threadIndex] = index;
-       }
-   }
-   
-
-    printf("\nTesting with: \n%d Input Queues \n%d Output Queues\n", inputQueuesCount, outputQueuesCount);
+                }
+            }
+            if(reads < maxReads){
+                printf("No data currently available moving to next thread\n");
+                currIndices[threadIndex] = index;
+            }
+            else{
+                break;
+            }
+        }
+    }
+    printf("-------------FINISHED-------------\nPackets are in correct order\n");
 }
