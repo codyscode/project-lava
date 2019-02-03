@@ -33,7 +33,7 @@ void test2(int *array){
     printf("Hello %d %d %d %d", array[0], array[1], array[2], array[3]);
 }
 */
-
+/*
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 int Counter = 0;
 
@@ -45,17 +45,15 @@ void *function1(void *args){
             ;
         }
         else{
-            //printf("Started %d\n", *num);
+            printf("Started %d\n", *num);
             for(int i = 0; i < 100; i++){
                 Counter = *num;
-                /*
                 if(Counter == *num){
                     printf("%d\n", Counter);
                 }
                 else{
                     printf("Cant");
                 }
-                */
             }
             //printf("Finished %d\n", *num);
             pthread_mutex_unlock(&lock);
@@ -68,17 +66,40 @@ void *function1(void *args){
     }
 
 }
+*/
+int x[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+
+void *function2(void *args){
+    int * t = (int *)args;
+    printf("%d\n", *t);
+}
+
+typedef struct test{
+    int array[3];
+    int other;
+}test_t;
 
 int main(void){
-    int x = 1;
-    int y = 2;
 
-    pthread_t thread1, thread2;
-    pthread_create(&thread1, NULL, &function1, &x);
-    pthread_create(&thread2, NULL, &function1, &y);
 
-    pthread_join(thread1, NULL);
-    pthread_join(thread2, NULL);
+    pthread_t tids[10];
+    for(int i = 0; i < 5; i++){
+        pthread_create(&tids[i], NULL, &function2, &x[i]);
+    }
+    for(int i = 5; i < 10; i++){
+        pthread_create(&tids[i], NULL, &function2, &x[i]);
+    }
+    for(int i = 0; i < 10; i++){
+        pthread_join(tids[i], NULL);
+    }
+    
+    /*
+    test_t testArray[3];
+    testArray[2].array[0] = 1;
+    testArray[2].array[1] = 2;
+    testArray[2].array[2] = 3;
+    test_t sub = testArray[2];
+    printf("%d, %d, %d", sub.array[0], sub.array[1], sub.array[2]);
 
 
     /* --Passing a function to another function--
