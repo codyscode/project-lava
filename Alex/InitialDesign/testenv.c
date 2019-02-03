@@ -1,8 +1,10 @@
 /*
 Used for testing out verious code segments
 */
-#include<stdio.h>
-#include<stdlib.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
 
 typedef unsigned long long tsc_t;
 
@@ -13,15 +15,11 @@ static __inline__ tsc_t rdtsc(void)
     return ( (tsc_t)lo)|( ((tsc_t)hi)<<32 );
 }
 
+/* --Passing Functions to functions--
 typedef struct Input{
     void (*function)();
     int *speed;
 }inputArgs;
-
-typedef struct Test{
-    int l;
-    int p;
-}testInput;
 
 void testMethod(inputArgs *arg){
     inputArgs *arguments = (inputArgs *)arg;
@@ -34,42 +32,56 @@ void testMethod(inputArgs *arg){
 void test2(int *array){
     printf("Hello %d %d %d %d", array[0], array[1], array[2], array[3]);
 }
+*/
 
-void test3(testInput *arg){
-    testInput *arguments = (testInput *)arg;
-    printf("Test: %d: ", (*arguments).l);
-}
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+int Counter = 0;
 
-void test4(int arg[]){
-    int toPass[] = {22, 22, 22};
-    arg[0] = toPass[1];
+void *function1(void *args){
+    int *num = (int *)args;
+    int count = 0;
+    while(1){
+        if(pthread_mutex_trylock(&lock)){
+            ;
+        }
+        else{
+            //printf("Started %d\n", *num);
+            for(int i = 0; i < 100; i++){
+                Counter = *num;
+                /*
+                if(Counter == *num){
+                    printf("%d\n", Counter);
+                }
+                else{
+                    printf("Cant");
+                }
+                */
+            }
+            //printf("Finished %d\n", *num);
+            pthread_mutex_unlock(&lock);
+            if(*num == 2){
+                printf("Reached 2 after %d\n", count);
+                exit(1);
+            }
+        }
+        count++;
+    }
+
 }
 
 int main(void){
-    tsc_t startTime, doneTime;
-    int testArray[] = {0, 0, 0, 0, 0};
-    int testV;
-    for (int i = 0; i < 20; i++){
-        int index = i;
-        index = index % 5;
-        testArray[index]++;
-        testV = testArray[index];
-        /*
-        startTime = rdtsc();
-        int s = rand() % 18;
-        doneTime = rdtsc();
-        testInput t;
-        t.l = 1;
-        t.p = 2;
-        test3(&t);
-        printf("rng: %d\ntime: %llu\n", s, doneTime - startTime);
-        */
+    int x = 1;
+    int y = 2;
 
-        printf("%d\n", testArray[index]);
-    }
-    test4(testArray);
-    printf("outside: %d\n", testArray[0]);
-    /*
+    pthread_t thread1, thread2;
+    pthread_create(&thread1, NULL, &function1, &x);
+    pthread_create(&thread2, NULL, &function1, &y);
+
+    pthread_join(thread1, NULL);
+    pthread_join(thread2, NULL);
+
+
+    /* --Passing a function to another function--
     void *funcPtr = &test2;
     int otherArgs[] = {10, 9, 8, 7};
     inputArgs cmdInputs;
