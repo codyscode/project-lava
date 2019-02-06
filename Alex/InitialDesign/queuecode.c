@@ -9,15 +9,31 @@
 #include <sched.h>
 
 /*
-Assumptions about structure:
-- Each queue is a thread
+Structure of Implementation
+- Each queue has a thread associated with it,
+to avoid having to lock the output queues to write to them
 - Max 8 input and 8 output threads
 - Queue is a queue of packet structs with 2 members: flow and order
 - specific threads for input and output
-- "master" thread that reads data from queues for analytics
-- Under the assumption that a single flow spread accross multiple vectors can have the vectors 
-  sent to different output queues as long as the vectors stay together
-- As of now its one thread per queue
+- Flows are confined to single vectors
+- Basic idea:
+    -Input queues (threads) continuously write to themsselves and have a last read member
+     where output queues pick up at for reading.
+    -Input queues (threads) only write to a position that has a 0 for 
+     flow(indicating there is no "packet" there).
+    -Output Theads cycle through all input queues,
+     where each method to take packets from an input queue has a lock on it
+    -Once an output thread claims a lock it grabs packets according to a random vector size
+    -For grabbing packets, the output queue writes 0 to flow member in the input queue when it grabs a packet,
+     indicating its free, and writes the packet to a position based on the last written member for the 
+     queue struct
+    -After the output thread grabs all the packets for the vector it releases the lock
+     and starts "processing" the packets
+        -Processing only consists of checking if the packets are in the proper order.
+    -After processing the output thread goes back into the cycle of looking for an input queue
+     that is not locked
+-Input Queues:
+    -The input queues dont experience race conditions
 */
 
 
@@ -102,6 +118,7 @@ void *input_thread(void *args){
     int queueNum = inputArgs->queueNum;
     queue_t *inputQueue = (queue_t *)inputArgs->queue;
     //Generate initial buffer using 5 flows
+    //Each input buffer has 5 flows associated with it that it generates
     int flowNum[] = {0, 0, 0, 0, 0};
     int currFlow;
     int offset = queueNum * 5;
