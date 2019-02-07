@@ -1,5 +1,11 @@
-#define _GNU_SOURCE
+/*
+Code made by Alex Widmann
+Code Snippets taken from example-queue.c in example code folder written by Ian Wells @ Cisco
+Date Last Modified: 2/6/2019
+Purpose: Simulate passing packets from n input queues to m output queues
+*/
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -100,7 +106,9 @@ static __inline__ tsc_t rdtsc(void)
 #define MAX_NUM_INPUT_QUEUES 8
 #define MAX_NUM_OUTPUT_QUEUES 8
 #define BUFFERSIZE 1000
-#define RUNTIME 1000000
+#define RUNTIME 5000000
+#define CAL_DUR 2000000ULL
+#define CALIBRATION 5
 
 //Packets to be passed between queues
 //flow (int) - tells which flow the packet corresponds to
@@ -145,6 +153,59 @@ pthread_mutex_t locks[MAX_NUM_QUEUES];
 inputThreadArgs_t inputThreadArgsToPass[MAX_NUM_INPUT_QUEUES];
 outputThreadArgs_t outputThreadArgsToPass[MAX_NUM_OUTPUT_QUEUES];
 
+//Used to record roughly the number of ticks in a second
+tsc_t clockSpeed = 0;
+
+//Purely For Visual Asthetics For Loading Bar
+void printLoading(int perc){
+    //Delete previous loading bar
+    for(int backCount = 0; backCount < CALIBRATION * 2 + 8; backCount++){
+        printf("\b");
+    }
+
+    //Print next loading bar
+    printf("{");
+    int prog;
+    for(prog = 0; prog < (perc + 1) * 2; prog++){
+        printf("#");
+    }
+    for(int j = prog; j < (CALIBRATION + 1) * 2; j++){
+        printf("-");
+    }
+
+    //Print Percentage
+    printf("}%3d%%", (perc*100)/ CALIBRATION);
+}
+
+// Find out roughly how many TSC cycles happen in a second.
+// This isn't perfectly accurate - we could get more accuracy by running
+// for a longer time and by running this test repeatedly.
+tsc_t cal(void){
+    //Notify user program is running
+    printf("Normalizing Metric...\t");
+    printf("{");
+    for(int i = 0; i < CALIBRATION * 2; i++){
+        printf("-");
+    }
+    printf("}%3d%%", 0);
+    fflush(NULL);
+
+    // Find a rough value for the number of TSC ticks in 1s
+    tsc_t total;
+    int i;
+    for(i = 0; i < CALIBRATION; i++){
+        tsc_t start=rdtsc();
+        usleep(CAL_DUR);
+        tsc_t end=rdtsc();
+        total = ((end-start)*1000000ULL)/(CAL_DUR * CALIBRATION);
+        printLoading(i);
+        fflush(NULL);
+    }
+    printLoading(i);
+    printf("\n%llu\n", total);
+    return total;
+}
+
 void *input_thread(void *args){
     //Get argurments and any other functions for input threads
     inputThreadArgs_t *inputArgs = (inputThreadArgs_t *)args;
@@ -164,11 +225,12 @@ void *input_thread(void *args){
         flowNum[currFlow - 1 - offset]++;
     }
 
-    //Continuously generate input numbers until the buffer fills up, wait for the buffer to have space before writing again
+    //Continuously generate input numbers until the buffer fills up. 
+    //Once it hits an entry that is not empty, it will continuosly check that entry until it is open
     int index = 0;
     while(1){
         currFlow = ((rand() % 5) + 1) + offset;
-        //If the queue spot is filled then wait for the space to become available
+        //If the queue spot is filled then wait for the space to become available (flow = 0). Continuously check to avoid stall
         while((*inputQueue).data[index].flow != 0){
             ;
         }
@@ -238,12 +300,16 @@ void *output_thread(void *args){
     queue_t *outputQueue = (queue_t *)outputArgs->queue;
     int inputQueueIndex = 0;
     int vectorSize;
+    tsc_t totalTime = 0;
+    tsc_t startTime, finishTime;
 
     //Have each queue cycle through all queues trying to find an unlocked one to take from.
     //Generate a random number to simulate a random vector size
     while(1){
         //Vector size between 100 and 256 packets
         vectorSize = (rand() % 156) + 100;
+        //Start recording time again
+        startTime = rdtsc();
 
         //Continuously cycle to find an input queue that is not locked to take packets from
         while(1){
@@ -284,6 +350,10 @@ void *output_thread(void *args){
                 //Unlock the queue so it can "process" the packets (Processing = making sure the flows are in order; the vector is in order)
                 //break out of inner while loop afterwards to get a new vector size to grab
                 pthread_mutex_unlock(&locks[inputQueueIndex]);
+                //compute the total time the output queue took to grab that vector
+                finishTime = rdtsc();
+                totalTime += (finishTime - startTime);
+                //"Process" the packets
                 processPackets(outputQueue, vectorSize);
                 break;
             }
@@ -296,7 +366,7 @@ void *output_thread(void *args){
         }
         //Once the output queue goes through a set number of packets then exit
         if((*outputQueue).count > RUNTIME){
-            printf("Output Queue Finished, Processed %ld packets Successfully\n", (*outputQueue).count);
+            printf("Output Queue Finished, Processed %ld packets Successfully in %f Seconds\n", (*outputQueue).count, (double)totalTime/clockSpeed);
             return NULL;
         }
     }
@@ -321,6 +391,9 @@ int main(int argc, char **argv){
     //Initialize thread attributes
     pthread_attr_t attrs;
     pthread_attr_init(&attrs);
+
+    //Get a baseline for the number of ticks in a second
+    clockSpeed = cal();
 
     //initialize all queues
     for(int queueIndex = 0; queueIndex < inputQueuesCount + outputQueuesCount; queueIndex++){
@@ -381,7 +454,7 @@ int main(int argc, char **argv){
     
 
     //Print out testing information to the user
-    printf("\nTesting with: \n%d Input Queues \n%d Output Queues\n", inputQueuesCount, outputQueuesCount);
+    printf("\nTesting with: \n%d Input Queues \n%d Output Queues\n\n", inputQueuesCount, outputQueuesCount);
     
     //Run until the program for a certain amount of time based on RUNTIM variable
     for(int queueIndex = inputQueuesCount; queueIndex < outputQueuesCount + inputQueuesCount; queueIndex++){

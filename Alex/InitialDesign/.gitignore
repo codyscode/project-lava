@@ -6,3 +6,6 @@ queuecode
 testenv
 testenv.c
 testenv.o
+
+#MacOS stuff
+~/.DS_Store
