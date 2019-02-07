@@ -1,0 +1,8 @@
+#Binary Files
+/queuecode.o
+/queuecode
+
+#Test Code
+/testenv
+/testenv.c
+/testenv.o
