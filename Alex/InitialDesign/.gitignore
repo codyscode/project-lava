@@ -1,8 +1,8 @@
 #Binary Files
-/queuecode.o
-/queuecode
+*.o
+queuecode
 
 #Test Code
-/testenv
-/testenv.c
-/testenv.o
+testenv
+testenv.c
+testenv.o
