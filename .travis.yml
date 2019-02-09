@@ -5,4 +5,4 @@ language: c
 sudo: true
 
 script:
-        make
+        cd Alex/InitialDesign && make
