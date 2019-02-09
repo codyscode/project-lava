@@ -6,4 +6,3 @@ sudo: true
 
 script:
         make
-        ./queuecode
