@@ -1,0 +1,9 @@
+#travis ci file for Project-Lava
+
+language: c
+
+sudo: true
+
+script:
+        make
+        ./queuecode
