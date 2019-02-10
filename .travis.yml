@@ -6,5 +6,5 @@ sudo: true
 
 script:
         - cd Alex/InitialDesign 
-        - clang -coverage -o queuecode queuecode.o
+        - clang -o queuecode queuecode.o
         - ./queuecode 2 1
