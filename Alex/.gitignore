@@ -11,3 +11,6 @@ testenv.o
 
 #MacOS stuff
 ~/.DS_Store
+
+#VScode stuff
+.vscode
