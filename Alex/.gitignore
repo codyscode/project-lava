@@ -1,6 +1,8 @@
 #Binary Files
 *.o
 queuecode
+algorithm
+framework
 
 #Test Code
 testenv

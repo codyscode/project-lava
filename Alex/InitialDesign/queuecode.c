@@ -24,6 +24,8 @@ Structure of Implementation:
 -Queue is a queue of packet structs with 2 members: flow and order
 -specific threads for input and output
 -Flows are confined to single vectors
+-Can be thought of as spraying vectors to output queues
+-------------CAUSES VECTORS TO STAY TOGETHER BUT FLOWS ACCROSS VECTORS CAN GO TO DIFFERENT OUTPUT QUEUES----------------
 
 -Basic idea:
     -Input queues (threads) continuously write to themsselves and have a last read member
@@ -110,32 +112,32 @@ static __inline__ tsc_t rdtsc(void)
 #define CAL_DUR 2000000ULL
 #define CALIBRATION 5
 
-//Packets to be passed between queues
+//Packets to be passed between queues:
 //flow (int) - tells which flow the packet corresponds to
 //order (int) - tells which position in the flow the packet is
 typedef struct Packet{
     int flow;
-    int order;
+    unsigned int order;
 } packet_t;
 
-//Data structure for Queue
-//core (int) - core that the thread is assigned to
-//thread (int) - thread number
-//last_written (size_t) - the last written packet to the queue
-//data (Data) - a packet
+//Data structure for Queue:
+//toRead (unsigned int) - The next unread position in the queue
+//toWrite (unsigned int) - The next position to write to in the queue
+//count (unsigned long) - The number of packets read by the queue
+//data (packet_t array - Space for packets in the queue
 typedef struct Queue {
-    int toRead;
-    int toWrite;
-    long count;
+    unsigned int toRead;
+    unsigned int toWrite;
+    unsigned long count;
     packet_t data[BUFFERSIZE];
 }queue_t;
 
 //Arguments to be passed to input threads
 //queue (queue_t) - queue for the input thread to write to
-//queueNum (int) - The queue number relative to other queues in the arrays of queues
+//queueNum (unsigned int) - The queue number relative to other queues in the arrays of queues
 typedef struct inputThreadArgs{
     queue_t *queue;
-    int queueNum;
+    unsigned int queueNum;
 }inputThreadArgs_t;
 
 //Arguments to be passed to output threads
@@ -191,18 +193,19 @@ tsc_t cal(void){
     fflush(NULL);
 
     // Find a rough value for the number of TSC ticks in 1s
-    tsc_t total;
+    tsc_t total = 0;
     int i;
     for(i = 0; i < CALIBRATION; i++){
         tsc_t start=rdtsc();
         usleep(CAL_DUR);
         tsc_t end=rdtsc();
-        total = ((end-start)*1000000ULL)/(CAL_DUR * CALIBRATION);
+        total += ((end-start)*1000000ULL)/(CAL_DUR * CALIBRATION);
         printLoading(i);
         fflush(NULL);
     }
+
+    //Print the loading bar
     printLoading(i);
-    printf("\n%llu\n", total);
     return total;
 }
 
@@ -230,15 +233,19 @@ void *input_thread(void *args){
     int index = 0;
     while(1){
         currFlow = ((rand() % 5) + 1) + offset;
+
         //If the queue spot is filled then wait for the space to become available (flow = 0). Continuously check to avoid stall
         while((*inputQueue).data[index].flow != 0){
             ;
         }
+
         //Create the new packet
         (*inputQueue).data[index].flow = currFlow;
         (*inputQueue).data[index].order = flowNum[currFlow - 1 - offset];
+
         //Update the next available position in the flow
         flowNum[currFlow - 1 - offset]++;
+
         //Update the next spot to be written in the queue
         index++;
         index = index % BUFFERSIZE;
@@ -261,6 +268,7 @@ void processPackets(queue_t *outputQueue, int vectorSize){
         if(expected[currFlow] == -1){
             //Keep track of how many packets have passed through queue
             (*outputQueue).count++;
+
             //Process the packet
             expected[currFlow] = (*outputQueue).data[index].order + 1;
             (*outputQueue).data[index].flow = 0;
@@ -277,6 +285,7 @@ void processPackets(queue_t *outputQueue, int vectorSize){
         //Else "process" the packet by filling in 0 and incrementing the next expected
         else{            
             (*outputQueue).count++;
+
             //Process the packet
             //Keep track of how many packets have passed through queue
             (*outputQueue).data[index].flow = 0;
