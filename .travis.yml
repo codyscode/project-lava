@@ -36,8 +36,8 @@ script:
         - ./framework 3 4
         - ./framework 3 5
         - ./framework 3 6
-        - ./framework 1 7
-        - ./framework 1 8
+        - ./framework 3 7
+        - ./framework 3 8
           # n = 4          
         - ./framework 4 1
         - ./framework 4 2
