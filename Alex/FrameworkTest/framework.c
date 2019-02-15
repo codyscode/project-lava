@@ -65,11 +65,12 @@ void* processing_thread(void *args){
 
     //"Proccess" packets to confirm they are in the correct order before consuming more. 
     //Processing threads process until they get to a spot with no packets
-    int expected[numInputs * FLOWS_PER_QUEUE]; 
-    int index = 0;
+    int expected[numInputs * FLOWS_PER_QUEUE + 1]; 
+    int index; 
 
     //Go through each space in the output queue until we reach an emtpy space in which case we swap to the other queue to process its packets
     while(1){
+        index = (*processQueue).toRead;
         //If there is no packet, contiuously check until something shows up
         while((*processQueue).data[index].flow == 0){
             ;
@@ -79,6 +80,9 @@ void* processing_thread(void *args){
 
         //If a packet is grabbed out of order exit
         if(expected[currFlow] != (*processQueue).data[index].order){
+            for(int i = 0; i < numInputs * FLOWS_PER_QUEUE + 1; i++){
+                printf("Flow: %d, Expected: %d\n", i, expected[i]);
+            }
             printf("Error Packet: Flow %lu | Order %lu\n", (*processQueue).data[index].flow, (*processQueue).data[index].order);
             printf("Packet out of order in Processing Queue %d. Expected %d | Got %lu\n", queueNum - numInputs + 1, expected[currFlow], (*processQueue).data[index].order);
             exit(1);
@@ -88,25 +92,24 @@ void* processing_thread(void *args){
             //Increment how many packets the queue has processed
             (*processQueue).count++;
 
-            //Set the position to free
-            (*processQueue).data[index].flow = 0;
-
             //Set what the next expected packet for the flow should be
             expected[currFlow]++;
 
-            //Move to the next spot in the outputQueue
-            index++;
-            index = index % BUFFERSIZE;
+            //Set the position to free
+            (*processQueue).data[index].flow = 0;
+
+            //Move to the next spot in the outputQueue to process
+            (*processQueue).toRead++;
+            (*processQueue).toRead = (*processQueue).toRead % BUFFERSIZE;
         }
-        /*
+        
         if((*processQueue).count > RUNTIME){
-            printf("Successfully Processed %lu Packets in Queue %d\n", (*processQueue).count, queueNum);
+            printf("Successfully Processed %lu Packets in Output Queue %d\n", (*processQueue).count, queueNum - numInputs + 1);
             exit(1);
         }
-        */
+        
     }
 }
-
 
 void main(int argc, char**argv){
     //Error checking for proper running
@@ -196,5 +199,4 @@ void main(int argc, char**argv){
     algoArgs.outputQueueCount = outputQueueCount;
     run(&algoArgs);
     printf("Done\n");
-
 } 

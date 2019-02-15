@@ -1,4 +1,4 @@
-/*
+/* --------algo2.c------------
 -This is a sample algorithm that doesnt actually pass, it just checks to make sure the packets generate by the input are in valid order
 -The wrapper.h file includes wrapper for pthread functions
 -The global.h file includes all the global variables/helper functions for framework that arent thread functions
@@ -8,7 +8,7 @@
 #include"global.h"
 #include"wrapper.h"
 
-void run(algoArgs_t *args){  
+void run(algoArgs_t *args){   
     //Get arguments into variables
     int inputQueuesCount = (*args).inputQueueCount; 
 

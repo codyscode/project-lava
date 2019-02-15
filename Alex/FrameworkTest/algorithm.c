@@ -1,4 +1,4 @@
-/*
+/* --------algo1.c------------
 -This is a sample algorithm that doesnt actually pass, it just checks to make sure the packets generate by the input are in valid order
 -The wrapper.h file includes wrapper for pthread functions
 -The global.h file includes all the global variables/helper functions for framework that arent thread functions
@@ -18,7 +18,8 @@ void grabPackets(int inputQueueCount, int toGrabCount, queue_t* mainQueue){
 
             //If there is no where to write then start processing
             if((*mainQueue).data[mainWriteIndex].flow != 0){
-                return;
+                qIndex = inputQueueCount;
+                break;
             }
 
             //If there is nothing to grab then move to next queue
@@ -27,8 +28,8 @@ void grabPackets(int inputQueueCount, int toGrabCount, queue_t* mainQueue){
             }
 
             //Grab the packets data and move it into the mainQueue
-            (*mainQueue).data[mainWriteIndex].order = queues[qIndex].data[inputReadIndex].order;
             (*mainQueue).data[mainWriteIndex].flow = queues[qIndex].data[inputReadIndex].flow;
+            (*mainQueue).data[mainWriteIndex].order = queues[qIndex].data[inputReadIndex].order;
 
             //Indicate the next spot to read from in the input queue
             queues[qIndex].toRead++;
@@ -42,6 +43,8 @@ void grabPackets(int inputQueueCount, int toGrabCount, queue_t* mainQueue){
             queues[qIndex].data[inputReadIndex].flow = 0;
         }
     }
+    //Make sure everything is written/erased
+    usleep(1);
 }
 
 void passPackets(int outputQueueCount, int offset, queue_t* mainQueue){
@@ -52,7 +55,7 @@ void passPackets(int outputQueueCount, int offset, queue_t* mainQueue){
 
         //If there is no more data, then exit and get more packets
         if((*mainQueue).data[mainReadIndex].flow == 0){
-            return;
+            break;
         }
 
         //Get the appropriate output queue that this should be sending to
@@ -71,6 +74,9 @@ void passPackets(int outputQueueCount, int offset, queue_t* mainQueue){
         queues[qIndex].data[outputWriteIndex].order = (*mainQueue).data[mainReadIndex].order;
         queues[qIndex].data[outputWriteIndex].flow = (*mainQueue).data[mainReadIndex].flow;
 
+        //Indicate the space is free to write to in the main queue
+        (*mainQueue).data[mainReadIndex].flow = 0;
+
         //Indicate the next spot to write to in the output queue
         queues[qIndex].toWrite++;
         queues[qIndex].toWrite = queues[qIndex].toWrite % BUFFERSIZE;
@@ -78,10 +84,9 @@ void passPackets(int outputQueueCount, int offset, queue_t* mainQueue){
         //Indicade the next spot to read from in the main queue
         (*mainQueue).toRead++;
         (*mainQueue).toRead = (*mainQueue).toRead % BUFFERSIZE;
-
-        //Indicate the space is free to write to in the main queue
-        (*mainQueue).data[mainReadIndex].flow = 0;
-    } 
+    }
+    //Make sure everything is written/erased
+    usleep(1);
 }
 
 void run(algoArgs_t *args){
@@ -103,6 +108,6 @@ void run(algoArgs_t *args){
 
     while(1){
         grabPackets(inputQueueCount, toGrabCount, &mainQueue);
-        passPackets(inputQueueCount, toGrabCount, &mainQueue);
+        passPackets(outputQueueCount, offset, &mainQueue);
     }
 }

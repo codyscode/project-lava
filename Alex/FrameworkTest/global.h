@@ -20,7 +20,7 @@
 
 //How many packets need to be processed by each queue before the program terminates
 //We could also make this time instead
-#define RUNTIME 100000
+#define RUNTIME 50000
 
 //Used for calibrating the amount of clock cycles in a second
 #define CAL_DUR 2000000ULL
@@ -36,7 +36,7 @@ typedef unsigned long long tsc_t;
 
 //Data structure to represent a packet.
 //length: The size of the packet
-typedef struct packet{
+typedef struct packet{ 
     size_t length;
     size_t flow;
     size_t order;
