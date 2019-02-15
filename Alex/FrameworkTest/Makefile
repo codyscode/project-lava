@@ -1,6 +1,6 @@
 LDFLAGS=-pthread
 CFLAGS = -I.
-CC=clang
+CC=gcc
 DEPS = algorithm.h
 
 %.o: %.c $(DEPS)

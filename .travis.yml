@@ -1,7 +1,8 @@
 #travis ci file for Project-Lava
 
 language: c
-
+compiler: gcc
+dist: trusty
 sudo: true
 
 
