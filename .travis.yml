@@ -1,7 +1,7 @@
 #travis ci file for Project-Lava
 
 language: c
-compiler: gcc -std=c99
+#compiler: gcc -std=c99
 dist: trusty
 sudo: true
 
@@ -11,3 +11,4 @@ script:
           #        - clang -pthread queuecode.c
           #        - ./a.out 2 1
         - make
+        - ./algorithm 1 1
