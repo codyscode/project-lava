@@ -80,12 +80,14 @@ void* processing_thread(void *args){
 
         //If a packet is grabbed out of order exit
         if(expected[currFlow] != (*processQueue).data[index].order){
+            /*
             for(int i = 0; i < numInputs * FLOWS_PER_QUEUE + 1; i++){
                 printf("Flow: %d, Expected: %d\n", i, expected[i]);
             }
+            */
             printf("Error Packet: Flow %lu | Order %lu\n", (*processQueue).data[index].flow, (*processQueue).data[index].order);
             printf("Packet out of order in Processing Queue %d. Expected %d | Got %lu\n", queueNum - numInputs + 1, expected[currFlow], (*processQueue).data[index].order);
-            exit(1);
+            exit(0);
         }
         //Else "process" the packet by filling in 0 and incrementing the next expected
         else{            
@@ -105,7 +107,7 @@ void* processing_thread(void *args){
         
         if((*processQueue).count > RUNTIME){
             printf("Successfully Processed %lu Packets in Output Queue %d\n", (*processQueue).count, queueNum - numInputs + 1);
-            exit(1);
+            exit(0);
         }
         
     }
@@ -115,7 +117,7 @@ void main(int argc, char**argv){
     //Error checking for proper running
     if (argc < 3){
         printf("Usage: Queues <# input queues>, <# output queues>\n");
-        exit(1);
+        exit(0);
     }
 
     //Grab the number of input and output queues to use

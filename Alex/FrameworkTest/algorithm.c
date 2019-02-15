@@ -43,7 +43,7 @@ void grabPackets(int inputQueueCount, int toGrabCount, queue_t* mainQueue){
             queues[qIndex].data[inputReadIndex].flow = 0;
         }
     }
-    //Make sure everything is written/erased
+    //Make sure everything is written/erased --Note: This is a terrible fix for this--
     usleep(1);
 }
 
@@ -85,7 +85,7 @@ void passPackets(int outputQueueCount, int offset, queue_t* mainQueue){
         (*mainQueue).toRead++;
         (*mainQueue).toRead = (*mainQueue).toRead % BUFFERSIZE;
     }
-    //Make sure everything is written/erased
+    //Make sure everything is written/erased --Note: This is a terrible fix for this--
     usleep(1);
 }
 
