@@ -1,5 +1,11 @@
-#include<global.h>
-#include<wrapper.h>
+//REQUIRED:
+// -algorithm.c that defines a function run(algoArgs*)
+// -algorithm.h that defines the functions used in algorithm.c
+// -algorithm.c needs to import global.h in order to have access to queues
+
+#include"global.h"
+#include"wrapper.h"
+#include"algorithm.h"
 
 //The job of the input threads is to make packets to populate the buffers. As of now the packets are stored in a buffer.
 //--Need to work out working memory simulation for packet retrieval--
@@ -65,7 +71,7 @@ void* processing_thread(void *args){
     //Go through each space in the output queue until we reach an emtpy space in which case we swap to the other queue to process its packets
     while(1){
         //If there is no packet, contiuously check until something shows up
-        while((*processQueue).data[index].flow <= 0){
+        while((*processQueue).data[index].flow == 0){
             ;
         }
         //Get the current flow for the packet
@@ -73,8 +79,8 @@ void* processing_thread(void *args){
 
         //If a packet is grabbed out of order exit
         if(expected[currFlow] != (*processQueue).data[index].order){
-            printf("Flow %lu | Order %lu\n", (*processQueue).data[index].flow, (*processQueue).data[index].order);
-            printf("Packet out of order. Expected %d | Got %lu\n", expected[currFlow], (*processQueue).data[index].order);
+            printf("Error Packet: Flow %lu | Order %lu\n", (*processQueue).data[index].flow, (*processQueue).data[index].order);
+            printf("Packet out of order in Processing Queue %d. Expected %d | Got %lu\n", queueNum - numInputs + 1, expected[currFlow], (*processQueue).data[index].order);
             exit(1);
         }
         //Else "process" the packet by filling in 0 and incrementing the next expected
@@ -82,7 +88,7 @@ void* processing_thread(void *args){
             //Increment how many packets the queue has processed
             (*processQueue).count++;
 
-            //Keep track of how many packets have passed through queue
+            //Set the position to free
             (*processQueue).data[index].flow = 0;
 
             //Set what the next expected packet for the flow should be
@@ -92,9 +98,13 @@ void* processing_thread(void *args){
             index++;
             index = index % BUFFERSIZE;
         }
+        /*
+        if((*processQueue).count > RUNTIME){
+            printf("Successfully Processed %lu Packets in Queue %d\n", (*processQueue).count, queueNum);
+            exit(1);
+        }
+        */
     }
-    //printf("Successfully Processed %ld Packets in queue %d and %d, Looking for next queue...\n", (*(processQueues[0])).count + (*(processQueues[1])).count,\
-            firstQueueNum, secondQueueNum);
 }
 
 
@@ -168,6 +178,11 @@ void main(int argc, char**argv){
     //Print out testing information to the user
     printf("\nTesting with: \n%d Input Queues \n%d Output Queues\n\n", inputQueueCount, outputQueueCount);
 
+    //Allow buffers to fill
+    usleep(1000000);
+
+    printf("Starting passing\n\n");
+
     //The algorithm portion that gets inserted into the code
     //--Another option is to move the global variables/non input/output thread functions into a different header function <global.h>--
     //--and put that header in both the framework and algorithm code--
@@ -180,4 +195,6 @@ void main(int argc, char**argv){
     algoArgs.inputQueueCount = inputQueueCount;
     algoArgs.outputQueueCount = outputQueueCount;
     run(&algoArgs);
-}
+    printf("Done\n");
+
+} 

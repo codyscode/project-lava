@@ -11,3 +11,4 @@ framework: framework.o wrapper.o algorithm.o global.o
 
 clean:
 	find . -name "*.o" -type f -delete
+	rm framework

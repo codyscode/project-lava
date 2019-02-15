@@ -3,86 +3,106 @@
 -The wrapper.h file includes wrapper for pthread functions
 -The global.h file includes all the global variables/helper functions for framework that arent thread functions
  It also includes the declaration of the run function
--There should be an associated algorithm.h file if you add any other functions besides run
 */
 
-#include<global.h>
-#include<wrapper.h>
+#include"global.h"
+#include"wrapper.h"
+
+void grabPackets(int inputQueueCount, int toGrabCount, queue_t* mainQueue){
+    //Go through each queue and grab the stated amount of packets from it
+    for(int qIndex = 0; qIndex < inputQueueCount; qIndex++){
+        for(int packetCount = 0; packetCount < toGrabCount; packetCount++){
+            //Used for readability
+            int mainWriteIndex = (*mainQueue).toWrite;
+            int inputReadIndex = queues[qIndex].toRead;
+
+            //If there is no where to write then start processing
+            if((*mainQueue).data[mainWriteIndex].flow != 0){
+                return;
+            }
+
+            //If there is nothing to grab then move to next queue
+            if(queues[qIndex].data[inputReadIndex].flow == 0){
+                break;
+            }
+
+            //Grab the packets data and move it into the mainQueue
+            (*mainQueue).data[mainWriteIndex].order = queues[qIndex].data[inputReadIndex].order;
+            (*mainQueue).data[mainWriteIndex].flow = queues[qIndex].data[inputReadIndex].flow;
+
+            //Indicate the next spot to read from in the input queue
+            queues[qIndex].toRead++;
+            queues[qIndex].toRead = queues[qIndex].toRead % BUFFERSIZE;
+
+            //Indicade the next spot to write to in the main queue
+            (*mainQueue).toWrite++;
+            (*mainQueue).toWrite = (*mainQueue).toWrite % BUFFERSIZE;
+
+            //Indicate the space is free to write to in the input queue
+            queues[qIndex].data[inputReadIndex].flow = 0;
+        }
+    }
+}
+
+void passPackets(int outputQueueCount, int offset, queue_t* mainQueue){
+    //Go through mainQueue and write its contents to the appropriate output queue
+    while(1){
+        //Used for readability
+        int mainReadIndex = (*mainQueue).toRead;
+
+        //If there is no more data, then exit and get more packets
+        if((*mainQueue).data[mainReadIndex].flow == 0){
+            return;
+        }
+
+        //Get the appropriate output queue that this should be sending to
+        int qIndex = (*mainQueue).data[mainReadIndex].flow % outputQueueCount;
+        qIndex = qIndex + offset;
+
+        //Used for readability
+        int outputWriteIndex = queues[qIndex].toWrite;
+
+        //If the queue is full, then wait for it to become unfull
+        while(queues[qIndex].data[outputWriteIndex].flow != 0){
+            ;
+        }
+
+        //Grab the packets data and move it into the output queue
+        queues[qIndex].data[outputWriteIndex].order = (*mainQueue).data[mainReadIndex].order;
+        queues[qIndex].data[outputWriteIndex].flow = (*mainQueue).data[mainReadIndex].flow;
+
+        //Indicate the next spot to write to in the output queue
+        queues[qIndex].toWrite++;
+        queues[qIndex].toWrite = queues[qIndex].toWrite % BUFFERSIZE;
+
+        //Indicade the next spot to read from in the main queue
+        (*mainQueue).toRead++;
+        (*mainQueue).toRead = (*mainQueue).toRead % BUFFERSIZE;
+
+        //Indicate the space is free to write to in the main queue
+        (*mainQueue).data[mainReadIndex].flow = 0;
+    } 
+}
 
 void run(algoArgs_t *args){
     //Get arguments into variables
-    int inputQueuesCount = (*args).inputQueueCount; 
+    int inputQueueCount = (*args).inputQueueCount; 
+    int outputQueueCount = (*args).outputQueueCount; 
 
-    //------SINGLE THREAD FOR CONFIRMING VALID INPUT-------
-    int currIndices[inputQueuesCount];
+    //The first output queue index in the queues array is inputQueueCount
+    //(i.e if inputQueueCount = 2 -> first index of output queue = 2)
+    int offset = inputQueueCount;
 
-    //Set all start indices for the position in the queue to read to 0 initially
-    for(int i = 0; i < inputQueuesCount; i++){
-        currIndices[i] = 0;
+    //The amount of packets to grab from each queue. This algorithm gives all queues equal priority
+    int toGrabCount = BUFFERSIZE / inputQueueCount;
+
+    //The main "wire" queue where everything will be written
+    queue_t mainQueue;
+    mainQueue.toRead = 0;
+    mainQueue.toWrite = 0;
+
+    while(1){
+        grabPackets(inputQueueCount, toGrabCount, &mainQueue);
+        passPackets(inputQueueCount, toGrabCount, &mainQueue);
     }
-
-    //Array used for checking if the packets are in the appropriate order
-    //[Thread index][flow index]
-    int nextExpectedOrder[inputQueuesCount][5 * inputQueuesCount + 1];
-
-    //set all intial expected values to 0
-    for(int i = 0; i < inputQueuesCount; i++){
-        for(int j = 0; j < 5 * inputQueuesCount; j++){
-            nextExpectedOrder[i][j] = 0;
-        }
-    }
-
-    int reads = 0;
-    int maxReads = 10000;
-    
-    //Master thread that reads out the input queues to make sure they can be read in order
-    while(reads < maxReads){
-        //Read each input queue and output results to confirm they are in order
-        for(int queuesIndex = 0; queuesIndex < inputQueuesCount; queuesIndex++){
-            int index = currIndices[queuesIndex];
-
-            //While there is data to read in the queue, then read it
-            while(queues[queuesIndex].data[index].flow != 0){
-                int currFlow = queues[queuesIndex].data[index].flow - 1;
-
-                //If the order is out of line (i.e the flow number is not what was expected) then break
-                if(nextExpectedOrder[queuesIndex][currFlow] != queues[queuesIndex].data[index].order){
-                    printf("Packet: Flow: %lu | Order: %lu\n", queues[queuesIndex].data[index].flow, queues[queuesIndex].data[index].order);
-                    printf("Packet out of order. Expected %d | Got %lu\n", nextExpectedOrder[queuesIndex][currFlow], queues[queuesIndex].data[index].order);
-                    exit(1);
-                }
-                //Otherwise increase next expected order number for the next packet in the flow
-                else{
-                    nextExpectedOrder[queuesIndex][currFlow]++;
-                }
-
-                //"Process" the packet
-                printf("Queue: %d | Flow: %lu | Order: %lu\n", queuesIndex, queues[queuesIndex].data[index].flow, queues[queuesIndex].data[index].order);
-                
-                //Tell the queue that the position is free
-                queues[queuesIndex].data[index].flow = 0;
-                
-                //Increment to the next spot to check in the curent queue
-                index++;
-                index = index % BUFFERSIZE;
-                
-                //Increase the number of reads
-                reads++;
-                if(reads > maxReads){
-                    break;
-                }
-            }
-
-            //Once the queue runs out of memory, save where it was last read and move onto next queue
-            if(reads < maxReads){
-                printf("No data currently available moving to next thread\n");
-                currIndices[queuesIndex] = index;
-            }
-            //IF we are past the max number of breaks, then exit the program
-            else{
-                break;
-            }
-        }
-    }
-    printf("\n-------------FINISHED-------------\n\nAll packets were in correct order\n");
 }
