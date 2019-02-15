@@ -6,7 +6,7 @@ sudo: true
 
 
 script:
-        #        - cd Alex/InitialDesign 
+        - cd Alex/InitialDesign 
           #        - clang -pthread queuecode.c
           #        - ./a.out 2 1
-        - make all
+        - make
