@@ -105,7 +105,7 @@ void* processing_thread(void *args){
         
         if((*processQueue).count > RUNTIME){
             printf("Successfully Processed %lu Packets in Output Queue %d\n", (*processQueue).count, queueNum - numInputs + 1);
-            exit(1);
+            exit(0);
         }
         
     }
