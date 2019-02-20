@@ -12,6 +12,9 @@ void grabPackets(int inputQueueCount, int toGrabCount, queue_t* mainQueue){
     //Go through each queue and grab the stated amount of packets from it
     for(int qIndex = 0; qIndex < inputQueueCount; qIndex++){
         for(int packetCount = 0; packetCount < toGrabCount; packetCount++){
+            //Indicate that data is being written and we need to wait until its fully written
+            FENCE()
+
             //Used for readability
             int mainWriteIndex = (*mainQueue).toWrite;
             int inputReadIndex = queues[qIndex].toRead;
@@ -41,15 +44,19 @@ void grabPackets(int inputQueueCount, int toGrabCount, queue_t* mainQueue){
 
             //Indicate the space is free to write to in the input queue
             queues[qIndex].data[inputReadIndex].flow = 0;
+            
+            //Make sure everything is written/erased
+            FENCE()
         }
     }
-    //Make sure everything is written/erased --Note: This is a terrible fix for this--
-    usleep(1);
 }
 
 void passPackets(int outputQueueCount, int offset, queue_t* mainQueue){
     //Go through mainQueue and write its contents to the appropriate output queue
     while(1){
+        //Tell the computer that we want to make sure this data is written
+        FENCE()
+
         //Used for readability
         int mainReadIndex = (*mainQueue).toRead;
 
@@ -84,12 +91,16 @@ void passPackets(int outputQueueCount, int offset, queue_t* mainQueue){
         //Indicade the next spot to read from in the main queue
         (*mainQueue).toRead++;
         (*mainQueue).toRead = (*mainQueue).toRead % BUFFERSIZE;
+
+        //Make sure everything is written/erased
+        FENCE()
     }
-    //Make sure everything is written/erased --Note: This is a terrible fix for this--
-    usleep(1);
 }
 
-void run(algoArgs_t *args){
+void *run(void *argsv){
+    //Convert to algoArgs type
+    algoArgs_t* args = (algoArgs_t *)argsv;
+
     //Get arguments into variables
     int inputQueueCount = (*args).inputQueueCount; 
     int outputQueueCount = (*args).outputQueueCount; 

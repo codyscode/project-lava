@@ -27,7 +27,7 @@
 #define CALIBRATION 5
 
 #define MAX_PACKET_SIZE 9000
-#define FLOWS_PER_QUEUE 5
+#define FLOWS_PER_QUEUE 8
 
 #define FENCE() \
     asm volatile ("mfence" ::: "memory");
@@ -57,7 +57,7 @@ typedef struct Queue {
 
 //Arguments to be passed to input threads
 //firstQueue (queue_t) - pointer to the first queue for the thread to write to/process
-//firstQueueNum (size_t) - The index of the queue in the array fo queues
+//firstQueueNum (size_t) - The index of the queue in the array of queues
 //inputQueueCount (size_t) - The total number of input queues
 //outputQueueCount (size_t) - The total number of output queues
 typedef struct threadArgs{
@@ -80,6 +80,7 @@ pthread_t threadIDs[MAX_NUM_THREADS];
 threadArgs_t threadArgs[MAX_NUM_THREADS];
 pthread_mutex_t locks[MAX_NUM_QUEUES];
 queue_t queues[MAX_NUM_QUEUES];
+size_t finished[MAX_NUM_QUEUES];
 
 //Used to record roughly the number of ticks in a second
 tsc_t clockSpeed;
