@@ -1,0 +1,17 @@
+	The main point of this was to separate the input queues from the output queues.
+Initially I only did that but then there was some weird logic where threadIDs[],
+threadArgs[], locks[], and finished[] were still on the old numbering system
+(0 through m+n) while queues[] was on the new numbering system. I fixed this by
+creating and intializing structs in global.h that encapsulate all these in an 
+input struct and an output struct. So for example if you want to access output
+queue 3 you would say output.queue[2] and if you want to lock on that thread
+you would use output.locks[2].
+	I noticed inputQueueCount and outputQueueCount were getting passed around as 
+arguments a lot so I added them to the input/output structs and replaced all 
+mentions with input.queueCount and output.queueCount. 
+	I updated algorithm.c to use the modified framework and everything seems
+to be working. Other than that I tried to change as little as possible.
+You can use the same Makefile in this folder to test it out.
+
+Files modified: framework.c, global.h, algorithm.c, algorithm.h
+
