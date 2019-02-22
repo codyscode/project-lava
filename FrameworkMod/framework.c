@@ -9,6 +9,9 @@
 #include"wrapper.h"
 #include"algorithm.h"
 
+#define MIN_PACKET_SIZE 256
+#define MAX_PACKET_SIZE 9192 - 64
+
 //The job of the input threads is to make packets to populate the buffers. As of now the packets are stored in a buffer.
 //--Need to work out working memory simulation for packet retrieval--
 //Attributes:
@@ -25,7 +28,7 @@ void* input_thread(void *args){
 
     //Each input buffer has 5 flows associated with it that it generates
     int flowNum[FLOWS_PER_QUEUE] = {0};
-    int currFlow;
+    int currFlow, currLength;
     int offset = queueNum * FLOWS_PER_QUEUE;
 
     //Continuously generate input numbers until the buffer fills up. 
@@ -34,15 +37,17 @@ void* input_thread(void *args){
     while(1){
         //Assign a random flow within a range: [n, n + 1, n + 2, n + 3, n + 4]. +1 is to avoid the 0 flow
         currFlow = (rand() % FLOWS_PER_QUEUE) + offset + 1;
+        currLength = (rand() % MAX_PACKET_SIZE) + MIN_PACKEt_SIZE;
 
         //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
         while((*inputQueue).data[index].flow != 0){
             ;
         }
 
-        //Create the new packet
-        (*inputQueue).data[index].flow = currFlow;
+        //Create the new packet. Write the order and length first before flow as flow > 0 indicates theres a packet there
         (*inputQueue).data[index].order = flowNum[currFlow - offset - 1];
+        (*inputQueue).data[index].length = currLength;
+        (*inputQueue).data[index].flow = currFlow;
 
         //Update the next flow number to assign
         flowNum[currFlow - offset - 1]++;

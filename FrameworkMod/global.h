@@ -35,7 +35,10 @@
 typedef unsigned long long tsc_t;
 
 //Data structure to represent a packet.
-//length: The size of the packet
+//length (size_t) - The total size of the packet
+//flow (size_t) - The flow of the packet
+//order (size_t) - The order of the packet within its flow
+//data (size_t) - Payload of the packet
 typedef struct packet{ 
     size_t length;
     size_t flow;
@@ -68,6 +71,13 @@ typedef struct threadArgs{
 //to add unique characteristics to each at some point.
 
 //Initialize items for input threads
+//queueCount (size_t) - The number of input queues
+//queues (queue_t) - The input queue struct
+//queues (queue_t) - The input queue struct
+//threadIds (pthread_t) - The Id's for ech input thread
+//threadArgs (threadArgs_t) - Arguments to be passed to input threads
+//locks (pthread_mutex_t) - lock for each input queue
+//finished (size_t) - flag that indicates when a given thread has generated x number of packets
 typedef struct input{
     size_t queueCount;
     pthread_t threadIDs[MAX_NUM_INPUT_QUEUES]; 
@@ -79,6 +89,12 @@ typedef struct input{
 input_t input;
 
 //Initialize items for output threads
+//queueCount (size_t) - The number of output queues
+//queues (queue_t) - The output queue struct
+//threadIds (pthread_t) - The Id's for ech output thread
+//threadArgs (threadArgs_t) - Arguments to be passed to output threads
+//locks (pthread_mutex_t) - lock for each output queue
+//finished (size_t) - flag that indicates when a given thread has processed x number of packets
 typedef struct output{
     size_t queueCount;
     pthread_t threadIDs[MAX_NUM_OUTPUT_QUEUES]; 

@@ -1,3 +1,5 @@
+2/21/2019 - Cody
+
 	The main point of this was to separate the input queues from the output queues.
 Initially I only did that but then there was some weird logic where threadIDs[],
 threadArgs[], locks[], and finished[] were still on the old numbering system
@@ -14,4 +16,11 @@ to be working. Other than that I tried to change as little as possible.
 You can use the same Makefile in this folder to test it out.
 
 Files modified: framework.c, global.h, algorithm.c, algorithm.h
+
+2/22/2019 - Alex
+	-Added random number generator for generating the length member of the packet structure. 
+		-Min payload size is 64 and max payload size is 9000
+			-This translates to min packet struct size of 256 and max packet struct size of 9192
+
+	-Added Comments to global.h file (no code added)
 
