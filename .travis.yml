@@ -5,4 +5,6 @@ language: c
 sudo: true
 
 script:
+	- pwd
+	- ls -a
         - ./testScript
