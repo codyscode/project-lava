@@ -26,7 +26,10 @@
 #define CAL_DUR 2000000ULL
 #define CALIBRATION 5
 
-#define MAX_PACKET_SIZE 9000
+#define MIN_PACKET_SIZE 256
+#define MAX_PACKET_SIZE 9192 - 64
+
+#define MAX_PAYLOAD_SIZE 9000
 #define FLOWS_PER_QUEUE 8
 
 #define FENCE() \
@@ -43,7 +46,7 @@ typedef struct packet{
     size_t length;
     size_t flow;
     size_t order;
-    unsigned char data[MAX_PACKET_SIZE];
+    unsigned char data[MAX_PAYLOAD_SIZE];
 }packet_t;
 
 //Data structure for Queue:

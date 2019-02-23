@@ -9,9 +9,6 @@
 #include"wrapper.h"
 #include"algorithm.h"
 
-#define MIN_PACKET_SIZE 256
-#define MAX_PACKET_SIZE 9192 - 64
-
 //The job of the input threads is to make packets to populate the buffers. As of now the packets are stored in a buffer.
 //--Need to work out working memory simulation for packet retrieval--
 //Attributes:
@@ -37,7 +34,7 @@ void* input_thread(void *args){
     while(1){
         //Assign a random flow within a range: [n, n + 1, n + 2, n + 3, n + 4]. +1 is to avoid the 0 flow
         currFlow = (rand() % FLOWS_PER_QUEUE) + offset + 1;
-        currLength = (rand() % MAX_PACKET_SIZE) + MIN_PACKEt_SIZE;
+        currLength = (rand() % MAX_PACKET_SIZE) + MIN_PACKET_SIZE;
 
         //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
         while((*inputQueue).data[index].flow != 0){
