@@ -33,7 +33,7 @@
 #define FLOWS_PER_QUEUE 8
 
 #define FENCE() \
-    asm volatile ("mfence" ::: "memory");
+   __asm__ volatile ("mfence" ::: "memory");
 
 typedef unsigned long long tsc_t;
 
