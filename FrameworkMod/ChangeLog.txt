@@ -28,3 +28,4 @@ Files modified: framework.c, global.h, algorithm.c, algorithm.h
 	  $(CC) $(LDFLAGS) -std=c99 -c -o $@ $< $(CFLAGS)
 	  So that the for loops don't have issues building on linux
 	- changed asm to __asm__ because this is required for c99 as well.
+
