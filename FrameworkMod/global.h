@@ -39,7 +39,7 @@
 #define HEADER_SIZE 24
 
 #define FENCE() \
-    asm volatile ("mfence" ::: "memory");
+   __asm__ volatile ("mfence" ::: "memory");
 
 typedef unsigned long long tsc_t;
 

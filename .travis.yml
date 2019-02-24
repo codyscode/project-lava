@@ -5,6 +5,4 @@ language: c
 sudo: true
 
 script:
-        - cd Alex/InitialDesign 
-        - clang -pthread queuecode.c
-        - ./a.out 2 1
+        - ./testScript.sh
