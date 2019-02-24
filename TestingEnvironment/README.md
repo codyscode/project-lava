@@ -1,4 +1,4 @@
-#Testing Environment  
+# Testing Environment  
 -Used to test algorithms.    
 -Each algorithm has its own folder with a make file similar to the one in the directory algorithm1/ and the algorithm.c folder.  
     1. The make file in each algorithmx (x >= 1) folder makes the binary file (algorithm.o)   
@@ -6,7 +6,7 @@
     3. Changes to the framework folder   
     4. Runs make   
 
-#Testing (How to Run)  
+# Testing (How to Run)  
 -As of now to run a specific algorithm:  
     1. Switch to that algorithms folder and run: make  
     2. Switch to /Framework directory and run ./Framework x y  
@@ -23,7 +23,7 @@
     2. Call Anand's python script to deal with output   
 -Each time we had an algorithm we would add another line that does step 1 to the top level make file  
 
-#Files in /Framework  
+# Files in /Framework  
 -The framework files are the files from /FrameworkMod    
 -Except for algorithm.h, Do not update /Framework files.  
 -Instead, update files in /FrameworkMod and move them here.  
