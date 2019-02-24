@@ -24,3 +24,14 @@ Files modified: framework.c, global.h, algorithm.c, algorithm.h
 
 	-Added Comments to global.h file (no code added)
 
+	Files modified: framework.c, global.h
+
+2/23/2019 - Alex
+	-detached input and processing threads
+	-Explicitly set expected array in process_thread() to all zeros
+	-Included <string.h> in global.h file in order to use memset()
+	-Included <math.h> in order to use in algorithm Files
+	-Modified (added -lm) Makefile to work with <math.h> functions 
+
+	Files modified: framework.c, global.h, Makefile
+
