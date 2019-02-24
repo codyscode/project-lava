@@ -1,5 +1,5 @@
 #! /bin/bash
-export PATH=~/project-lava/FrameworkMod
+export PATH=~/project-lava/TestingEnivironment
 echo $PATH
 #set -e
 make -C $PATH
