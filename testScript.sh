@@ -1,11 +1,8 @@
 #! /bin/bash
-export PATH=~/project-lava/TestingEnivironment
-echo $PATH
-#set -e
-make -C $PATH
-
+set -e
+make -C ./TestingEnvironment/Algorithm1/
 for ((i=1; $i < 9; i++)) ; do
 	for((j=1; $j < 9; j++)) ; do
-		$PATH/framework $i $j
+		./TestingEnvironment/Framework/framework $i $j
 	done
 done
