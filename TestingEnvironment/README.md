@@ -25,5 +25,5 @@
 
 # Files in /Framework  
 -The framework files are the files from /FrameworkMod    
--Except for algorithm.h, Do not update /Framework files.  
--Instead, update files in /FrameworkMod and move them here.  
+-Except for algorithm.h, Do not update /Framework files only.  
+-Instead, update files in /FrameworkMod and then move them to /Framework.  
