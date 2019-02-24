@@ -23,11 +23,6 @@ Files modified: framework.c, global.h, algorithm.c, algorithm.h
 			-This translates to min packet struct size of 256 and max packet struct size of 9192
 
 	-Added Comments to global.h file (no code added)
-2/24/2019
-	- changed this line $(CC) $(LDFLAGS) -c -o $@ $< $(CFLAGS)
-	  $(CC) $(LDFLAGS) -std=c99 -c -o $@ $< $(CFLAGS)
-	  So that the for loops don't have issues building on linux
-	- changed asm to __asm__ because this is required for c99 as well.
 
 2/23/2019 - Alex
 	-detached input and processing threads
@@ -53,5 +48,12 @@ Files modified: framework.c, global.h, algorithm.c, algorithm.h
 	- tried testing out memcpy() for the current algorithm, but there seems to be issues possibly because of thread premption or memory ordering
 
 	Files modified: framework.c, global.h
+	
+2/24/2019 - Lito
+	- changed this line $(CC) $(LDFLAGS) -c -o $@ $< $(CFLAGS)
+	  $(CC) $(LDFLAGS) -std=c99 -c -o $@ $< $(CFLAGS)
+	  So that the for loops don't have issues building on linux
+	- changed asm to __asm__ because this is required for c99 as well.
+	Files Modified: Makefile, global.h, testScript.sh
 	
 	
