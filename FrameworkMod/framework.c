@@ -17,6 +17,9 @@
 // -Each input queue generates 5 flows (i.e input 1: 1, 2, 3, 4, 5; input 2: 6, 7, 8, 9, 10)
 // -The flows can be scrambled coming from a single input (i.e stream: 1, 2, 1, 3, 4, 4, 3, 3, 5)
 void* input_thread(void *args){
+	
+	pthread_detach(pthread_self());
+	
     //Get argurments and any other functions for input threads
     threadArgs_t *inputArgs = (threadArgs_t *)args;
 
@@ -27,6 +30,9 @@ void* input_thread(void *args){
     int flowNum[FLOWS_PER_QUEUE] = {0};
     int currFlow, currLength;
     int offset = queueNum * FLOWS_PER_QUEUE;
+	
+	// set seed for rand()
+	srand(time(NULL));
 
     //Continuously generate input numbers until the buffer fills up. 
     //Once it hits an entry that is not empty, it will wait until the input is grabbed.
@@ -34,8 +40,8 @@ void* input_thread(void *args){
     while(1){
         //Assign a random flow within a range: [n, n + 1, n + 2, n + 3, n + 4]. +1 is to avoid the 0 flow
         currFlow = (rand() % FLOWS_PER_QUEUE) + offset + 1;
-        currLength = (rand() % MAX_PACKET_SIZE) + MIN_PACKET_SIZE;
-
+        currLength = (rand() % MAX_PACKET_SIZE);
+		
         //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
         while((*inputQueue).data[index].flow != 0){
             ;
@@ -59,7 +65,10 @@ void* input_thread(void *args){
 //output queues and reading the order
 //--Need to work out storing in memory for proper simulation--
 void* processing_thread(void *args){
-    //Get argurments and any other functions for input threads
+	
+	pthread_detach(pthread_self());
+	
+    //Get arguments and any other functions for input threads
     threadArgs_t *processArgs = (threadArgs_t *)args;
 
     int queueNum = processArgs->queueNum;
@@ -67,13 +76,17 @@ void* processing_thread(void *args){
     queue_t *processQueue = (queue_t *)processArgs->queue;
 
 
-    //"Proccess" packets to confirm they are in the correct order before consuming more. 
+    //"Process" packets to confirm they are in the correct order before consuming more. 
     //Processing threads process until they get to a spot with no packets
     int expected[numInputs * FLOWS_PER_QUEUE + 1]; 
     int index; 
     int threadCompleted = 0;
 
-    //Go through each space in the output queue until we reach an emtpy space in which case we swap to the other queue to process its packets
+	// initialize expected[] to zero
+	for(int i = 0; i < (numInputs * FLOWS_PER_QUEUE + 1); i++)
+		expected[i] = 0;
+
+    //Go through each space in the output queue until we reach an empty space in which case we swap to the other queue to process its packets
     while(1){
         index = (*processQueue).toRead;
 
@@ -85,6 +98,11 @@ void* processing_thread(void *args){
         //Get the current flow for the packet
         int currFlow = (*processQueue).data[index].flow;
 
+		// set expected order for given flow to the first packet that it sees
+		if(expected[currFlow] == 0){
+			expected[currFlow] = (*processQueue).data[index].order;
+		}
+		
         //If a packet is grabbed out of order exit
         if(expected[currFlow] != (*processQueue).data[index].order){
             
@@ -118,7 +136,6 @@ void* processing_thread(void *args){
             output.finished[queueNum] = 1;
             threadCompleted = 1;
         }
-        
     }
 }
 

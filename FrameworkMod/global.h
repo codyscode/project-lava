@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <sched.h>
+#include <time.h>
 
 //Constants for upper limit of queues
 #define MAX_NUM_QUEUES 16
