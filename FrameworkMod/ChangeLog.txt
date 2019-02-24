@@ -37,8 +37,13 @@ Files modified: framework.c, global.h, algorithm.c, algorithm.h
 	- Implemented function to change the seed of rand(), so that our results aren't skewed towards a single data set
 	- changed minimum payload size to 0, since there are packets that just transfer the header with no payload.
 		- minimum packet struct size is now 192 and max is 9192
-	- initilized expected[], line 92 in framework.c, since variables that are not initialized may store garbage value
 	- set expected[], line 96 in framework.c, to the order of the first packet it recieved 
-	- moved original algorithm.c (singe wire algorithm) to newly created algorithm folder
-	- detached threads, so that resources are released when thread terminates since we're not waiting for them to join back to main()
+	- moved original algorithm.c (singe wire algorithm) to newly created algorithm folder and renamed it to singleWire.c
+	- detached main algorithm thread
+	- defined HEADER_SIZE 24, line 36 in global.h. Defines first 24 bytes in packet header
+	- changed length variable of packet to correspond to payload size instead of header size
+	- implemented some error handling in the framework
+	- changed globally defined variable to be represented in bytes. There was an issue in regards to calculating the size of the structures and the size
+		in terms of bits and bytes were not consistent. I chose bytes since that's what most functions will use when calculating size.
+	
 	

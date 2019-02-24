@@ -31,17 +31,18 @@ void* input_thread(void *args){
     int currFlow, currLength;
     int offset = queueNum * FLOWS_PER_QUEUE;
 	
-	// set seed for rand()
-	srand(time(NULL));
-
     //Continuously generate input numbers until the buffer fills up. 
     //Once it hits an entry that is not empty, it will wait until the input is grabbed.
     int index = 0;
     while(1){
         //Assign a random flow within a range: [n, n + 1, n + 2, n + 3, n + 4]. +1 is to avoid the 0 flow
         currFlow = (rand() % FLOWS_PER_QUEUE) + offset + 1;
-        currLength = (rand() % MAX_PACKET_SIZE);
+        currLength = (rand() % MAX_PAYLOAD_SIZE);
 		
+		if(currLength < 0 || currFlow <= 0){
+			fprintf(stderr, "ERROR: generating packet with currFlow: %d, currLength: %d", currFlow, currLength);
+			exit(1);
+		}
         //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
         while((*inputQueue).data[index].flow != 0){
             ;
@@ -74,7 +75,6 @@ void* processing_thread(void *args){
     int queueNum = processArgs->queueNum;
     int numInputs = (int)input.queueCount;   
     queue_t *processQueue = (queue_t *)processArgs->queue;
-
 
     //"Process" packets to confirm they are in the correct order before consuming more. 
     //Processing threads process until they get to a spot with no packets
@@ -144,6 +144,9 @@ void main(int argc, char**argv){
         printf("Usage: Queues <# input queues>, <# output queues>\n");
         exit(0);
     }
+	
+	// set seed for rand()
+	srand(time(NULL));
 
     //Grab the number of input and output queues to use
     input.queueCount = atoi(argv[1]);
@@ -260,5 +263,6 @@ void main(int argc, char**argv){
             ;
         }
     };
+	
     printf("\nFinished Processing. All Packets are in Correct Order\n");
 } 

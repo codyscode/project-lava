@@ -31,6 +31,8 @@ void grabPackets(int toGrabCount, queue_t* mainQueue){
             }
 
             //Grab the packets data and move it into the mainQueue
+			//memcpy(&((*mainQueue).data[mainWriteIndex]), &(input.queues[qIndex].data[inputReadIndex]), HEADER_SIZE + input.queues[qIndex].data[inputReadIndex].length);
+			//printf("%ld %ld\n", (*mainQueue).data[mainWriteIndex].flow, (*mainQueue).data[mainWriteIndex].order);
             (*mainQueue).data[mainWriteIndex].flow = input.queues[qIndex].data[inputReadIndex].flow;
             (*mainQueue).data[mainWriteIndex].order = input.queues[qIndex].data[inputReadIndex].order;
 
@@ -38,7 +40,7 @@ void grabPackets(int toGrabCount, queue_t* mainQueue){
             input.queues[qIndex].toRead++;
             input.queues[qIndex].toRead = input.queues[qIndex].toRead % BUFFERSIZE;
 
-            //Indicade the next spot to write to in the main queue
+            //Indicate the next spot to write to in the main queue
             (*mainQueue).toWrite++;
             (*mainQueue).toWrite = (*mainQueue).toWrite % BUFFERSIZE;
 
@@ -77,8 +79,10 @@ void passPackets(queue_t* mainQueue){
         }
 
         //Grab the packets data and move it into the output queue
-        output.queues[qIndex].data[outputWriteIndex].order = (*mainQueue).data[mainReadIndex].order;
-        output.queues[qIndex].data[outputWriteIndex].flow = (*mainQueue).data[mainReadIndex].flow;
+		//memcpy(&(output.queues[qIndex].data[outputWriteIndex]), &((*mainQueue).data[mainReadIndex]), HEADER_SIZE+(*mainQueue).data[mainReadIndex].length);
+        //printf("%ld %ld\n", output.queues[qIndex].data[outputWriteIndex].flow, output.queues[qIndex].data[outputWriteIndex].order);
+		output.queues[qIndex].data[outputWriteIndex].order = (*mainQueue).data[mainReadIndex].order;
+		output.queues[qIndex].data[outputWriteIndex].flow = (*mainQueue).data[mainReadIndex].flow;
 
         //Indicate the space is free to write to in the main queue
         (*mainQueue).data[mainReadIndex].flow = 0;
@@ -97,6 +101,9 @@ void passPackets(queue_t* mainQueue){
 }
 
 void *run(void *argsv){
+	
+	pthread_detach(pthread_self());
+
     //The amount of packets to grab from each queue. This algorithm gives all queues equal priority
     int toGrabCount = BUFFERSIZE / input.queueCount;
 

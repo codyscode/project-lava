@@ -3,17 +3,15 @@
 
 #define _GNU_SOURCE
 #include <stdio.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <errno.h>
 #include <sched.h>
-<<<<<<< HEAD
-#include <time.h>
-=======
 #include <string.h>
 #include <math.h>
->>>>>>> aa36451b6977d195bc59fe6f66961ffe06c0d7df
+#include <time.h>
 
 //Constants for upper limit of queues
 #define MAX_NUM_QUEUES 16
@@ -32,11 +30,13 @@
 #define CAL_DUR 2000000ULL
 #define CALIBRATION 5
 
-#define MIN_PACKET_SIZE 256
-#define MAX_PACKET_SIZE 9192 - 64
+#define MIN_PACKET_SIZE 24
+#define MAX_PACKET_SIZE 9024
 
 #define MAX_PAYLOAD_SIZE 9000
 #define FLOWS_PER_QUEUE 8
+
+#define HEADER_SIZE 24
 
 #define FENCE() \
     asm volatile ("mfence" ::: "memory");
