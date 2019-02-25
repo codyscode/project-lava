@@ -8,7 +8,7 @@ doGitStuff() {
 
 
 testAllAlgorithms() {
-	make clean -C ./TestingEnvironment/Framework/
+	
 	for dir in ./TestingEnvironment/Algorithm*/ ; do
 		make -C "$dir"
 		./testScript.sh
