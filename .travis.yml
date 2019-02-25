@@ -5,4 +5,4 @@ language: c
 sudo: true
 
 script:
-        - ./testScript.sh
+        - ./mainScript.sh t
