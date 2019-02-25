@@ -3,9 +3,9 @@
 language: c
 
 compiler:
-	- gcc
+        - gcc
 env:
-	- CFLAGS="-std=c99"
+        - CFLAGS="-std=c99"
 sudo: true
 
 script:
