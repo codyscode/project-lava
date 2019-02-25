@@ -7,4 +7,4 @@ subsystem: algorithm.o
 	cd ../Framework && $(MAKE)
 
 algorithm.o: algorithm.c
-	$(CC) $(LDFLAGS) -c algorithm.c -lm
+	$(CC) $(LDFLAGS) -c -std=c99 algorithm.c -lm
