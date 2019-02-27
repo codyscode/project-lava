@@ -12,31 +12,35 @@ void* testProcessing(void* args){
     //Assign threads to queues
     int* qIndex = (int*)(args);
     int order = 0;
-    int flow = *qIndex + 1;
+    int flow = (*qIndex) + 1;
+    int outputWriteIndex = 0;
 
     //Go through mainQueue and write its contents to the appropriate output queue
     while(1){
-        //Tell the computer that we want to make sure this data is written
         FENCE()
-
-        //Used for readability
-        int outputWriteIndex = output.queues[*qIndex].toWrite;
-
         //If the queue is full, then wait for it to become unfull
         while(output.queues[*qIndex].data[outputWriteIndex].flow != 0){
             ;
         }
-
+        
         //Grab the packets data and move it into the output queue
         output.queues[*qIndex].data[outputWriteIndex].order = order;
         output.queues[*qIndex].data[outputWriteIndex].flow = flow;
 
         //Indicate the next spot to write to in the output queue
-        output.queues[*qIndex].toWrite++;
-        output.queues[*qIndex].toWrite = output.queues[*qIndex].toWrite % BUFFERSIZE;
+        if(outputWriteIndex == BUFFERSIZE - 1){
+            outputWriteIndex = 0;
+        }
+        else{
+            outputWriteIndex++;
+        }
 
         order++;
-        //Make sure everything is written/erased
+
+        //This is a bandaid fix and makes this file useless. 
+        //For some reason segfaults occur without this
+        usleep(1);
+
         FENCE()
     }
 }
@@ -61,7 +65,7 @@ void* determineSpeed(void* args){
 }
 
 void *run(void *argsv){
-    printf("Starting Metric\n");
+    printf("Metric is currently crippled because this is running \"too fast\", so a usleep was inserted as a bandaid. Any tips for fixing this would be helpful \n");
     fflush(NULL);
 
     //The output queue to write to
