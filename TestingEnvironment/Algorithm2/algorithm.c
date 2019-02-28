@@ -8,11 +8,14 @@
 #include"../Framework/global.h"
 #include"../Framework/wrapper.h"
 
+#define ALGNAME "multiWire"
+
 typedef struct multiWireArgs{
     int baseInputQueueNum;
     int numInputQueuesAssigned;
     int baseOutputQueueNum;
     int numOutputQueuesAssigned;
+    int coreNum;
 }margs_t;
 
 pthread_t moverThreadIds[MAX_NUM_INPUT_QUEUES];
@@ -110,6 +113,10 @@ void multiPassPackets(int baseOutputQueuesIndex, int numOutputQueues, queue_t* m
 void* movePackets(void* vargs){
     //Get the args into variables
     margs_t *args = (margs_t *)vargs;
+
+    //Set the schedule for the threads
+    set_thread_props(args->coreNum);
+
     int numInputQueues = (*args).numInputQueuesAssigned;
     int baseInputQueueIndex = (*args).baseInputQueueNum;
     int numOutputQueues = (*args).numOutputQueuesAssigned;
@@ -155,9 +162,19 @@ void assignQueues(int numQueuesToAssign[], int baseQueuesToAssign[], int passerQ
 }
 
 void *run(void *argsv){
+    //Set the schedule for the run thread
+    int baseCore = input.queueCount + output.queueCount + 1;
+    set_thread_props(baseCore);
+    baseCore++;
+
+    //Initialize thread attributes
+    pthread_attr_t attrs;
+    pthread_attr_init(&attrs);
+
     //Determine if there are more input or output queues
     int passerQueueCount;
     int passerQueueCountTracker;
+
     if(input.queueCount <= output.queueCount){
         passerQueueCount = input.queueCount;
         passerQueueCountTracker = input.queueCount;
@@ -187,8 +204,18 @@ void *run(void *argsv){
         algThreadArgs[i].baseInputQueueNum = baseInputQueuesToAssign[i];
         algThreadArgs[i].numOutputQueuesAssigned = numOutputQueuestoAssign[i];
         algThreadArgs[i].baseOutputQueueNum = baseOutputQueuesToAssign[i];
+        algThreadArgs[i].coreNum = baseCore + i;
+
+        //Tell the system we are setting the schedule for the thread, instead of inheriting
+        if(pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED)) {
+            perror("pthread_attr_setinheritsched");
+        }
 
         //Create the thread
         Pthread_create(&moverThreadIds[i], NULL, movePackets, (void *)&algThreadArgs[i]);
     }
+}
+
+char* getName(){
+    return ALGNAME;
 }

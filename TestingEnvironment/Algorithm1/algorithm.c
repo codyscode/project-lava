@@ -6,6 +6,8 @@
 #include"../Framework/global.h"
 #include"../Framework/wrapper.h"
 
+#define ALGNAME "singleWire"
+
 void grabPackets(int toGrabCount, queue_t* mainQueue){
     //Go through each queue and grab the stated amount of packets from it
     for(int qIndex = 0; qIndex < input.queueCount; qIndex++){
@@ -102,9 +104,17 @@ void *run(void *argsv){
     queue_t mainQueue;
     mainQueue.toRead = 0;
     mainQueue.toWrite = 0;
+    
+    //Set the thread to its own core
+    //+1 is neccessary as we have core 0, input threads, output threads
+    set_thread_props(input.queueCount + output.queueCount + 1);
 
     while(1){
         grabPackets(toGrabCount, &mainQueue);
         passPackets(&mainQueue);
     }
+}
+
+char* getName(){
+    return ALGNAME;
 }

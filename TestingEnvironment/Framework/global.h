@@ -2,6 +2,7 @@
 #define GLOBAL_H
 
 #define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -30,10 +31,12 @@
 #define CAL_DUR 2000000ULL
 #define CALIBRATION 5
 
-#define MIN_PACKET_SIZE 24
-#define MAX_PACKET_SIZE 9024
-
 #define MAX_PAYLOAD_SIZE 9000
+#define MIN_PAYLOAD_SZIE 64
+
+#define MIN_PACKET_SIZE 192 + 64
+#define MAX_PACKET_SIZE 192 + 9000
+
 #define FLOWS_PER_QUEUE 8
 
 #define HEADER_SIZE 24
@@ -73,6 +76,7 @@ typedef struct Queue {
 typedef struct threadArgs{
     queue_t *queue;
     size_t queueNum;
+    size_t coreNum;
 }threadArgs_t;
 
 //input and output struct are mostly identical right now and mainly used to
@@ -114,9 +118,12 @@ typedef struct output{
 }output_t;
 output_t output;
 
-//Used to record roughly the number of ticks in a second
-tsc_t clockSpeed;
+//Used to keep track for the algorithm for how many packets have been passed
+//This is an array to allow all threads within the algorithm to access their own count tracker to avoid race conditions
+size_t passedCount[MAX_NUM_THREADS];
 
 static __inline__ tsc_t rdtsc(void);
+void set_thread_props(int tgt_core);
+
 
 #endif

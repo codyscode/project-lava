@@ -5,6 +5,7 @@
 
 //Define all functions used in any algorithm file here
 void* run(void*);   
+char* getName(void);
 
 //Algorithm1
 void grabPackets(int, queue_t*);
@@ -17,8 +18,12 @@ void multiPassPackets(int baseOutputQueuesIndex, int numOutputQueues, queue_t* m
 void multiGrabPackets(int toGrabCount, int baseInputQueueIndex, int numInputQueues, queue_t* mainQueue);
 
 //processingLimitTest
-void* determineSpeed(void* args);
+void* determineSpeedOutput(void* args);
 void* testProcessing(void* args);
+
+//inputLimitTest
+void* testInputGeneration(void* args);
+void* determineSpeedInput(void* args)
 
 #endif
 
