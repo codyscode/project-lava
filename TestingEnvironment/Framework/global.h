@@ -24,7 +24,7 @@
 
 //How many packets need to be processed by each queue before the program terminates
 //We could also make this time instead
-#define RUNTIME 50000
+#define RUNTIME 10000000000
 
 //Used for calibrating the amount of clock cycles in a second
 #define CAL_DUR 2000000ULL
@@ -118,7 +118,5 @@ output_t output;
 tsc_t clockSpeed;
 
 static __inline__ tsc_t rdtsc(void);
-void printLoading(int);
-tsc_t cal(void); 
 
 #endif

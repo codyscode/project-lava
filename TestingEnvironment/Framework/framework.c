@@ -17,9 +17,6 @@
 // -Each input queue generates 5 flows (i.e input 1: 1, 2, 3, 4, 5; input 2: 6, 7, 8, 9, 10)
 // -The flows can be scrambled coming from a single input (i.e stream: 1, 2, 1, 3, 4, 4, 3, 3, 5)
 void* input_thread(void *args){
-	
-	pthread_detach(pthread_self());
-	
     //Get argurments and any other functions for input threads
     threadArgs_t *inputArgs = (threadArgs_t *)args;
 
@@ -66,9 +63,6 @@ void* input_thread(void *args){
 //output queues and reading the order
 //--Need to work out storing in memory for proper simulation--
 void* processing_thread(void *args){
-	
-	pthread_detach(pthread_self());
-	
     //Get arguments and any other functions for input threads
     threadArgs_t *processArgs = (threadArgs_t *)args;
 
@@ -128,13 +122,6 @@ void* processing_thread(void *args){
             (*processQueue).toRead++;
             (*processQueue).toRead = (*processQueue).toRead % BUFFERSIZE;
         }
-        
-        //Once the queue has processed a certain amount of packets. Indicate the thread has completed the required amount of work.
-        if((*processQueue).count >= RUNTIME && threadCompleted  == 0){
-            printf("Successfully Processed %lu Packets in Output Queue %d\n", (*processQueue).count, queueNum + 1);
-            output.finished[queueNum] = 1;
-            threadCompleted = 1;
-        }
     }
 }
 
@@ -161,9 +148,6 @@ void main(int argc, char**argv){
     pthread_attr_t attrs;
     pthread_attr_init(&attrs);
 
-    //Get a baseline for the number of ticks in a second
-    //clockSpeed = cal();
-
     //initialize input queues
     for(int queueIndex = 0; queueIndex < input.queueCount; queueIndex++){
         for(int dataIndex = 0; dataIndex < BUFFERSIZE; dataIndex++){
@@ -184,7 +168,6 @@ void main(int argc, char**argv){
         output.queues[queueIndex].toWrite = 0;
     }
 
-
     int mutexErr;
     //Initialize input locks
     for(int index = 0; index < MAX_NUM_INPUT_QUEUES; index++){
@@ -196,7 +179,6 @@ void main(int argc, char**argv){
         Pthread_mutex_init(&output.locks[index], NULL);
     }
 
-
     int pthreadErr;
     //create the input generation threads.
     //Each input queue has a thread associated with it
@@ -204,9 +186,6 @@ void main(int argc, char**argv){
         //Initialize Thread Arguments with first queue and number of queues
         input.threadArgs[index].queue = &input.queues[index];
         input.threadArgs[index].queueNum = index;
- 
-        //Make sure data is written
-        FENCE()
 
         //Spawn input thread
         Pthread_create(&input.threadIDs[index], &attrs, input_thread, (void *)&input.threadArgs[index]);
@@ -222,9 +201,6 @@ void main(int argc, char**argv){
         output.threadArgs[index].queue = &output.queues[index];
         output.threadArgs[index].queueNum = index;
 
-        //Make sure data is written
-        FENCE()
-
         //Spawn the thread
         Pthread_create(&output.threadIDs[index], &attrs, processing_thread, (void *)&output.threadArgs[index]);
 
@@ -239,8 +215,6 @@ void main(int argc, char**argv){
     //Allow buffers to fill
     usleep(20000);
 
-    printf("Starting passing\n\n");
-
     //The algorithm portion that gets inserted into the code
     //--Another option is to move the global variables/non input/output thread functions into a different header function <global.h>--
     //--and put that header in both the framework and algorithm code--
@@ -253,16 +227,21 @@ void main(int argc, char**argv){
     //We are allowed to spawn threads from threads, so there is no conflict here
     Pthread_create(&RunID, &attrs, run, NULL);
 
-    //Wait for all processing queues to process x amount of packets before quiting.
-    //We do it this way instead of pthread_join to allow the processing thread to continue running after finishing its job
-    //Otherwise the output queue fills up and this can cause stalls on certain algorithms.
-    //The thread only updates the array on finishing and uses local variables for the if statement in order to improve performance
+    printf("Starting Algorithm\n\n");
+
+    //Wait 3 seconds for ramp up time and record the count the processing queues have processed
+    usleep(3000000);
+    size_t rampUpCount = 0;
     for(int i = 0; i < output.queueCount; i++){
-        //While the thread is not finished
-        while(output.finished[i] == 0){
-            ;
-        }
-    };
-	
-    printf("\nFinished Processing. All Packets are in Correct Order\n");
+        rampUpCount += output.queues[i].count;
+    }
+    
+    //Wait for the run algorithm to run for 10 seconds then record again
+    //This is just a naive implementation that will be replaced in the future
+    usleep(10000000);
+    size_t finalCount = 0;
+    for(int i = 0; i < output.queueCount; i++){
+        finalCount += output.queues[i].count;
+    }
+    printf("Successfully processed %lu packets per second on average\n", (finalCount - rampUpCount) / 10);
 } 
