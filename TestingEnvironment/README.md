@@ -12,8 +12,8 @@
     2. Switch to /Framework directory and run ./Framework x y  
         -x and y are integers between 1 and 8 (inclusive) 
 
--To run all algorithms
-    1. go to upper level directory in repo and call ./mainScript.h [args]
-    2. [args]:
-        a. -p   push to the git repo
-        b. -w   push output files to git wiki
+-To run all algorithms  
+    1. go to upper level directory in repo and call ./mainScript.h [args]  
+    2. [args]:  
+        a. -p   push to the git repo  
+        b. -w   push output files to git wiki  
