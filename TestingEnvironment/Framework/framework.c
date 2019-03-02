@@ -1,9 +1,14 @@
+// -Algorithm speed is measured by the main function.
+// -The algorithm allows the run function to go for 3 seconds, measures the count, run for 10 seconds, then measure the count.
+//  Packets per second is equal to (second count - first count) / 10.
 //REQUIRED:
 // -algorithm.c that defines a function void* run(void*)
+// -algorithm.c that defines a function char* getName()
 // -algorithm.h that defines the functions used in algorithm.c
 // -algorithm.c needs to import global.h in order to have access to queues
-// -alogrithm.c has access to clockspeed, which is an int that is a normalized value for the number of ticks in a second.
-//  Use for measuring algorithm speed.
+// -alogrithm.c has access to count[] which is an array to keep track of the count.
+//  count is an array to allow multiple threads to access any count variable
+// - You will need to set thread props for the run function, otherwise your algorithm will perform very poorly
 
 #include"global.h"
 #include"wrapper.h"
@@ -17,14 +22,14 @@
 // -Each input queue generates 5 flows (i.e input 1: 1, 2, 3, 4, 5; input 2: 6, 7, 8, 9, 10)
 // -The flows can be scrambled coming from a single input (i.e stream: 1, 2, 1, 3, 4, 4, 3, 3, 5)
 void* input_thread(void *args){
-	
-	pthread_detach(pthread_self());
-	
     //Get argurments and any other functions for input threads
     threadArgs_t *inputArgs = (threadArgs_t *)args;
 
     int queueNum = inputArgs->queueNum;   
     queue_t * inputQueue = (queue_t *)inputArgs->queue;
+
+    //Set the thread to its own core
+    set_thread_props(inputArgs->coreNum);
 
     //Each input buffer has 5 flows associated with it that it generates
     int flowNum[FLOWS_PER_QUEUE] = {0};
@@ -37,11 +42,15 @@ void* input_thread(void *args){
     while(1){
         //Assign a random flow within a range: [n, n + 1, n + 2, n + 3, n + 4]. +1 is to avoid the 0 flow
         currFlow = (rand() % FLOWS_PER_QUEUE) + offset + 1;
-        currLength = (rand() % MAX_PAYLOAD_SIZE);
+
+        //Assign a random length to the packet. Length defines the entire packet struct, not just payload
+        //Minimum size computed below is MIN_PACKET_SIZE
+        //Maximum size computed below is MAX_PACKET_SIZE
+        currLength = (rand() % (MAX_PACKET_SIZE - MIN_PACKET_SIZE)) + MIN_PACKET_SIZE;
 		
 		if(currLength < 0 || currFlow <= 0){
-			fprintf(stderr, "ERROR: generating packet with currFlow: %d, currLength: %d", currFlow, currLength);
-			exit(1);
+			fprintf(stderr, "*ERROR: generating packet with currFlow: %d, currLength: %d", currFlow, currLength);
+			exit(0);
 		}
         //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
         while((*inputQueue).data[index].flow != 0){
@@ -66,15 +75,15 @@ void* input_thread(void *args){
 //output queues and reading the order
 //--Need to work out storing in memory for proper simulation--
 void* processing_thread(void *args){
-	
-	pthread_detach(pthread_self());
-	
     //Get arguments and any other functions for input threads
     threadArgs_t *processArgs = (threadArgs_t *)args;
 
     int queueNum = processArgs->queueNum;
     int numInputs = (int)input.queueCount;   
     queue_t *processQueue = (queue_t *)processArgs->queue;
+
+    //Set the thread to its own core
+    set_thread_props(processArgs->coreNum);
 
     //"Process" packets to confirm they are in the correct order before consuming more. 
     //Processing threads process until they get to a spot with no packets
@@ -102,38 +111,33 @@ void* processing_thread(void *args){
 			expected[currFlow] = (*processQueue).data[index].order;
 		}
 		
-        //If a packet is grabbed out of order exit
+        //Packets order must be equal to the expected order.
+        //Implementing less than currflow causes race conditions with writing
+        //Any line that starts with a * is ignored by python script
         if(expected[currFlow] != (*processQueue).data[index].order){
             
             for(int i = 0; i < BUFFERSIZE; i++){
-                printf("Position: %d, Flow: %ld, Order: %ld\n", i, (*processQueue).data[i].flow, (*processQueue).data[i].order);
+                printf("*Position: %d, Flow: %ld, Order: %ld\n", i, (*processQueue).data[i].flow, (*processQueue).data[i].order);
             }
             
-            printf("Error Packet: Flow %lu | Order %lu\n", (*processQueue).data[index].flow, (*processQueue).data[index].order);
-            printf("Packet out of order in Output Queue %d. Expected %d | Got %lu\n", queueNum, expected[currFlow], (*processQueue).data[index].order);
+            printf("*Error Packet: Flow %lu | Order %lu\n", (*processQueue).data[index].flow, (*processQueue).data[index].order);
+            printf("*Packet out of order in Output Queue %d. Expected %d | Got %lu\n", queueNum, expected[currFlow], (*processQueue).data[index].order);
             exit(0);
         }
         //Else "process" the packet by filling in 0 and incrementing the next expected
         else{            
-            //Increment how many packets the queue has processed
+            //increment the number of packets passed
             (*processQueue).count++;
 
             //Set what the next expected packet for the flow should be
             expected[currFlow]++;
 
-            //Set the position to free
-            (*processQueue).data[index].flow = 0;
-
             //Move to the next spot in the outputQueue to process
             (*processQueue).toRead++;
             (*processQueue).toRead = (*processQueue).toRead % BUFFERSIZE;
-        }
-        
-        //Once the queue has processed a certain amount of packets. Indicate the thread has completed the required amount of work.
-        if((*processQueue).count >= RUNTIME && threadCompleted  == 0){
-            printf("Successfully Processed %lu Packets in Output Queue %d\n", (*processQueue).count, queueNum + 1);
-            output.finished[queueNum] = 1;
-            threadCompleted = 1;
+
+            //Set the position to free
+            (*processQueue).data[index].flow = 0;
         }
     }
 }
@@ -141,12 +145,14 @@ void* processing_thread(void *args){
 void main(int argc, char**argv){
     //Error checking for proper running
     if (argc < 3){
-        printf("Usage: Queues <# input queues>, <# output queues>\n");
+        printf("*Usage: Queues <# input queues>, <# output queues>\n");
         exit(0);
     }
 	
 	// set seed for rand()
 	srand(time(NULL));
+
+    char* algName = getName();
 
     //Grab the number of input and output queues to use
     input.queueCount = atoi(argv[1]);
@@ -161,8 +167,10 @@ void main(int argc, char**argv){
     pthread_attr_t attrs;
     pthread_attr_init(&attrs);
 
-    //Get a baseline for the number of ticks in a second
-    //clockSpeed = cal();
+    //Tell the system we are setting the schedule for the thread, instead of inheriting
+    if(pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED)) {
+        perror("pthread_attr_setinheritsched");
+    }
 
     //initialize input queues
     for(int queueIndex = 0; queueIndex < input.queueCount; queueIndex++){
@@ -184,7 +192,6 @@ void main(int argc, char**argv){
         output.queues[queueIndex].toWrite = 0;
     }
 
-
     int mutexErr;
     //Initialize input locks
     for(int index = 0; index < MAX_NUM_INPUT_QUEUES; index++){
@@ -196,17 +203,16 @@ void main(int argc, char**argv){
         Pthread_mutex_init(&output.locks[index], NULL);
     }
 
-
     int pthreadErr;
+    int core = 1;
     //create the input generation threads.
     //Each input queue has a thread associated with it
     for(int index = 0; index < input.queueCount; index++){
         //Initialize Thread Arguments with first queue and number of queues
         input.threadArgs[index].queue = &input.queues[index];
         input.threadArgs[index].queueNum = index;
- 
-        //Make sure data is written
-        FENCE()
+        input.threadArgs[index].coreNum = core;
+        core++;
 
         //Spawn input thread
         Pthread_create(&input.threadIDs[index], &attrs, input_thread, (void *)&input.threadArgs[index]);
@@ -221,9 +227,8 @@ void main(int argc, char**argv){
         //Initialize Thread Arguments with first queue and number of queues
         output.threadArgs[index].queue = &output.queues[index];
         output.threadArgs[index].queueNum = index;
-
-        //Make sure data is written
-        FENCE()
+        output.threadArgs[index].coreNum = core;
+        core++;
 
         //Spawn the thread
         Pthread_create(&output.threadIDs[index], &attrs, processing_thread, (void *)&output.threadArgs[index]);
@@ -234,35 +239,36 @@ void main(int argc, char**argv){
 
 
     //Print out testing information to the user
-    printf("\nTesting with: \n%lu Input Queues \n%lu Output Queues\n\n", input.queueCount, output.queueCount);
+    //printf("\nTesting with: \n%lu Input Queues \n%lu Output Queues\n\n", input.queueCount, output.queueCount);
 
     //Allow buffers to fill
     usleep(20000);
 
-    printf("Starting passing\n\n");
-
-    //The algorithm portion that gets inserted into the code
-    //--Another option is to move the global variables/non input/output thread functions into a different header function <global.h>--
-    //--and put that header in both the framework and algorithm code--
-    //--Allows for better abstraction--
-
     //Run thread ID
-    pthread_t RunID;
+    pthread_t runID;
 
     //Spawn the thread that handles the algorithm portion.
     //We are allowed to spawn threads from threads, so there is no conflict here
-    Pthread_create(&RunID, &attrs, run, NULL);
+    Pthread_create(&runID, &attrs, run, NULL);
 
-    //Wait for all processing queues to process x amount of packets before quiting.
-    //We do it this way instead of pthread_join to allow the processing thread to continue running after finishing its job
-    //Otherwise the output queue fills up and this can cause stalls on certain algorithms.
-    //The thread only updates the array on finishing and uses local variables for the if statement in order to improve performance
+    //Print out that the algorithm has started
+    //printf("Starting Algorithm\n\n");
+
+    //Wait 3 seconds for ramp up time and record the count the processing queues have processed
+    usleep(3000000);
+    size_t rampUpCount = 0;
     for(int i = 0; i < output.queueCount; i++){
-        //While the thread is not finished
-        while(output.finished[i] == 0){
-            ;
-        }
-    };
-	
-    printf("\nFinished Processing. All Packets are in Correct Order\n");
+        rampUpCount += output.queues[i].count;
+    }
+    
+    //Wait for the run algorithm to run for 10 seconds then record again
+    //This is just a naive implementation that will be replaced in the future
+    usleep(10000000);
+    size_t finalCount = 0;
+    for(int i = 0; i < output.queueCount; i++){
+        finalCount += output.queues[i].count;
+    }
+
+    //Output the data to a file
+    printf("%s, %lu, %lu, %lu\n", algName, input.queueCount, output.queueCount, (finalCount - rampUpCount) / 10);
 } 

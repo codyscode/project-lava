@@ -55,5 +55,26 @@ Files modified: framework.c, global.h, algorithm.c, algorithm.h
 	  So that the for loops don't have issues building on linux
 	- changed asm to __asm__ because this is required for c99 as well.
 	Files Modified: Makefile, global.h, testScript.sh
+
+2/27/2019 - Alex
+	-Removed duplicated code and optimized processing queues.
+	-Added Processing test limit algorithm
+	-Removed Unneccessary functions
+	-Added new exit conditions for framework
+	-Changed framework to run for 10 seconds after waiting 3 seconds for ramp up, then recording average number of packets passed
+
+	File modified: global.h global.c framework.c algorithm.h
+
+3/01/2019 - Alex
+	-Formatted output
+	-Added getName function to framework to get algName constant from algorithm.c file
+	-Put * in front of all print statements that shouldnt be processed
+	-Added set_thread_props function to assign thread to core
+	-Assigned processing and input generation threads to specific cores
+	-Changed algorithms to work on specific cores
+	-Added input generation metric test
+	-Fixed processing metric test
+
+	File modified: global.h global.c framework.c algorithm.h
 	
 	

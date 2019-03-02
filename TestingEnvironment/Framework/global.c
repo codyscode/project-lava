@@ -1,8 +1,8 @@
 //Contains functions that help with timing/graphics
 //Can put other functions here that are necessary for framework
 
-#include<wrapper.h>
 #include<global.h>
+#include<wrapper.h>
 
 #if defined(__i386__)
 
@@ -27,52 +27,30 @@ static __inline__ tsc_t rdtsc(void)
 
 #endif
 
-//Purely For Visual Asthetics For Loading Bar
-void printLoading(int perc){
-    //Delete previous loading bar
-    for(int backCount = 0; backCount < CALIBRATION * 2 + 8; backCount++){
-        printf("\b");
+// Set thread properties - specifically the ones that make this a
+// realtime thread, which means it will always be chosen to run
+// when considered against non-RT threads such as other normal
+// Unix processes.  This means that we should be the only thing
+// that uses the core we pick.  It also assigns it to one core,
+// so that it doesn't move around and invalidate the L1 cache.
+void set_thread_props(int tgt_core){
+    pthread_t self = pthread_self();
+    
+    const struct sched_param params = {
+	    .sched_priority = 2
+    };
+
+    if(pthread_setschedparam(self, SCHED_FIFO, &params)) {
+	    perror("pthread_setschedparam");
     }
 
-    //Print next loading bar
-    printf("{");
-    int prog;
-    for(prog = 0; prog < (perc + 1) * 2; prog++){
-        printf("#");
-    }
-    for(int j = prog; j < (CALIBRATION + 1) * 2; j++){
-        printf("-");
-    }
+    //Repin this thread to one specific core
+    cpu_set_t cpuset;
 
-    //Print Percentage
-    printf("}%3d%%", (perc*100)/ CALIBRATION);
-}
+    CPU_ZERO(&cpuset);
+    CPU_SET(tgt_core, &cpuset);
 
-// Find out roughly how many TSC cycles happen in a second.
-// This isn't perfectly accurate - we could get more accuracy by running
-// for a longer time and by running this test repeatedly.
-tsc_t cal(void){
-    //Notify user program is running
-    printf("Normalizing Metric...\t");
-    printf("{");
-    for(int i = 0; i < CALIBRATION * 2; i++){
-        printf("-");
+    if(pthread_setaffinity_np(self, sizeof(cpu_set_t), &cpuset)) {
+	    perror("pthread_attr_setaffinity_np");
     }
-    printf("}%3d%%", 0);
-    fflush(NULL);
-
-    // Find a rough value for the number of TSC ticks in 1s
-    tsc_t total = 0;
-    int i;
-    for(i = 0; i < CALIBRATION; i++){
-        tsc_t start=rdtsc();
-        usleep(CAL_DUR);
-        tsc_t end=rdtsc();
-        total += ((end-start)*1000000ULL)/(CAL_DUR * CALIBRATION);
-        printLoading(i);
-        fflush(NULL);
-    }
-    printLoading(i);
-    printf("\n");
-    return total;
 }
