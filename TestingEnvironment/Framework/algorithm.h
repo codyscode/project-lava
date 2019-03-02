@@ -23,7 +23,7 @@ void* testProcessing(void* args);
 
 //inputLimitTest
 void* testInputGeneration(void* args);
-void* determineSpeedInput(void* args)
+void* determineSpeedInput(void* args);
 
 #endif
 
