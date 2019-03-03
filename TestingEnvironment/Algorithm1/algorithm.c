@@ -12,9 +12,6 @@ void grabPackets(int toGrabCount, queue_t* mainQueue){
     //Go through each queue and grab the stated amount of packets from it
     for(int qIndex = 0; qIndex < input.queueCount; qIndex++){
         for(int packetCount = 0; packetCount < toGrabCount; packetCount++){
-            //Indicate that data is being written and we need to wait until its fully written
-            FENCE()
-
             //Used for readability
             int mainWriteIndex = (*mainQueue).toWrite;
             int inputReadIndex = input.queues[qIndex].toRead;
@@ -42,11 +39,11 @@ void grabPackets(int toGrabCount, queue_t* mainQueue){
             (*mainQueue).toWrite++;
             (*mainQueue).toWrite = (*mainQueue).toWrite % BUFFERSIZE;
 
+            //Ensure the flow is updated last
+            FENCE()
+
             //Indicate the space is free to write to in the input queue
             input.queues[qIndex].data[inputReadIndex].flow = 0;
-            
-            //Make sure everything is written/erased
-            FENCE()
         }
     }
 }
@@ -54,9 +51,6 @@ void grabPackets(int toGrabCount, queue_t* mainQueue){
 void passPackets(queue_t* mainQueue){
     //Go through mainQueue and write its contents to the appropriate output queue
     while(1){
-        //Tell the computer that we want to make sure this data is written
-        FENCE()
-
         //Used for readability
         int mainReadIndex = (*mainQueue).toRead;
 
@@ -80,9 +74,6 @@ void passPackets(queue_t* mainQueue){
         output.queues[qIndex].data[outputWriteIndex].order = (*mainQueue).data[mainReadIndex].order;
         output.queues[qIndex].data[outputWriteIndex].flow = (*mainQueue).data[mainReadIndex].flow;
 
-        //Indicate the space is free to write to in the main queue
-        (*mainQueue).data[mainReadIndex].flow = 0;
-
         //Indicate the next spot to write to in the output queue
         output.queues[qIndex].toWrite++;
         output.queues[qIndex].toWrite = output.queues[qIndex].toWrite % BUFFERSIZE;
@@ -91,8 +82,11 @@ void passPackets(queue_t* mainQueue){
         (*mainQueue).toRead++;
         (*mainQueue).toRead = (*mainQueue).toRead % BUFFERSIZE;
 
-        //Make sure everything is written/erased
+        //Update that the positon is free, last
         FENCE()
+
+        //Indicate the space is free to write to in the main queue
+        (*mainQueue).data[mainReadIndex].flow = 0;
     }
 }
 
@@ -101,18 +95,31 @@ void *run(void *argsv){
     int toGrabCount = BUFFERSIZE / input.queueCount;
 
     //The main "wire" queue where everything will be written
-    queue_t mainQueue;
-    mainQueue.toRead = 0;
-    mainQueue.toWrite = 0;
-    
+    queue_t *mainQueue = Malloc(sizeof(queue_t));
+    mainQueue->toRead = 0;
+    mainQueue->toWrite = 0;
+
+    //set the alarm
+    alarm_init();
+
     //Set the thread to its own core
     //+1 is neccessary as we have core 0, input threads, output threads
     set_thread_props(input.queueCount + output.queueCount + 1);
 
-    while(1){
-        grabPackets(toGrabCount, &mainQueue);
-        passPackets(&mainQueue);
+    //start the alarm
+    alarm_start();
+
+    //wait for the alarm to start
+    while(startFlag == 0);
+
+    while(endFlag == 0){
+        grabPackets(toGrabCount, mainQueue);
+        passPackets(mainQueue);
     }
+
+    free(mainQueue);
+
+    return NULL;
 }
 
 char* getName(){

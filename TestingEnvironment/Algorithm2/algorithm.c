@@ -16,10 +16,12 @@ typedef struct multiWireArgs{
     int baseOutputQueueNum;
     int numOutputQueuesAssigned;
     int coreNum;
+    int queueNum;
 }margs_t;
 
 pthread_t moverThreadIds[MAX_NUM_INPUT_QUEUES];
 margs_t algThreadArgs[MAX_NUM_INPUT_QUEUES];
+int readySignal[MAX_NUM_INPUT_QUEUES] = {0};
 
 void multiGrabPackets(int toGrabCount, int baseInputQueueIndex, int numInputQueues, queue_t* mainQueue){
     //Go through each queue and grab the stated amount of packets from it
@@ -121,20 +123,31 @@ void* movePackets(void* vargs){
     int baseInputQueueIndex = (*args).baseInputQueueNum;
     int numOutputQueues = (*args).numOutputQueuesAssigned;
     int baseOutputQueuesIndex = (*args).baseOutputQueueNum;
+    int queueNum = (*args).queueNum;
 
     //The amount of packets to grab from each queue. This algorithm gives all queues equal priority
     int toGrabCount = BUFFERSIZE / numInputQueues;
 
     //The main "wire" queue where everything will be written
-    queue_t mainQueue;
-    mainQueue.toRead = 0;
-    mainQueue.toWrite = 0;
+    queue_t *mainQueue = Malloc(sizeof(queue_t));
+    mainQueue->toRead = 0;
+    mainQueue->toWrite = 0;
 
-    //Start moving packets
-    while(1){
-        multiGrabPackets(toGrabCount, baseInputQueueIndex, numInputQueues, &mainQueue);
-        multiPassPackets(baseOutputQueuesIndex, numOutputQueues, &mainQueue);
+    //Signal that the queue is ready to move packets
+    readySignal[queueNum] = 1;
+
+    //wait for the alarm to start
+    while(startFlag == 0);
+
+    //Start moving packets until the alarm goes off
+    while(endFlag == 0){
+        multiGrabPackets(toGrabCount, baseInputQueueIndex, numInputQueues, mainQueue);
+        multiPassPackets(baseOutputQueuesIndex, numOutputQueues, mainQueue);
     }
+
+    free(mainQueue);
+
+    return NULL;
 }
 
 void assignQueues(int numQueuesToAssign[], int baseQueuesToAssign[], int passerQueueCount, int queueCountTracker){
@@ -162,14 +175,15 @@ void assignQueues(int numQueuesToAssign[], int baseQueuesToAssign[], int passerQ
 }
 
 void *run(void *argsv){
-    //Set the schedule for the run thread
-    int baseCore = input.queueCount + output.queueCount + 1;
-    set_thread_props(baseCore);
-    baseCore++;
-
     //Initialize thread attributes
     pthread_attr_t attrs;
     pthread_attr_init(&attrs);
+
+    //Set the schedule for the run thread
+    int baseCore = input.queueCount + output.queueCount + 1;
+
+    //initialize the alarm
+    alarm_init();
 
     //Determine if there are more input or output queues
     int passerQueueCount;
@@ -205,6 +219,7 @@ void *run(void *argsv){
         algThreadArgs[i].numOutputQueuesAssigned = numOutputQueuestoAssign[i];
         algThreadArgs[i].baseOutputQueueNum = baseOutputQueuesToAssign[i];
         algThreadArgs[i].coreNum = baseCore + i;
+        algThreadArgs[i].queueNum = i;
 
         //Tell the system we are setting the schedule for the thread, instead of inheriting
         if(pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED)) {
@@ -212,8 +227,21 @@ void *run(void *argsv){
         }
 
         //Create the thread
-        Pthread_create(&moverThreadIds[i], NULL, movePackets, (void *)&algThreadArgs[i]);
+        Pthread_create(&moverThreadIds[i], &attrs, movePackets, (void *)&algThreadArgs[i]);
     }
+
+    //Once all the queues are ready to start passing start the alarm
+    for(int i = 0; i < passerQueueCount; i++){
+        while(readySignal[i] == 0);
+    }
+
+    alarm_start();
+    
+    for(int i = 0; i < passerQueueCount; i++){
+        Pthread_join(moverThreadIds[i], NULL);
+    }
+
+    return NULL;
 }
 
 char* getName(){

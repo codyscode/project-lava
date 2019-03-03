@@ -19,7 +19,7 @@ typedef struct ThreadArgs{
 void* exampleFunction(void *args){
     //Initialize any variables
 
-    //This is recommended to have unless the number of threads exceeds the core count
+    //This is recommended to have unless the number of extra threads created exceeds 16
     //int nextAvailableCore = (int)args->coreNum;
     //set_thread_props(nextAvailableCore);
 

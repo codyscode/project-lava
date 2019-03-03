@@ -129,6 +129,6 @@ static __inline__ tsc_t rdtsc(void);
 void set_thread_props(int tgt_core);
 void sig_alrm(int signo);
 void alarm_init();
-void start_alarm();
+void alarm_start();
 
 #endif

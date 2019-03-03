@@ -77,7 +77,7 @@ void alarm_init(){
 	}
 }
 
-void start_alarm(){
+void alarm_start(){
     startFlag = 1; // start moving packets
 	alarm(RUNTIME); // set alarm for RUNTIME seconds
 }

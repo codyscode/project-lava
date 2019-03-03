@@ -97,6 +97,8 @@ Files modified: framework.c, global.h, algorithm.c, algorithm.h
 		-Modified Regi's algorithm3 to work with global.c (commented out old code and put comments next to new code)
 	- Moved initilization of startFlag and endFlag to framework.c
 	- Added template algorithm to follow when creating future algorithm.c files
+	- Modified algorithm 1 and 2 to work with framework
+	- Renamed start_alarm to alarm_start
 
 	Files Modified: global.h, global.c, framework.c
 	Created: TemplateAlgorithm

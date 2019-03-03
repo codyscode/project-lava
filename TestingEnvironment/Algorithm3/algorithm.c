@@ -57,7 +57,7 @@ void *run(void *argsv){
 	}
 
 	//--New code--
-	start_alarm();
+	alarm_start();
 	/* --Old code--Defined in global.c
 	startFlag = 1; // start moving packets
 	alarm(RUNTIME); // set alarm for RUNTIME seconds

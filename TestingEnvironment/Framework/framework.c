@@ -247,9 +247,8 @@ void main(int argc, char**argv){
         Pthread_detach(output.threadIDs[index]);
     }
 
-
     //Print out testing information to the user
-    //printf("\nTesting with: \n%lu Input Queues \n%lu Output Queues\n\n", input.queueCount, output.queueCount);
+    printf("\nTesting with: \n%lu Input Queues \n%lu Output Queues\n\n", input.queueCount, output.queueCount);
 
     //Allow buffers to fill
 	for(int i = 0; i < input.queueCount; i++){
