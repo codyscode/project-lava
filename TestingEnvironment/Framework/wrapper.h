@@ -13,4 +13,6 @@ int Pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *mutexa
 int Pthread_mutex_lock(pthread_mutex_t *mutex);
 int Pthread_mutex_unlock(pthread_mutex_t *mutex);
 
+FILE *Fopen(const char *filename, const char *mode);
+
 #endif

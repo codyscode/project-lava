@@ -13,6 +13,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <signal.h>
 
 //Constants for upper limit of queues
 #define MAX_NUM_QUEUES 16
@@ -20,19 +21,17 @@
 #define MAX_NUM_OUTPUT_QUEUES 8
 
 //Constants for threads
-#define MAX_NUM_THREADS 20
-#define BUFFERSIZE 256
+#define BUFFERSIZE 1024
 
-//How many packets need to be processed by each queue before the program terminates
-//We could also make this time instead
-#define RUNTIME 10000000000
+// defines how many seconds an algorithm should run for
+#define RUNTIME 10
 
 //Used for calibrating the amount of clock cycles in a second
 #define CAL_DUR 2000000ULL
 #define CALIBRATION 5
 
 #define MAX_PAYLOAD_SIZE 9000
-#define MIN_PAYLOAD_SZIE 64
+#define MIN_PAYLOAD_SIZE 64
 
 #define MIN_PACKET_SIZE 192 + 64
 #define MAX_PACKET_SIZE 192 + 9000
@@ -40,6 +39,8 @@
 #define FLOWS_PER_QUEUE 8
 
 #define HEADER_SIZE 24
+
+#define OUTPUTFILE "output.csv"
 
 #define FENCE() \
    __asm__ volatile ("mfence" ::: "memory");
@@ -117,10 +118,6 @@ typedef struct output{
     size_t finished[MAX_NUM_OUTPUT_QUEUES];
 }output_t;
 output_t output;
-
-//Used to keep track for the algorithm for how many packets have been passed
-//This is an array to allow all threads within the algorithm to access their own count tracker to avoid race conditions
-size_t passedCount[MAX_NUM_THREADS];
 
 static __inline__ tsc_t rdtsc(void);
 void set_thread_props(int tgt_core);

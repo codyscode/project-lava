@@ -81,6 +81,17 @@ void *Malloc(size_t size){
 	return returnPtr;
 }
 
+FILE *Fopen(const char *filename, const char *mode){
+	FILE *fptr;
+	
+	if((fptr = fopen(filename, mode)) == NULL){
+		fprintf(stderr, "ERROR: Unable to open \"%s\" for \"%s\"", filename, mode);
+		perror("");
+		exit(1);
+	}
+}
+
+
 
 
 

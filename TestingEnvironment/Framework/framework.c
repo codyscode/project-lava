@@ -22,7 +22,7 @@
 // -Each input queue generates 5 flows (i.e input 1: 1, 2, 3, 4, 5; input 2: 6, 7, 8, 9, 10)
 // -The flows can be scrambled coming from a single input (i.e stream: 1, 2, 1, 3, 4, 4, 3, 3, 5)
 void* input_thread(void *args){
-    //Get argurments and any other functions for input threads
+    //Get arguments and any other functions for input threads
     threadArgs_t *inputArgs = (threadArgs_t *)args;
 
     int queueNum = inputArgs->queueNum;   
@@ -46,7 +46,12 @@ void* input_thread(void *args){
         //Assign a random length to the packet. Length defines the entire packet struct, not just payload
         //Minimum size computed below is MIN_PACKET_SIZE
         //Maximum size computed below is MAX_PACKET_SIZE
-        currLength = (rand() % (MAX_PACKET_SIZE - MIN_PACKET_SIZE)) + MIN_PACKET_SIZE;
+        currLength = rand() % (MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;//(rand() % (MAX_PACKET_SIZE - MIN_PACKET_SIZE)) + MIN_PACKET_SIZE;
+		
+		if(currLength < 0 || currLength > 9000){
+			fprintf(stderr, "ERROR: Invalid length of packet of length %d\n", currLength);
+			exit(1);
+		}
 		
 		if(currLength < 0 || currFlow <= 0){
 			fprintf(stderr, "*ERROR: generating packet with currFlow: %d, currLength: %d", currFlow, currLength);
@@ -98,7 +103,7 @@ void* processing_thread(void *args){
     while(1){
         index = (*processQueue).toRead;
 
-        //If there is no packet, contiuously check until something shows up
+        //If there is no packet, continuously check until something shows up
         while((*processQueue).data[index].flow == 0){
             ;
         }
@@ -117,7 +122,7 @@ void* processing_thread(void *args){
         if(expected[currFlow] != (*processQueue).data[index].order){
             
             for(int i = 0; i < BUFFERSIZE; i++){
-                printf("*Position: %d, Flow: %ld, Order: %ld\n", i, (*processQueue).data[i].flow, (*processQueue).data[i].order);
+                //printf("*Position: %d, Flow: %ld, Order: %ld\n", i, (*processQueue).data[i].flow, (*processQueue).data[i].order);
             }
             
             printf("*Error Packet: Flow %lu | Order %lu\n", (*processQueue).data[index].flow, (*processQueue).data[index].order);
@@ -242,7 +247,9 @@ void main(int argc, char**argv){
     //printf("\nTesting with: \n%lu Input Queues \n%lu Output Queues\n\n", input.queueCount, output.queueCount);
 
     //Allow buffers to fill
-    usleep(20000);
+	for(int i = 0; i < input.queueCount; i++){
+		while(input.queues[i].data[BUFFERSIZE-1].flow != 0);
+	}
 
     //Run thread ID
     pthread_t runID;
@@ -250,25 +257,26 @@ void main(int argc, char**argv){
     //Spawn the thread that handles the algorithm portion.
     //We are allowed to spawn threads from threads, so there is no conflict here
     Pthread_create(&runID, &attrs, run, NULL);
-
-    //Print out that the algorithm has started
-    //printf("Starting Algorithm\n\n");
-
-    //Wait 3 seconds for ramp up time and record the count the processing queues have processed
-    usleep(3000000);
-    size_t rampUpCount = 0;
-    for(int i = 0; i < output.queueCount; i++){
-        rampUpCount += output.queues[i].count;
-    }
-    
-    //Wait for the run algorithm to run for 10 seconds then record again
-    //This is just a naive implementation that will be replaced in the future
-    usleep(10000000);
+	Pthread_join(runID, NULL);
+	
+	// check if first and last position of queues are empty
+	// this works since queues are written in a sequential order
+	for(int i = 0; i < output.queueCount; i++){
+		while(output.queues[i].data[0].flow != 0); 
+		while(output.queues[i].data[BUFFERSIZE-1].flow != 0);
+		
+	}
+	
     size_t finalCount = 0;
     for(int i = 0; i < output.queueCount; i++){
+		printf("Queue %d: %ld packets passed in %d seconds\n", i, output.queues[i].count, RUNTIME);
         finalCount += output.queues[i].count;
     }
 
     //Output the data to a file
-    printf("%s, %lu, %lu, %lu\n", algName, input.queueCount, output.queueCount, (finalCount - rampUpCount) / 10);
+	printf("Success, passed all packets in order!\n");
+	
+	FILE *fptr = Fopen(OUTPUTFILE, "a");
+    fprintf(fptr, "%s, %lu, %lu, %lu\n", algName, input.queueCount, output.queueCount, finalCount/RUNTIME);
+	fclose(fptr);
 } 
