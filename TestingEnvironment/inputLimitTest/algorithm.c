@@ -6,7 +6,7 @@
 #include"../Framework/global.h"
 #include"../Framework/wrapper.h"
 
-#define ALGNAME "*inputLimit"
+#define ALGNAME "inputLimit"
 
 pthread_t algThreadIDS[2];
 size_t count;
