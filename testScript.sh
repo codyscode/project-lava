@@ -1,3 +1,4 @@
+#!/bin/bash
 #Set -e should stop the runs if any of the framework runs error out. 
 #The framework will be doing the writing out.
 #After the run this needs to push to git Wiki.
