@@ -1,9 +1,10 @@
 #!/bin/bash
 
-doGitStuff() {
-
-	echo ThisIsAPlaceHolder
-
+displayHelp() {
+	printf "-h	Print help"
+	printf "-t	Run tests on all algorithms"
+	printf "-w	Push benchmark results to wiki"
+	printf "-p   	Push to github"	
 }
 
 
@@ -16,10 +17,23 @@ testAllAlgorithms() {
 	done
 }
 
+pushWiki() {
+	cd ..
+        cd project-lava.wiki
+        git pull
+        cp -a  ~/project-lava/visualizations/. ~/project-lava.wiki/
+        git add -A
+        git commit -m "Adding run to the Database"
+        git push	
+}
 
-if [ "$1" = "t" ]; then
-	testAllAlgorithms
-else
-	doGitStuff
-fi
+while getopts 'twp' flag; do
+	case "${flag}" in
+		h) displayHelp ;;
+		t) testAllAlgorithms ;;
+		w) pushWiki ;;
+		p) pushGithub ;;
+		*) error "Unexpected option ${flag}" ;;
+	esac
+done
 
