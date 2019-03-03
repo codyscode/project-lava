@@ -24,7 +24,7 @@
 #define BUFFERSIZE 1024
 
 // defines how many seconds an algorithm should run for
-#define RUNTIME 10
+#define RUNTIME 30
 
 //Used for calibrating the amount of clock cycles in a second
 #define CAL_DUR 2000000ULL
