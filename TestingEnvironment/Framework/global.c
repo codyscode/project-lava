@@ -55,6 +55,20 @@ void set_thread_props(int tgt_core){
     }
 }
 
+void assign_to_zero(){
+    pthread_t self = pthread_self();
+
+    //Repin this thread to one specific core
+    cpu_set_t cpuset;
+
+    CPU_ZERO(&cpuset);
+    CPU_SET(0, &cpuset);
+
+    if(pthread_setaffinity_np(self, sizeof(cpu_set_t), &cpuset)) {
+	    perror("pthread_attr_setaffinity_np");
+    }
+}
+
 void sig_alrm(int signo)
 {
 	endFlag = 1;

@@ -61,7 +61,7 @@ void *run(void *argsv){
 
     //Start the alarm after your threads have spawned
     //The alarm will set endFlag to 1 once it goes off
-    start_alarm();
+    alarm_start();
 
     //Wait for each thread you spawned to halt upon reading endFlag
     for(int i = 0; i < numThreads; i++){

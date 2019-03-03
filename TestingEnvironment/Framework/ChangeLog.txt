@@ -102,3 +102,9 @@ Files modified: framework.c, global.h, algorithm.c, algorithm.h
 
 	Files Modified: global.h, global.c, framework.c
 	Created: TemplateAlgorithm
+
+3/03/2019 - Alex
+	- Fixed repinning of cores, as of now rand slows it down
+
+	Files Modified: global.h, global.c, framework.c
+	Created: TemplateAlgorithm

@@ -127,6 +127,7 @@ int endFlag;
 
 static __inline__ tsc_t rdtsc(void);
 void set_thread_props(int tgt_core);
+void assign_to_zero();
 void sig_alrm(int signo);
 void alarm_init();
 void alarm_start();

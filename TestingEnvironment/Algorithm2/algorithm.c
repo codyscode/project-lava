@@ -218,7 +218,7 @@ void *run(void *argsv){
         algThreadArgs[i].baseInputQueueNum = baseInputQueuesToAssign[i];
         algThreadArgs[i].numOutputQueuesAssigned = numOutputQueuestoAssign[i];
         algThreadArgs[i].baseOutputQueueNum = baseOutputQueuesToAssign[i];
-        algThreadArgs[i].coreNum = baseCore + i;
+        algThreadArgs[i].coreNum = baseCore + i + 1;
         algThreadArgs[i].queueNum = i;
 
         //Tell the system we are setting the schedule for the thread, instead of inheriting
@@ -234,6 +234,8 @@ void *run(void *argsv){
     for(int i = 0; i < passerQueueCount; i++){
         while(readySignal[i] == 0);
     }
+
+    set_thread_props(baseCore);
 
     alarm_start();
     

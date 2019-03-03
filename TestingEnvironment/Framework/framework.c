@@ -35,18 +35,21 @@ void* input_thread(void *args){
     int flowNum[FLOWS_PER_QUEUE] = {0};
     int currFlow, currLength;
     int offset = queueNum * FLOWS_PER_QUEUE;
+
+    int flow = 1;
 	
     //Continuously generate input numbers until the buffer fills up. 
     //Once it hits an entry that is not empty, it will wait until the input is grabbed.
     int index = 0;
     while(1){
         //Assign a random flow within a range: [n, n + 1, n + 2, n + 3, n + 4]. +1 is to avoid the 0 flow
-        currFlow = (rand() % FLOWS_PER_QUEUE) + offset + 1;
+        currFlow = (flow % FLOWS_PER_QUEUE) + offset + 1;
+        flow++;
 
         //Assign a random length to the packet. Length defines the entire packet struct, not just payload
         //Minimum size computed below is MIN_PACKET_SIZE
         //Maximum size computed below is MAX_PACKET_SIZE
-        currLength = rand() % (MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;//(rand() % (MAX_PACKET_SIZE - MIN_PACKET_SIZE)) + MIN_PACKET_SIZE;
+        currLength = 500 % (MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;//(rand() % (MAX_PACKET_SIZE - MIN_PACKET_SIZE)) + MIN_PACKET_SIZE;
 		
 		if(currLength < 0 || currLength > 9000){
 			fprintf(stderr, "ERROR: Invalid length of packet of length %d\n", currLength);
@@ -153,6 +156,8 @@ void main(int argc, char**argv){
         printf("*Usage: Queues <# input queues>, <# output queues>\n");
         exit(0);
     }
+
+    assign_to_zero();
 	
 	// set seed for rand()
 	srand(time(NULL));
@@ -258,10 +263,8 @@ void main(int argc, char**argv){
     //Run thread ID
     pthread_t runID;
 
-    //Spawn the thread that handles the algorithm portion.
-    //We are allowed to spawn threads from threads, so there is no conflict here
-    Pthread_create(&runID, &attrs, run, NULL);
-	Pthread_join(runID, NULL);
+    //Run the algorithm
+    run(NULL);
 	
 	// check if first and last position of queues are empty
 	// this works since queues are written in a sequential order
