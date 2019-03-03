@@ -77,4 +77,17 @@ Files modified: framework.c, global.h, algorithm.c, algorithm.h
 
 	File modified: global.h global.c framework.c algorithm.h
 	
+3/02/2019 - Regi
+	- added .gitignore for binaries in framework folder
+	- Fixed currlength variable for generating payload size to not include the header of packet (otherwise memmove() or memcopy() won't work since they'll read over the memory space allocated)
+	- added <signal.h> library to global.h, this library is meant for handling the timer for the algorithm
+	- changed #define RUNTIME from packets to seconds and set it to 10
+	- changed buffer size to 1024
+	- Removed "passedCount[]" and MAX_NUM_THREADS from global.h since each queue is keeping track of their own count
+	- Removed usleep() which was used to wait for input buffers to fill up with loop that checks the last queue position of inputs queues are filled
+	- Removed usleep() which was being used as a timer since I implemented a signal system in the algorithm
+	- created "Algorithm3" for the purpose of testing timer functionality with signals
+	- implemented writing to output file for data collection in the framework
 	
+	Files modified: global.h framework.c wrapper.h wrapper.c 
+	Created: Algorithm3
