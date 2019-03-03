@@ -11,7 +11,7 @@ testAllAlgorithms() {
 	
 	for dir in ./TestingEnvironment/Algorithm*/ ; do
 		make -C "$dir"
-		sudo ./testScript.sh
+		./testScript.sh
 		make clean -C ./TestingEnvironment/Framework/
 	done
 }

@@ -11,12 +11,12 @@
 
 
 #set -e
-set -e
 #disabled for testing but needs to be turned back on for real runs.
 
 for ((i=1; $i < 9; i++)) ; do
 	for((j=1; $j < 9; j++)) ; do
-		sudo	./TestingEnvironment/Framework/framework $i $j
+		echo $i $j
+		./TestingEnvironment/Framework/framework $i $j
 	done
 done
 
