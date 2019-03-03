@@ -20,7 +20,7 @@ pushWiki() {
 	cd ..
         cd project-lava.wiki
         git pull
-        cp -a  ~/project-lava/visualizations/. ~/project-lava.wiki/
+        mv  ~/project-lava/TestingEnvironment/Framework/output.csv ~/project-lava.wiki/Data/
         git add -A
         git commit -m "Adding run to the Database"
         git push	
