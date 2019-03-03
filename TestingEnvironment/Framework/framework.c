@@ -280,7 +280,24 @@ void main(int argc, char**argv){
     //Output the data to a file
 	printf("Success, passed all packets in order!\n");
 	
-	FILE *fptr = Fopen(OUTPUTFILE, "a");
-    fprintf(fptr, "%s, %lu, %lu, %lu\n", algName, input.queueCount, output.queueCount, finalCount/RUNTIME);
+	FILE *fptr;
+	char fileName[10000];
+	
+	// append .csv to algorithm name
+	snprintf(fileName, sizeof(fileName),"%s.csv", algName);
+	
+	// file exists
+	if(access(fileName, F_OK) != -1){
+		fptr = Fopen(fileName, "a");
+	}
+	// file does not exit, append header
+	else{
+		fptr = Fopen(fileName, "a");
+		fprintf(fptr, "Algorithm,Input,Output,Packet\n");
+	}	
+	
+    fprintf(fptr, "%s,%lu,%lu,%lu\n", algName, input.queueCount, output.queueCount, finalCount/RUNTIME);
 	fclose(fptr);
+	
+	printf("%s,%lu,%lu,%lu\n", algName, input.queueCount, output.queueCount, finalCount/RUNTIME);
 } 

@@ -15,12 +15,12 @@ set -e
 
 for ((i=1; $i < 9; i++)) ; do
 	for((j=1; $j < 9; j++)) ; do
-		./TestingEnvironment/Framework/framework $i $j
 		sudo	./TestingEnvironment/Framework/framework $i $j
 	done
 done
 
-@@ -21,8 +20,8 @@ then
+if [ $1 == 'w' ]
+ then
 	cd ..
 	cd project-lava.wiki
 	git pull

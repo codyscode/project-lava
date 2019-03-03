@@ -13,6 +13,9 @@ int startFlag = 0; // flag used to start moving packets
 int endFlag = 0; // flag used to end algorithm
 */
 size_t missedPackets = 0;
+int threadsWaiting = 0;
+
+pthread_mutex_t wait_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /*--Old Code-- Defined in global.c
 void sig_alrm(int signo)
@@ -56,6 +59,7 @@ void *run(void *argsv){
 		Pthread_create(&tid[i], NULL, movePackets, (void *) id);
 	}
 
+	while(threadsWaiting < input.queueCount);
 	//--New code--
 	alarm_start();
 	/* --Old code--Defined in global.c
@@ -77,6 +81,8 @@ static void *movePackets(void *args){
 	int id = *((int *) args);
 	free(args);
 	
+	set_thread_props(id + (output.queueCount + input.queueCount+1));
+	
 	queue_t *in = &input.queues[id];
 	queue_t *out = &output.queues[id];
 	
@@ -86,6 +92,10 @@ static void *movePackets(void *args){
 	
 	*read = 0;
 	*write = 0;
+	
+	pthread_mutex_lock(&wait_mutex);
+	threadsWaiting++;
+	pthread_mutex_unlock(&wait_mutex);
 	
 	while(startFlag == 0); // don't start moving packets until all threads have been created and initialized
 	
