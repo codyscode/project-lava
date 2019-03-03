@@ -20,15 +20,3 @@ for ((i=1; $i < 9; i++)) ; do
 	done
 done
 
-if [ $1 == 'w' ]
- then
-	cd ..
-	cd project-lava.wiki
-	git pull
-	cp ~/project-lava/$2 ~/project-lava.wiki/
-	git add $2
-        cp -a  ~/project-lava/visualizations/. ~/project-lava.wiki/
-        git add -A
-	git commit -m "Adding run to the Database"
-	git push
-fi
