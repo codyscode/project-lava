@@ -54,3 +54,30 @@ void set_thread_props(int tgt_core){
 	    perror("pthread_attr_setaffinity_np");
     }
 }
+
+void sig_alrm(int signo)
+{
+	endFlag = 1;
+}
+
+void alarm_init(){
+    struct sigaction act; //structure used to handle signals
+	act.sa_handler = sig_alrm; // set signal handler to function sig_alarm
+	
+	if(sigemptyset(&act.sa_mask) < 0){
+		perror("ERROR: sigemptyset() failed");
+		exit(1);
+	}
+	act.sa_flags = 0; // no flags used
+	
+	// set SIGALRM to be handled specified by act
+	if(sigaction(SIGALRM, &act, NULL) < 0){
+		perror("ERROR: sigaction() failed");
+		exit(1);
+	}
+}
+
+void start_alarm(){
+    startFlag = 1; // start moving packets
+	alarm(RUNTIME); // set alarm for RUNTIME seconds
+}

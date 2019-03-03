@@ -8,14 +8,18 @@
 
 static void *movePackets(void *args);
 
+/*--Old Code-- Defined in global.h
 int startFlag = 0; // flag used to start moving packets
 int endFlag = 0; // flag used to end algorithm
+*/
 size_t missedPackets = 0;
 
+/*--Old Code-- Defined in global.c
 void sig_alrm(int signo)
 {
 	endFlag = 1;
 }
+*/
 
 void *run(void *argsv){
 	
@@ -24,6 +28,9 @@ void *run(void *argsv){
 		exit(1);
 	}
 	
+	//--New Code--
+	alarm_init();
+	/*--Old Code--Defined in global.c
  	struct sigaction act; //structure used to handle signals
 	act.sa_handler = sig_alrm; // set signal handler to function sig_alarm
 	
@@ -38,6 +45,7 @@ void *run(void *argsv){
 		perror("ERROR: sigaction() failed");
 		exit(1);
 	}
+	*/
 	
 	pthread_t tid[input.queueCount];
 	int *id;	
@@ -48,8 +56,12 @@ void *run(void *argsv){
 		Pthread_create(&tid[i], NULL, movePackets, (void *) id);
 	}
 
+	//--New code--
+	start_alarm();
+	/* --Old code--Defined in global.c
 	startFlag = 1; // start moving packets
 	alarm(RUNTIME); // set alarm for RUNTIME seconds
+	*/
 	
 	for(int i = 0; i < input.queueCount; i++)
 		pthread_join(tid[i], NULL);  

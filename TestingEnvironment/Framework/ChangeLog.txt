@@ -91,3 +91,12 @@ Files modified: framework.c, global.h, algorithm.c, algorithm.h
 	
 	Files modified: global.h framework.c wrapper.h wrapper.c 
 	Created: Algorithm3
+
+3/02/2019 - Alex
+	- Took Regi's alarm code and abstracted it to methods to be implemented in code. Put in global.c
+		-Modified Regi's algorithm3 to work with global.c (commented out old code and put comments next to new code)
+	- Moved initilization of startFlag and endFlag to framework.c
+	- Added template algorithm to follow when creating future algorithm.c files
+
+	Files Modified: global.h, global.c, framework.c
+	Created: TemplateAlgorithm

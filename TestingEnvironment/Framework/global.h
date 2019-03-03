@@ -119,8 +119,16 @@ typedef struct output{
 }output_t;
 output_t output;
 
+// flag used to start moving packets
+int startFlag;
+
+// flag used to end algorithm
+int endFlag; 
+
 static __inline__ tsc_t rdtsc(void);
 void set_thread_props(int tgt_core);
-
+void sig_alrm(int signo);
+void alarm_init();
+void start_alarm();
 
 #endif

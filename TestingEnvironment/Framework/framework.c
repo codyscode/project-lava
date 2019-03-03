@@ -157,7 +157,12 @@ void main(int argc, char**argv){
 	// set seed for rand()
 	srand(time(NULL));
 
+    //Get the algorithm name
     char* algName = getName();
+
+    //Initialize the stop/start flags for the algorithm
+    startFlag = 0;
+    endFlag = 0;
 
     //Grab the number of input and output queues to use
     input.queueCount = atoi(argv[1]);
