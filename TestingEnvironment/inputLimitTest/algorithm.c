@@ -6,7 +6,7 @@
 #include"../Framework/global.h"
 #include"../Framework/wrapper.h"
 
-#define ALGNAME "inputLimit"
+#define ALGNAME "*inputLimit"
 
 pthread_t algThreadIDS[2];
 size_t count;
@@ -50,6 +50,7 @@ void* testInputGeneration(void* args){
 
 void* determineSpeedInput(void* args){
     int spdCore = input.queueCount + output.queueCount + 3;
+    int i = 0;
 
     //Set the thread to its own core
     set_thread_props(spdCore);
@@ -57,7 +58,9 @@ void* determineSpeedInput(void* args){
     size_t currTotal = 0;
     size_t prevTotal = currTotal;
     size_t toPrint = 0;
-    while(1){
+
+    //Sample 10 times
+    while(i < 10){
         //Every 1 Second Sample number of packets grabbed
         usleep(1000000);
 
@@ -68,6 +71,7 @@ void* determineSpeedInput(void* args){
         fflush(NULL);
 
         prevTotal = currTotal;
+        i++;
     }
 }
 
@@ -84,8 +88,14 @@ void *run(void *argsv){
     //Create the grabber thread
     Pthread_create(&algThreadIDS[0], NULL, testInputGeneration, NULL);
 
+    //detach grabber thread
+    Pthread_detach(algThreadIDS[0]);
+
     //Create the measuring thread
     Pthread_create(&algThreadIDS[1], NULL, determineSpeedInput, NULL);
+
+    //Wait for ten samples
+    Pthread_join(algThreadIDS[1], NULL);
 }
 
 char* getName(){

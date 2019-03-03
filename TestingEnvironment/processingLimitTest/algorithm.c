@@ -6,7 +6,7 @@
 #include"../Framework/global.h"
 #include"../Framework/wrapper.h"
 
-#define ALGNAME "processLimit"
+#define ALGNAME "*processLimit"
 
 pthread_t algThreadIDS[2];
 
@@ -48,6 +48,7 @@ void* testProcessing(void* args){
 
 void* determineSpeedOutput(void* args){
     int spdCore = input.queueCount + output.queueCount + 3;
+    int i = 0;
 
     //Set the thread to its own core
     set_thread_props(spdCore);
@@ -55,7 +56,9 @@ void* determineSpeedOutput(void* args){
     size_t currTotal = 0;
     size_t prevTotal = currTotal;
     size_t toPrint = 0;
-    while(1){
+
+    //Sample 10 times
+    while(i < 10){
         //Every 1 Second Sample number of packets processed
         usleep(1000000);
 
@@ -66,6 +69,7 @@ void* determineSpeedOutput(void* args){
         fflush(NULL);
 
         prevTotal = currTotal;
+        i++;
     }
 }
 
@@ -82,8 +86,14 @@ void *run(void *argsv){
     //Create the passer thread
     Pthread_create(&algThreadIDS[0], NULL, testProcessing, NULL);
 
+    //detach passer thread
+    Pthread_detach(algThreadIDS[0]);
+
     //Create the measuring thread
-    Pthread_create(&algThreadIDS[1], NULL, determineSpeed, NULL);
+    Pthread_create(&algThreadIDS[1], NULL, determineSpeedOutput, NULL);
+
+    //Wait for ten samples
+    Pthread_join(algThreadIDS[1], NULL);
 }
 
 char* getName(){
