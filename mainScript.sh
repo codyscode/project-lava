@@ -1,10 +1,9 @@
 #!/bin/bash
 
 displayHelp() {
-	printf "-h	Print help"
-	printf "-t	Run tests on all algorithms"
-	printf "-w	Push benchmark results to wiki"
-	printf "-p   	Push to github"	
+	echo "-h	Print help"
+	echo "-t	Run tests on all algorithms"
+	echo "-w	Push benchmark results to wiki"	
 }
 
 
@@ -12,7 +11,7 @@ testAllAlgorithms() {
 	
 	for dir in ./TestingEnvironment/Algorithm*/ ; do
 		make -C "$dir"
-		./testScript.sh
+		sudo ./testScript.sh
 		make clean -C ./TestingEnvironment/Framework/
 	done
 }
@@ -27,12 +26,11 @@ pushWiki() {
         git push	
 }
 
-while getopts 'twp' flag; do
+while getopts 'htwp' flag; do
 	case "${flag}" in
 		h) displayHelp ;;
 		t) testAllAlgorithms ;;
 		w) pushWiki ;;
-		p) pushGithub ;;
 		*) error "Unexpected option ${flag}" ;;
 	esac
 done
