@@ -5,6 +5,8 @@ Must Pip install:
     matplotlib
     pathlib
 """
+import matplotlib
+matplotlib.use('Agg')
 import sys
 import pandas as pd
 from matplotlib import pyplot as plt
