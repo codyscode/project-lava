@@ -22,7 +22,7 @@ pushWiki() {
         for _file in *.csv ; do
                 mv $_file "$now$_file"
                 echo $_file
-                mv  ./$now$_file ~/project-lava.wiki/Data/
+                mv  ./$now$_file ../project-lava.wiki/Data/
         done
 	cd ..
         cd project-lava.wiki
