@@ -11,7 +11,7 @@ testAllAlgorithms() {
 	
 	for dir in ./TestingEnvironment/Algorithm*/ ; do
 		make -C "$dir"
-		./testScript.sh
+		 ./testScript.sh
 		make clean -C ./TestingEnvironment/Framework/
 	done
 }
@@ -26,10 +26,12 @@ pushWiki() {
         done
 	cd ..
         cd project-lava.wiki
-        git pull
-        git add -A
-        git commit -m "Adding run to the Database"
-        git push	
+	NON_ROOT_USER=$(who am i | awk '{print $1}');
+        echo $NON_ROOT_USER
+        sudo -u $NON_ROOT_USER  git pull
+        sudo -u $NON_ROOT_USER git add -A
+        sudo -u $NON_ROOT_USER git commit -m "Adding run to the Database"
+        sudo -u $NON_ROOT_USER git push	
 }
 
 while getopts 'htwp' flag; do
