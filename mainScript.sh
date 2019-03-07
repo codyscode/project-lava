@@ -26,14 +26,19 @@ pushWiki() {
         done
 	cd ..
         cd project-lava.wiki
+	fileStructure_markdown
 	NON_ROOT_USER=$(who am i | awk '{print $1}');
         echo $NON_ROOT_USER
-        sudo -u $NON_ROOT_USER  git pull
+        sudo -u $NON_ROOT_USER git pull
         sudo -u $NON_ROOT_USER git add -A
-        sudo -u $NON_ROOT_USER git commit -m "Adding run to the Database"
+        sudo -u $NON_ROOT_USER git commit -m "Adding run to the Database and updating file structure"
         sudo -u $NON_ROOT_USER git push	
 }
-
+fileStructure_markdown(){
+	tree > file_structure.md
+	sed -i 's|[`\'']|\||g' file_structure.md
+	sed -i'' 's|$|<br>|' file_structure.md	
+}
 while getopts 'htwp' flag; do
 	case "${flag}" in
 		h) displayHelp ;;
