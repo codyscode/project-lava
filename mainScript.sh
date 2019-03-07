@@ -17,7 +17,7 @@ testAllAlgorithms() {
 }
 
 pushWiki() {
-	now="$(date +'%d_%m_%Y_%H:%M')"
+	now="$(date +'%d_%m_%Y_%H_%M')"
         echo $now
         for _file in *.csv ; do
                 mv $_file "$now$_file"
