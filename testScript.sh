@@ -1,15 +1,6 @@
 #!/bin/bash
-#Set -e should stop the runs if any of the framework runs error out. 
-#The framework will be doing the writing out.
-#After the run this needs to push to git Wiki.
-#current usage format will be testscript.sh -w <filename>
-#This will look for a file in the project-lava directory with the arg2 name and move it to the
-#the wiki to be pushed
-#current usage format will be testscript.sh -w
-#This will copy the files to the wiki repo and they will be pushed from there.
-#Added sudo to the test run since we are assigning threads to cores.
 
-
+#running through each iteration of m input queues and n output queues each value up to 8.
 #set -e
 #disabled for testing but needs to be turned back on for real runs.
 if [ $1 == "-q" ]
