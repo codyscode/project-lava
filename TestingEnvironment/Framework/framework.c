@@ -285,7 +285,7 @@ void main(int argc, char**argv){
 	char fileName[10000];
 	
 	// append .csv to algorithm name
-	snprintf(fileName, sizeof(fileName),"%s.csv", algName);
+	snprintf(fileName, sizeof(fileName),"%s.md", algName);
 	
 	// file exists
 	if(access(fileName, F_OK) != -1){
@@ -294,10 +294,10 @@ void main(int argc, char**argv){
 	// file does not exit, append header
 	else{
 		fptr = Fopen(fileName, "a");
-		fprintf(fptr, "Algorithm,Input,Output,Packet\n");
+		fprintf(fptr, "Algorithm,Input,Output,Packet  \n");
 	}	
 	
-    fprintf(fptr, "%s,%lu,%lu,%lu\n", algName, input.queueCount, output.queueCount, finalCount/RUNTIME);
+    fprintf(fptr, "%s,%lu,%lu,%lu  \n", algName, input.queueCount, output.queueCount, finalCount/RUNTIME);
 	fclose(fptr);
 	
 	printf("%s,%lu,%lu,%lu\n", algName, input.queueCount, output.queueCount, finalCount/RUNTIME);
