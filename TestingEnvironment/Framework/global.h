@@ -48,10 +48,10 @@
 typedef unsigned long long tsc_t;
 
 //Data structure to represent a packet.
-//length (size_t) - The total size of the packet
+//length (size_t) - The total size of the data memeber for the packet
 //flow (size_t) - The flow of the packet
 //order (size_t) - The order of the packet within its flow
-//data (size_t) - Payload of the packet
+//data (unsigned char array) - Payload of the packet
 typedef struct packet{ 
     size_t length;
     size_t flow;
@@ -63,7 +63,7 @@ typedef struct packet{
 //toRead (size_t) - The next unread position in the queue
 //toWrite (size_t) - The next position to write to in the queue
 //count (size_t) - The number of packets read by the queue
-//data (packet_t array - Space for packets in the queue
+//data (packet_t array) - Space for packets in the queue
 typedef struct Queue {
     size_t toRead;
     size_t toWrite;
@@ -72,8 +72,9 @@ typedef struct Queue {
 }queue_t;
 
 //Arguments to be passed to input threads
-//firstQueue (queue_t) - pointer to the first queue for the thread to write to/process
-//firstQueueNum (size_t) - The index of the queue in the array of queues
+//queue (*queue_t) - pointer to the first queue for the thread to write to/process
+//queueNum (size_t) - The queue number relative to other queues, used to index in queue array
+//coreNum (size_t) - used to define which core the processing queue should be assigned to
 typedef struct threadArgs{
     queue_t *queue;
     size_t queueNum;
@@ -86,11 +87,10 @@ typedef struct threadArgs{
 
 //Initialize items for input threads
 //queueCount (size_t) - The number of input queues
-//queues (queue_t) - The input queue struct
-//queues (queue_t) - The input queue struct
 //threadIds (pthread_t) - The Id's for ech input thread
 //threadArgs (threadArgs_t) - Arguments to be passed to input threads
-//locks (pthread_mutex_t) - lock for each input queue
+//locks (pthread_mutex_t) - locks for each input queue
+//queues (queue_t) - an array input queue structs
 //finished (size_t) - flag that indicates when a given thread has generated x number of packets
 typedef struct input{
     size_t queueCount;
@@ -104,10 +104,10 @@ input_t input;
 
 //Initialize items for output threads
 //queueCount (size_t) - The number of output queues
-//queues (queue_t) - The output queue struct
 //threadIds (pthread_t) - The Id's for ech output thread
 //threadArgs (threadArgs_t) - Arguments to be passed to output threads
-//locks (pthread_mutex_t) - lock for each output queue
+//locks (pthread_mutex_t) - locks for each output queue
+//queues (queue_t) - an array of output queue structs
 //finished (size_t) - flag that indicates when a given thread has processed x number of packets
 typedef struct output{
     size_t queueCount;
@@ -119,10 +119,10 @@ typedef struct output{
 }output_t;
 output_t output;
 
-// flag used to start moving packets
+// flag used to start moving packets - used by alarm functions
 int startFlag;
 
-// flag used to end algorithm
+// flag used to end algorithm - used by alarm functions
 int endFlag; 
 
 static __inline__ tsc_t rdtsc(void);

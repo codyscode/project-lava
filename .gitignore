@@ -1,2 +1,5 @@
 #VScode stuff
 *.vscode/
+
+#plots
+visualization/Plots/*

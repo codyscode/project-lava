@@ -8,6 +8,14 @@
 
 #define ALGNAME "singleWire"
 
+typedef struct WorkerThreadArgs{
+    int toGrabCount;
+    queue_t * mainQueue;
+}workerThreadArgs_t;
+
+pthread_t worker;
+workerThreadArgs_t wThreadArgs;
+
 void grabPackets(int toGrabCount, queue_t* mainQueue){
     //Go through each queue and grab the stated amount of packets from it
     for(int qIndex = 0; qIndex < input.queueCount; qIndex++){
@@ -90,17 +98,11 @@ void passPackets(queue_t* mainQueue){
     }
 }
 
-void *run(void *argsv){
-    //The amount of packets to grab from each queue. This algorithm gives all queues equal priority
-    int toGrabCount = BUFFERSIZE / input.queueCount;
-
-    //The main "wire" queue where everything will be written
-    queue_t *mainQueue = Malloc(sizeof(queue_t));
-    mainQueue->toRead = 0;
-    mainQueue->toWrite = 0;
-
-    //set the alarm
-    alarm_init();
+void * workerThread(void* args){
+    //Get argument struct into local variables
+    workerThreadArgs_t wargs = *((workerThreadArgs_t *)args);
+    int toGrabCount = (int)(wargs.toGrabCount);
+    queue_t * mainQueue = (queue_t *)(wargs.mainQueue);
 
     //Set the thread to its own core
     //+1 is neccessary as we have core 0, input threads, output threads
@@ -118,6 +120,39 @@ void *run(void *argsv){
     }
 
     free(mainQueue);
+
+    return NULL;
+}
+
+void *run(void *argsv){
+    //The amount of packets to grab from each queue. This algorithm gives all queues equal priority
+    int toGrabCount = BUFFERSIZE / input.queueCount;
+
+    //The main "wire" queue where everything will be written
+    queue_t *mainQueue = Malloc(sizeof(queue_t));
+    mainQueue->toRead = 0;
+    mainQueue->toWrite = 0;
+
+    //set the alarm
+    alarm_init();
+
+    //Initialize thread attributes
+    pthread_attr_t attrs;
+    pthread_attr_init(&attrs);
+
+    wThreadArgs.mainQueue = mainQueue;
+    wThreadArgs.toGrabCount = toGrabCount;
+
+    //Tell the system we are setting the schedule for the thread, instead of inheriting
+    if(pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED)) {
+        perror("pthread_attr_setinheritsched");
+    }
+
+    //Spawn the worker thread
+    Pthread_create(&worker, &attrs, workerThread, (void *)&wThreadArgs);
+
+    //Wait for the thread to finish
+    Pthread_join(worker, NULL);
 
     return NULL;
 }

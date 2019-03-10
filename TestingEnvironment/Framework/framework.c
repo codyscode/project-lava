@@ -1,3 +1,8 @@
+//This is meant to act as a test bed for algorithms that pass packets between two spaces.
+//The framework consists of input and output queues that serve as the "connection" between the two spaces,
+//with the input queues representing a queue in a NIC and the output queue representing passing to the other
+//workload in order
+
 // -Algorithm speed is measured by the main function.
 // -The algorithm allows the run function to go for 3 seconds, measures the count, run for 10 seconds, then measure the count.
 //  Packets per second is equal to (second count - first count) / 10.
@@ -32,6 +37,7 @@ void* input_thread(void *args){
     set_thread_props(inputArgs->coreNum);
 
     //Each input buffer has 5 flows associated with it that it generates
+    //-------------MODIFY THIS TO size_t---------------
     int flowNum[FLOWS_PER_QUEUE] = {0};
     int currFlow, currLength;
     int offset = queueNum * FLOWS_PER_QUEUE;
@@ -50,7 +56,7 @@ void* input_thread(void *args){
         //Assign a random length to the packet. Length defines the entire packet struct, not just payload
         //Minimum size computed below is MIN_PACKET_SIZE
         //Maximum size computed below is MAX_PACKET_SIZE
-        currLength = rand_r(&seed) % (MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;//(rand() % (MAX_PACKET_SIZE - MIN_PACKET_SIZE)) + MIN_PACKET_SIZE;
+        currLength = rand_r(&seed) % (MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;
 		
 		if(currLength < 0 || currLength > 9000){
 			fprintf(stderr, "ERROR: Invalid length of packet of length %d\n", currLength);
@@ -116,6 +122,8 @@ void* processing_thread(void *args){
         int currFlow = (*processQueue).data[index].flow;
 
 		// set expected order for given flow to the first packet that it sees
+        //-------------REDEFINE FLOWS SUCH THAT THEY RESET TO SIMULATE REAL WORLD PACKETS--------
+        //-------------IF A 0 IS SEEN IN FLOW, THEN RESET EXPECTED[FLOW] TO 0---------
 		if(expected[currFlow] == 0){
 			expected[currFlow] = (*processQueue).data[index].order;
 		}

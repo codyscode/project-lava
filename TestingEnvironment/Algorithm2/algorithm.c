@@ -28,9 +28,6 @@ void multiGrabPackets(int toGrabCount, int baseInputQueueIndex, int numInputQueu
     int maxQueueIndex = baseInputQueueIndex + numInputQueues;
     for(int qIndex = baseInputQueueIndex; qIndex <  maxQueueIndex; qIndex++){
         for(int packetCount = 0; packetCount < toGrabCount; packetCount++){
-            //Indicate that data is being written and we need to wait until its fully written
-            FENCE()
-
             //Used for readability
             int mainWriteIndex = (*mainQueue).toWrite;
             int inputReadIndex = input.queues[qIndex].toRead;
@@ -58,11 +55,11 @@ void multiGrabPackets(int toGrabCount, int baseInputQueueIndex, int numInputQueu
             (*mainQueue).toWrite++;
             (*mainQueue).toWrite = (*mainQueue).toWrite % BUFFERSIZE;
 
-            //Indicate the space is free to write to in the input queue
-            input.queues[qIndex].data[inputReadIndex].flow = 0;
-            
             //Make sure everything is written/erased
             FENCE()
+
+            //Indicate the space is free to write to in the input queue
+            input.queues[qIndex].data[inputReadIndex].flow = 0;
         }
     }
 }
@@ -70,9 +67,6 @@ void multiGrabPackets(int toGrabCount, int baseInputQueueIndex, int numInputQueu
 void multiPassPackets(int baseOutputQueuesIndex, int numOutputQueues, queue_t* mainQueue){
     //Go through mainQueue and write its contents to the appropriate output queue
     while(1){
-        //Tell the computer that we want to make sure this data is written
-        FENCE()
-
         //Used for readability
         int mainReadIndex = (*mainQueue).toRead;
 
@@ -96,19 +90,18 @@ void multiPassPackets(int baseOutputQueuesIndex, int numOutputQueues, queue_t* m
         output.queues[qIndex].data[outputWriteIndex].order = (*mainQueue).data[mainReadIndex].order;
         output.queues[qIndex].data[outputWriteIndex].flow = (*mainQueue).data[mainReadIndex].flow;
 
-        //Indicate the space is free to write to in the main queue
-        (*mainQueue).data[mainReadIndex].flow = 0;
-
         //Indicate the next spot to write to in the output queue
         output.queues[qIndex].toWrite++;
         output.queues[qIndex].toWrite = output.queues[qIndex].toWrite % BUFFERSIZE;
 
+        //Make sure everything is written/erased
+        FENCE()
+        //Indicate the space is free to write to in the main queue
+        (*mainQueue).data[mainReadIndex].flow = 0;
+
         //Indicade the next spot to read from in the main queue
         (*mainQueue).toRead++;
         (*mainQueue).toRead = (*mainQueue).toRead % BUFFERSIZE;
-
-        //Make sure everything is written/erased
-        FENCE()
     }
 }
 
