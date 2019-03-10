@@ -96,6 +96,7 @@ void multiPassPackets(int baseOutputQueuesIndex, int numOutputQueues, queue_t* m
 
         //Make sure everything is written/erased
         FENCE()
+        
         //Indicate the space is free to write to in the main queue
         (*mainQueue).data[mainReadIndex].flow = 0;
 
