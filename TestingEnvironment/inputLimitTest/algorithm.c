@@ -12,17 +12,18 @@ pthread_t algThreadIDS[2];
 size_t count;
 
 void* testInputGeneration(void* args){
+    //Assign threads to queues
+    int qIndex = *((int *)args);
+
     //Assign thread to test core
-    int testCore = input.queueCount + output.queueCount + 2;
+    int testCore = input.queueCount + output.queueCount + 3 + qIndex;
     
     //Set the thread to its own core
     set_thread_props(testCore);
 
-    //Assign threads to queues
-    int qIndex = 0;
-    int order = 0;
-    int flow = 1;
     int inputReadIndex = 0;
+    size_t tempOrder;
+    size_t tempFlow;
 
     //Go through mainQueue and write its contents to the appropriate output queue
     while(1){
@@ -31,67 +32,72 @@ void* testInputGeneration(void* args){
             ;
         }
         
+        //simulate grabbing data
+        tempOrder = input.queues[qIndex].data[inputReadIndex].order;
+        tempFlow = input.queues[qIndex].data[inputReadIndex].flow;
+
         //mark the spot as free
-        //Dont need to grab data as we are seeing how fast input threads generate
         input.queues[qIndex].data[inputReadIndex].flow = 0;
 
         //Indicate the next spot to read from in the input queue
-        if(inputReadIndex == BUFFERSIZE - 1){
-            inputReadIndex = 0;
-        }
-        else{
-            inputReadIndex++;
-        }
-
-        //Increment the number of packets grabbed
-        count++;
+        inputReadIndex++;
+        inputReadIndex = inputReadIndex % BUFFERSIZE;
     }
 }
 
 void* determineSpeedInput(void* args){
-    int spdCore = input.queueCount + output.queueCount + 3;
     int i = 0;
 
-    //Set the thread to its own core
+    //Set this thread to its own core
+    int spdCore = input.queueCount + output.queueCount + 2;
     set_thread_props(spdCore);
 
-    size_t currTotal = 0;
-    size_t prevTotal = currTotal;
-    size_t toPrint = 0;
+    size_t currTotal[8] = {0};
+    size_t prevTotal[8] = {0};
 
     //Sample 10 times
     while(i < 10){
         //Every 1 Second Sample number of packets grabbed
         usleep(1000000);
 
-        currTotal = count;
-        toPrint = (currTotal - prevTotal);
+        //Sample number of packets generated for all input queues
+        for(int qIndex = 0; qIndex < input.queueCount; qIndex++){
+            currTotal[qIndex] = input.queues[qIndex].count;
 
-        printf("*Grabbing %lu packets per second\n", toPrint);
-        fflush(NULL);
+            printf("Grabbing %lu packets per second from queue %d\n", currTotal[qIndex] - prevTotal[qIndex], qIndex);
 
-        prevTotal = currTotal;
+            prevTotal[qIndex] = currTotal[qIndex];
+        }
+
+        printf("\n");
+
         i++;
     }
 }
 
 void *run(void *argsv){
-    printf("*Starting Metric\n");
+    printf("Starting Metric\n");
     fflush(NULL);
 
     //set the core
     int runCore = input.queueCount + output.queueCount + 1;
 
+    //queue num
+    int queueNum[MAX_NUM_INPUT_QUEUES];
+
     //Set the thread to its own core
     set_thread_props(runCore);
     
-    //Create the grabber thread
-    Pthread_create(&algThreadIDS[0], NULL, testInputGeneration, NULL);
+    //Create the tester threads
+    for(int i = 0; i < input.queueCount; i++){
+        queueNum[i] = i;
+        //Create the grabber threads
+        Pthread_create(&algThreadIDS[i], NULL, testInputGeneration, (void *)&queueNum[i]);
 
-    //detach grabber thread
-    Pthread_detach(algThreadIDS[0]);
+        //detach grabber thread
+        Pthread_detach(algThreadIDS[i]);
+    }
 
-    //Create the measuring thread
     Pthread_create(&algThreadIDS[1], NULL, determineSpeedInput, NULL);
 
     //Wait for ten samples

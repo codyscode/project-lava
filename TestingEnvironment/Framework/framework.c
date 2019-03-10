@@ -41,8 +41,6 @@ void* input_thread(void *args){
     int flowNum[FLOWS_PER_QUEUE] = {0};
     int currFlow, currLength;
     int offset = queueNum * FLOWS_PER_QUEUE;
-
-    int flow = 1;
 	
     //Continuously generate input numbers until the buffer fills up. 
     //Once it hits an entry that is not empty, it will wait until the input is grabbed.
@@ -51,22 +49,12 @@ void* input_thread(void *args){
     while(1){
         //Assign a random flow within a range: [n, n + 1, n + 2, n + 3, n + 4]. +1 is to avoid the 0 flow
         currFlow = (rand_r(&seed) % FLOWS_PER_QUEUE) + offset + 1;
-        flow++;
 
         //Assign a random length to the packet. Length defines the entire packet struct, not just payload
         //Minimum size computed below is MIN_PACKET_SIZE
         //Maximum size computed below is MAX_PACKET_SIZE
         currLength = rand_r(&seed) % (MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;
 		
-		if(currLength < 0 || currLength > 9000){
-			fprintf(stderr, "ERROR: Invalid length of packet of length %d\n", currLength);
-			exit(1);
-		}
-		
-		if(currLength < 0 || currFlow <= 0){
-			fprintf(stderr, "*ERROR: generating packet with currFlow: %d, currLength: %d", currFlow, currLength);
-			exit(0);
-		}
         //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
         while((*inputQueue).data[index].flow != 0){
             ;
@@ -83,6 +71,9 @@ void* input_thread(void *args){
         //Update the next spot to be written in the queue
         index++;
         index = index % BUFFERSIZE;
+
+        //Increment the number of packets generated
+        (*inputQueue).count++;
     }
 }
 

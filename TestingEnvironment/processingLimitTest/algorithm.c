@@ -12,9 +12,9 @@ pthread_t algThreadIDS[2];
 
 void* testProcessing(void* args){
     //Assign thread to test core
-    int testCore = input.queueCount + output.queueCount + 2;
     int queueNum = *((int *)args);
-    
+    int testCore = input.queueCount + output.queueCount + 3 + queueNum;
+
     //Set the thread to its own core
     set_thread_props(testCore);
 
@@ -48,31 +48,33 @@ void* testProcessing(void* args){
 }
 
 void* determineSpeedOutput(void* args){
-    int spdCore = input.queueCount + output.queueCount + 3;
+    int spdCore = input.queueCount + output.queueCount + 2;
     int i = 0;
-    int queueNum = *((int *)args);
 
     //Set the thread to its own core
     set_thread_props(spdCore);
 
-    size_t currTotal = 0;
-    size_t prevTotal = currTotal;
-    size_t toPrint = 0;
+    size_t currTotal[8] = {0};
+    size_t prevTotal[8] = {0};
 
     //Sample 10 times
     while(i < 10){
         //Every 1 Second Sample number of packets processed
         usleep(1000000);
 
-        currTotal = output.queues[0].count;
-        toPrint = (currTotal - prevTotal);
+        //Sample number of packets generated for all input queues
+        for(int qIndex = 0; qIndex < output.queueCount; qIndex++){
+            currTotal[qIndex] = output.queues[qIndex].count;
 
-        printf("Processing %lu packets per second on queue %d\n", toPrint, queueNum);
-        fflush(NULL);
+            printf("Processing %lu packets per second in queue %d\n", currTotal[qIndex] - prevTotal[qIndex], qIndex);
 
-        prevTotal = currTotal;
+            prevTotal[qIndex] = currTotal[qIndex];
+        }
+        
+        printf("\n");
         i++;
     }
+    return NULL;
 }
 
 void *run(void *argsv){
@@ -88,7 +90,7 @@ void *run(void *argsv){
     set_thread_props(runCore);
     
     //Create the passer threads
-    for(int i = 0; i < input.queueCount; i++){
+    for(int i = 0; i < output.queueCount; i++){
         queueNum[i] = i;
         Pthread_create(&algThreadIDS[0], NULL, testProcessing, &queueNum[i]);
 
@@ -96,16 +98,9 @@ void *run(void *argsv){
         Pthread_detach(algThreadIDS[0]);
     }
 
-    for(int i = 0; i < input.queueCount; i++){
-        //Create the measuring thread
-        Pthread_create(&algThreadIDS[1], NULL, determineSpeedOutput, &queueNum[i]);
-    }
+    Pthread_create(&algThreadIDS[1], NULL, determineSpeedOutput, NULL);
 
-
-    for(int i = 0; i < input.queueCount; i++){
-        //Wait for ten samples to finish
-        Pthread_join(algThreadIDS[1], NULL);
-    }
+    Pthread_join(algThreadIDS[1], NULL);
 }
 
 char* getName(){
