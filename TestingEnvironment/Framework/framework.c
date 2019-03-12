@@ -1,3 +1,8 @@
+//This is meant to act as a test bed for algorithms that pass packets between two spaces.
+//The framework consists of input and output queues that serve as the "connection" between the two spaces,
+//with the input queues representing a queue in a NIC and the output queue representing passing to the other
+//workload in order
+
 // -Algorithm speed is measured by the main function.
 // -The algorithm allows the run function to go for 3 seconds, measures the count, run for 10 seconds, then measure the count.
 //  Packets per second is equal to (second count - first count) / 10.
@@ -32,6 +37,7 @@ void* input_thread(void *args){
     set_thread_props(inputArgs->coreNum);
 
     //Each input buffer has 5 flows associated with it that it generates
+    //-------------MODIFY THIS TO size_t---------------
     int flowNum[FLOWS_PER_QUEUE] = {0};
     int currFlow, currLength;
     int offset = queueNum * FLOWS_PER_QUEUE;
@@ -39,24 +45,16 @@ void* input_thread(void *args){
     //Continuously generate input numbers until the buffer fills up. 
     //Once it hits an entry that is not empty, it will wait until the input is grabbed.
     int index = 0;
+	int seed = time(NULL);
     while(1){
         //Assign a random flow within a range: [n, n + 1, n + 2, n + 3, n + 4]. +1 is to avoid the 0 flow
-        currFlow = (rand() % FLOWS_PER_QUEUE) + offset + 1;
+        currFlow = (rand_r(&seed) % FLOWS_PER_QUEUE) + offset + 1;
 
         //Assign a random length to the packet. Length defines the entire packet struct, not just payload
         //Minimum size computed below is MIN_PACKET_SIZE
         //Maximum size computed below is MAX_PACKET_SIZE
-        currLength = rand() % (MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;//(rand() % (MAX_PACKET_SIZE - MIN_PACKET_SIZE)) + MIN_PACKET_SIZE;
+        currLength = rand_r(&seed) % (MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;
 		
-		if(currLength < 0 || currLength > 9000){
-			fprintf(stderr, "ERROR: Invalid length of packet of length %d\n", currLength);
-			exit(1);
-		}
-		
-		if(currLength < 0 || currFlow <= 0){
-			fprintf(stderr, "*ERROR: generating packet with currFlow: %d, currLength: %d", currFlow, currLength);
-			exit(0);
-		}
         //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
         while((*inputQueue).data[index].flow != 0){
             ;
@@ -73,6 +71,9 @@ void* input_thread(void *args){
         //Update the next spot to be written in the queue
         index++;
         index = index % BUFFERSIZE;
+
+        //Increment the number of packets generated
+        (*inputQueue).count++;
     }
 }
 
@@ -112,6 +113,8 @@ void* processing_thread(void *args){
         int currFlow = (*processQueue).data[index].flow;
 
 		// set expected order for given flow to the first packet that it sees
+        //-------------REDEFINE FLOWS SUCH THAT THEY RESET TO SIMULATE REAL WORLD PACKETS--------
+        //-------------IF A 0 IS SEEN IN FLOW, THEN RESET EXPECTED[FLOW] TO 0---------
 		if(expected[currFlow] == 0){
 			expected[currFlow] = (*processQueue).data[index].order;
 		}
@@ -153,11 +156,15 @@ void main(int argc, char**argv){
         printf("*Usage: Queues <# input queues>, <# output queues>\n");
         exit(0);
     }
-	
-	// set seed for rand()
-	srand(time(NULL));
 
+    assign_to_zero();
+	
+    //Get the algorithm name
     char* algName = getName();
+
+    //Initialize the stop/start flags for the algorithm
+    startFlag = 0;
+    endFlag = 0;
 
     //Grab the number of input and output queues to use
     input.queueCount = atoi(argv[1]);
@@ -242,9 +249,8 @@ void main(int argc, char**argv){
         Pthread_detach(output.threadIDs[index]);
     }
 
-
     //Print out testing information to the user
-    //printf("\nTesting with: \n%lu Input Queues \n%lu Output Queues\n\n", input.queueCount, output.queueCount);
+    printf("\nTesting with: \n%lu Input Queues \n%lu Output Queues\n\n", input.queueCount, output.queueCount);
 
     //Allow buffers to fill
 	for(int i = 0; i < input.queueCount; i++){
@@ -254,10 +260,8 @@ void main(int argc, char**argv){
     //Run thread ID
     pthread_t runID;
 
-    //Spawn the thread that handles the algorithm portion.
-    //We are allowed to spawn threads from threads, so there is no conflict here
-    Pthread_create(&runID, &attrs, run, NULL);
-	Pthread_join(runID, NULL);
+    //Run the algorithm
+    run(NULL);
 	
 	// check if first and last position of queues are empty
 	// this works since queues are written in a sequential order
@@ -276,7 +280,24 @@ void main(int argc, char**argv){
     //Output the data to a file
 	printf("Success, passed all packets in order!\n");
 	
-	FILE *fptr = Fopen(OUTPUTFILE, "a");
-    fprintf(fptr, "%s, %lu, %lu, %lu\n", algName, input.queueCount, output.queueCount, finalCount/RUNTIME);
+	FILE *fptr;
+	char fileName[10000];
+	
+	// append .csv to algorithm name
+	snprintf(fileName, sizeof(fileName),"%s.csv", algName);
+	
+	// file exists
+	if(access(fileName, F_OK) != -1){
+		fptr = Fopen(fileName, "a");
+	}
+	// file does not exit, append header
+	else{
+		fptr = Fopen(fileName, "a");
+		fprintf(fptr, "Algorithm,Input,Output,Packet\n");
+	}	
+	
+    fprintf(fptr, "%s,%lu,%lu,%lu\n", algName, input.queueCount, output.queueCount, finalCount/RUNTIME);
 	fclose(fptr);
+	
+	printf("%s,%lu,%lu,%lu\n", algName, input.queueCount, output.queueCount, finalCount/RUNTIME);
 } 

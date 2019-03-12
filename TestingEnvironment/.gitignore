@@ -14,3 +14,6 @@ testenv.o
 
 #VScode stuff
 .vscode
+
+#csv files
+*.csv

@@ -16,19 +16,18 @@ typedef struct multiWireArgs{
     int baseOutputQueueNum;
     int numOutputQueuesAssigned;
     int coreNum;
+    int queueNum;
 }margs_t;
 
 pthread_t moverThreadIds[MAX_NUM_INPUT_QUEUES];
 margs_t algThreadArgs[MAX_NUM_INPUT_QUEUES];
+int readySignal[MAX_NUM_INPUT_QUEUES] = {0};
 
 void multiGrabPackets(int toGrabCount, int baseInputQueueIndex, int numInputQueues, queue_t* mainQueue){
     //Go through each queue and grab the stated amount of packets from it
     int maxQueueIndex = baseInputQueueIndex + numInputQueues;
     for(int qIndex = baseInputQueueIndex; qIndex <  maxQueueIndex; qIndex++){
         for(int packetCount = 0; packetCount < toGrabCount; packetCount++){
-            //Indicate that data is being written and we need to wait until its fully written
-            FENCE()
-
             //Used for readability
             int mainWriteIndex = (*mainQueue).toWrite;
             int inputReadIndex = input.queues[qIndex].toRead;
@@ -56,11 +55,11 @@ void multiGrabPackets(int toGrabCount, int baseInputQueueIndex, int numInputQueu
             (*mainQueue).toWrite++;
             (*mainQueue).toWrite = (*mainQueue).toWrite % BUFFERSIZE;
 
-            //Indicate the space is free to write to in the input queue
-            input.queues[qIndex].data[inputReadIndex].flow = 0;
-            
             //Make sure everything is written/erased
             FENCE()
+
+            //Indicate the space is free to write to in the input queue
+            input.queues[qIndex].data[inputReadIndex].flow = 0;
         }
     }
 }
@@ -68,9 +67,6 @@ void multiGrabPackets(int toGrabCount, int baseInputQueueIndex, int numInputQueu
 void multiPassPackets(int baseOutputQueuesIndex, int numOutputQueues, queue_t* mainQueue){
     //Go through mainQueue and write its contents to the appropriate output queue
     while(1){
-        //Tell the computer that we want to make sure this data is written
-        FENCE()
-
         //Used for readability
         int mainReadIndex = (*mainQueue).toRead;
 
@@ -94,19 +90,19 @@ void multiPassPackets(int baseOutputQueuesIndex, int numOutputQueues, queue_t* m
         output.queues[qIndex].data[outputWriteIndex].order = (*mainQueue).data[mainReadIndex].order;
         output.queues[qIndex].data[outputWriteIndex].flow = (*mainQueue).data[mainReadIndex].flow;
 
-        //Indicate the space is free to write to in the main queue
-        (*mainQueue).data[mainReadIndex].flow = 0;
-
         //Indicate the next spot to write to in the output queue
         output.queues[qIndex].toWrite++;
         output.queues[qIndex].toWrite = output.queues[qIndex].toWrite % BUFFERSIZE;
 
+        //Make sure everything is written/erased
+        FENCE()
+        
+        //Indicate the space is free to write to in the main queue
+        (*mainQueue).data[mainReadIndex].flow = 0;
+
         //Indicade the next spot to read from in the main queue
         (*mainQueue).toRead++;
         (*mainQueue).toRead = (*mainQueue).toRead % BUFFERSIZE;
-
-        //Make sure everything is written/erased
-        FENCE()
     }
 }
 
@@ -121,20 +117,31 @@ void* movePackets(void* vargs){
     int baseInputQueueIndex = (*args).baseInputQueueNum;
     int numOutputQueues = (*args).numOutputQueuesAssigned;
     int baseOutputQueuesIndex = (*args).baseOutputQueueNum;
+    int queueNum = (*args).queueNum;
 
     //The amount of packets to grab from each queue. This algorithm gives all queues equal priority
     int toGrabCount = BUFFERSIZE / numInputQueues;
 
     //The main "wire" queue where everything will be written
-    queue_t mainQueue;
-    mainQueue.toRead = 0;
-    mainQueue.toWrite = 0;
+    queue_t *mainQueue = Malloc(sizeof(queue_t));
+    mainQueue->toRead = 0;
+    mainQueue->toWrite = 0;
 
-    //Start moving packets
-    while(1){
-        multiGrabPackets(toGrabCount, baseInputQueueIndex, numInputQueues, &mainQueue);
-        multiPassPackets(baseOutputQueuesIndex, numOutputQueues, &mainQueue);
+    //Signal that the queue is ready to move packets
+    readySignal[queueNum] = 1;
+
+    //wait for the alarm to start
+    while(startFlag == 0);
+
+    //Start moving packets until the alarm goes off
+    while(endFlag == 0){
+        multiGrabPackets(toGrabCount, baseInputQueueIndex, numInputQueues, mainQueue);
+        multiPassPackets(baseOutputQueuesIndex, numOutputQueues, mainQueue);
     }
+
+    free(mainQueue);
+
+    return NULL;
 }
 
 void assignQueues(int numQueuesToAssign[], int baseQueuesToAssign[], int passerQueueCount, int queueCountTracker){
@@ -162,14 +169,15 @@ void assignQueues(int numQueuesToAssign[], int baseQueuesToAssign[], int passerQ
 }
 
 void *run(void *argsv){
-    //Set the schedule for the run thread
-    int baseCore = input.queueCount + output.queueCount + 1;
-    set_thread_props(baseCore);
-    baseCore++;
-
     //Initialize thread attributes
     pthread_attr_t attrs;
     pthread_attr_init(&attrs);
+
+    //Set the schedule for the run thread
+    int baseCore = input.queueCount + output.queueCount + 1;
+
+    //initialize the alarm
+    alarm_init();
 
     //Determine if there are more input or output queues
     int passerQueueCount;
@@ -204,7 +212,8 @@ void *run(void *argsv){
         algThreadArgs[i].baseInputQueueNum = baseInputQueuesToAssign[i];
         algThreadArgs[i].numOutputQueuesAssigned = numOutputQueuestoAssign[i];
         algThreadArgs[i].baseOutputQueueNum = baseOutputQueuesToAssign[i];
-        algThreadArgs[i].coreNum = baseCore + i;
+        algThreadArgs[i].coreNum = baseCore + i + 1;
+        algThreadArgs[i].queueNum = i;
 
         //Tell the system we are setting the schedule for the thread, instead of inheriting
         if(pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED)) {
@@ -212,8 +221,23 @@ void *run(void *argsv){
         }
 
         //Create the thread
-        Pthread_create(&moverThreadIds[i], NULL, movePackets, (void *)&algThreadArgs[i]);
+        Pthread_create(&moverThreadIds[i], &attrs, movePackets, (void *)&algThreadArgs[i]);
     }
+
+    //Once all the queues are ready to start passing start the alarm
+    for(int i = 0; i < passerQueueCount; i++){
+        while(readySignal[i] == 0);
+    }
+
+    set_thread_props(baseCore);
+
+    alarm_start();
+    
+    for(int i = 0; i < passerQueueCount; i++){
+        Pthread_join(moverThreadIds[i], NULL);
+    }
+
+    return NULL;
 }
 
 char* getName(){

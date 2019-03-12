@@ -6,19 +6,20 @@
 #include"../Framework/global.h"
 #include"../Framework/wrapper.h"
 
-#define ALGNAME "*processLimit"
+#define ALGNAME "processLimit"
 
 pthread_t algThreadIDS[2];
 
 void* testProcessing(void* args){
     //Assign thread to test core
-    int testCore = input.queueCount + output.queueCount + 2;
-    
+    int queueNum = *((int *)args);
+    int testCore = input.queueCount + output.queueCount + 3 + queueNum;
+
     //Set the thread to its own core
     set_thread_props(testCore);
 
     //Assign threads to queues
-    int qIndex = 0;
+    int qIndex = queueNum;
     int order = 0;
     int flow = 1;
     int outputWriteIndex = 0;
@@ -47,52 +48,58 @@ void* testProcessing(void* args){
 }
 
 void* determineSpeedOutput(void* args){
-    int spdCore = input.queueCount + output.queueCount + 3;
+    int spdCore = input.queueCount + output.queueCount + 2;
     int i = 0;
 
     //Set the thread to its own core
     set_thread_props(spdCore);
 
-    size_t currTotal = 0;
-    size_t prevTotal = currTotal;
-    size_t toPrint = 0;
+    size_t currTotal[8] = {0};
+    size_t prevTotal[8] = {0};
 
     //Sample 10 times
     while(i < 10){
         //Every 1 Second Sample number of packets processed
         usleep(1000000);
 
-        currTotal = output.queues[0].count;
-        toPrint = (currTotal - prevTotal);
+        //Sample number of packets generated for all input queues
+        for(int qIndex = 0; qIndex < output.queueCount; qIndex++){
+            currTotal[qIndex] = output.queues[qIndex].count;
 
-        printf("*Processing %lu packets per second\n", toPrint);
-        fflush(NULL);
+            printf("Processing %lu packets per second in queue %d\n", currTotal[qIndex] - prevTotal[qIndex], qIndex);
 
-        prevTotal = currTotal;
+            prevTotal[qIndex] = currTotal[qIndex];
+        }
+        
+        printf("\n");
         i++;
     }
+    return NULL;
 }
 
 void *run(void *argsv){
-    printf("*Starting Metric\n");
+    printf("Starting Metric\n");
     fflush(NULL);
 
     //set the core
     int runCore = input.queueCount + output.queueCount + 1;
 
+    int queueNum[MAX_NUM_INPUT_QUEUES];
+
     //Set the thread to its own core
     set_thread_props(runCore);
     
-    //Create the passer thread
-    Pthread_create(&algThreadIDS[0], NULL, testProcessing, NULL);
+    //Create the passer threads
+    for(int i = 0; i < output.queueCount; i++){
+        queueNum[i] = i;
+        Pthread_create(&algThreadIDS[0], NULL, testProcessing, &queueNum[i]);
 
-    //detach passer thread
-    Pthread_detach(algThreadIDS[0]);
+        //detach passer thread
+        Pthread_detach(algThreadIDS[0]);
+    }
 
-    //Create the measuring thread
     Pthread_create(&algThreadIDS[1], NULL, determineSpeedOutput, NULL);
 
-    //Wait for ten samples
     Pthread_join(algThreadIDS[1], NULL);
 }
 
