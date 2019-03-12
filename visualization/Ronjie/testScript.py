@@ -53,7 +53,7 @@ def scatterSubPlot( fd, input, baseName, directory):
 	plt.figure
 	scatt = sns.scatterplot(x="Input" , y= "Packet",hue ="Output", dodge = True, data= fd)
     scatt.fig.suptitle(baseName)
-	plt.plot(data = fd)
+	plt.plot(fd)
     filename = 'scatter_'+ baseName+".png"
     scatt.savefig(filename)
 	CWD = os.getcwd()
@@ -128,7 +128,11 @@ def runCat(fileName, fileNum):
     del fd
          
 
-
+def runScat(fileName, fileNum):
+    baseName =  Path(fileName).stem
+    fd = pd.read_csv(fileName)
+    scatterSubPlot(fd,fileNum, baseName, os.path.join(os.getcwd(), 'Plots'))
+    del fd
 """
 Finds all .csv files from specified directory and creates a cat Plot for that run
 """
@@ -141,7 +145,7 @@ def singleRun(directoryPath):
                 filePath = os.path.join(folderPath,file)
                 print(os.path.splitext(filePath)[0])
                 runCat(filePath, numberFiles)
-				
+				runScat(filePath, numberFiles)
                 numberFiles +=1
     return numberFiles
     
@@ -176,4 +180,4 @@ directory = os.path.join(os.getcwd(),sys.argv[1])
 checkDirectory()
 num =singleRun(directory)
 collectionRun(directory, num)
-print(num
+print(num)
