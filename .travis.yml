@@ -9,4 +9,4 @@ env:
 sudo: true
 
 script:
-        - sudo ./mainScript.sh -q
+        - ./mainScript.sh -q
