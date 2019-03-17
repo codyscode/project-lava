@@ -18,6 +18,7 @@
 #include"global.h"
 #include"wrapper.h"
 #include"algorithm.h"
+#include <locale.h>
 
 //The job of the input threads is to make packets to populate the buffers. As of now the packets are stored in a buffer.
 //--Need to work out working memory simulation for packet retrieval--
@@ -37,7 +38,6 @@ void* input_thread(void *args){
     set_thread_props(inputArgs->coreNum);
 
     //Each input buffer has 5 flows associated with it that it generates
-    //-------------MODIFY THIS TO size_t---------------
     int flowNum[FLOWS_PER_QUEUE] = {0};
     int currFlow, currLength;
     int offset = queueNum * FLOWS_PER_QUEUE;
@@ -121,11 +121,12 @@ void* processing_thread(void *args){
         //Implementing less than currflow causes race conditions with writing
         //Any line that starts with a * is ignored by python script
         if(expected[currFlow] != (*processQueue).data[index].order){
-            
+            //Print out the contents of the processing queue that caused an error
             for(int i = 0; i < BUFFERSIZE; i++){
-                //printf("*Position: %d, Flow: %ld, Order: %ld\n", i, (*processQueue).data[i].flow, (*processQueue).data[i].order);
+                printf("*Position: %d, Flow: %ld, Order: %ld\n", i, (*processQueue).data[i].flow, (*processQueue).data[i].order);
             }
             
+            //Print out the specific packet that caused the error to the user
             printf("*Error Packet: Flow %lu | Order %lu\n", (*processQueue).data[index].flow, (*processQueue).data[index].order);
             printf("*Packet out of order in Output Queue %d. Expected %d | Got %lu\n", queueNum, expected[currFlow], (*processQueue).data[index].order);
             exit(0);
@@ -148,41 +149,8 @@ void* processing_thread(void *args){
     }
 }
 
-void main(int argc, char**argv){
-    //Error checking for proper running
-    if (argc < 3){
-        printf("*Usage: Queues <# input queues>, <# output queues>\n");
-        exit(0);
-    }
-
-    assign_to_zero();
-	
-    //Get the algorithm name
-    char* algName = getName();
-
-    //Initialize the stop/start flags for the algorithm
-    startFlag = 0;
-    endFlag = 0;
-
-    //Grab the number of input and output queues to use
-    input.queueCount = atoi(argv[1]);
-    output.queueCount = atoi(argv[2]);
-
-    //Make sure that the number of input and output queues is valid
-    assert(input.queueCount <= MAX_NUM_INPUT_QUEUES);
-    assert(output.queueCount <= MAX_NUM_OUTPUT_QUEUES);
-    assert(input.queueCount > 0 && output.queueCount > 0);
-
-    //Initialize thread attributes
-    pthread_attr_t attrs;
-    pthread_attr_init(&attrs);
-
-    //Tell the system we are setting the schedule for the thread, instead of inheriting
-    if(pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED)) {
-        perror("pthread_attr_setinheritsched");
-    }
-
-    //initialize input queues
+void init_queues(){
+    //initialize input queues to all 0 values
     for(int queueIndex = 0; queueIndex < input.queueCount; queueIndex++){
         for(int dataIndex = 0; dataIndex < BUFFERSIZE; dataIndex++){
             input.queues[queueIndex].data[dataIndex].flow = 0;
@@ -192,7 +160,7 @@ void main(int argc, char**argv){
         input.queues[queueIndex].toWrite = 0;
     }
 
-    //initialize ouput queues
+    //initialize ouput queues to all 0 values
     for(int queueIndex = 0; queueIndex < output.queueCount; queueIndex++){
         for(int dataIndex = 0; dataIndex < BUFFERSIZE; dataIndex++){
             output.queues[queueIndex].data[dataIndex].flow = 0;
@@ -201,8 +169,9 @@ void main(int argc, char**argv){
         output.queues[queueIndex].toRead = 0;
         output.queues[queueIndex].toWrite = 0;
     }
+}
 
-    int mutexErr;
+void init_locks(){
     //Initialize input locks
     for(int index = 0; index < MAX_NUM_INPUT_QUEUES; index++){
         Pthread_mutex_init(&input.locks[index], NULL);
@@ -212,10 +181,12 @@ void main(int argc, char**argv){
     for(int index = 0; index < MAX_NUM_OUTPUT_QUEUES; index++){
         Pthread_mutex_init(&output.locks[index], NULL);
     }
+}
 
-    int pthreadErr;
+void create_input_queues(pthread_attr_t attrs){
+    //Core for each input thread to be assigned to
     int core = 1;
-    //create the input generation threads.
+
     //Each input queue has a thread associated with it
     for(int index = 0; index < input.queueCount; index++){
         //Initialize Thread Arguments with first queue and number of queues
@@ -231,7 +202,15 @@ void main(int argc, char**argv){
         Pthread_detach(input.threadIDs[index]);
     }
 
-    //create the output processing threads.
+    //Indicate to user that input queues have spawned
+    printf("\nSpawned %lu input queue(s)\n", input.queueCount);
+}
+
+void create_output_queues(pthread_attr_t attrs){
+    //Core for each output thread to be assigned to
+    //Next available queue after cores have been assigned ot input queues
+    int core = input.queueCount + 1;
+
     //Each output queue has a thread associated with it
     for(int index = 0; index < output.queueCount; index++){
         //Initialize Thread Arguments with first queue and number of queues
@@ -246,57 +225,128 @@ void main(int argc, char**argv){
         //Detach the thread
         Pthread_detach(output.threadIDs[index]);
     }
+    
+    //Indicate to user that output queues have spawned
+    printf("Spawned %lu output queue(s)\n", output.queueCount);
+}
 
-    //Print out testing information to the user
-    printf("\nTesting with: \n%lu Input Queues \n%lu Output Queues\n\n", input.queueCount, output.queueCount);
-
-    //Allow buffers to fill
+void fill_queues(){
+    //Allow input buffers to fill before starting algorithm
     for(int i = 0; i < input.queueCount; i++){
-        while(input.queues[i].data[BUFFERSIZE-1].flow != 0);
+        while(input.queues[i].data[BUFFERSIZE-1].flow != FREE_SPACE_TO_WRITE);
     }
 
-    //Run thread ID
-    pthread_t runID;
+    //Indicate to the user that the tests are starting
+    printf("\nStarting Metric...\n");
+}
 
-    //Run the algorithm
-    run(NULL);
-	
-    // check if first and last position of queues are empty
-    // this works since queues are written in a sequential order
+void drain_queues(){
+    //Check if first and last position of queues are empty
+    //This works since queues are written in a sequential order
     for(int i = 0; i < output.queueCount; i++){
-        while(output.queues[i].data[0].flow != 0); 
-        while(output.queues[i].data[BUFFERSIZE-1].flow != 0);
+        while(output.queues[i].data[FIRST_INDEX].flow != FREE_SPACE_TO_WRITE); 
+        while(output.queues[i].data[LAST_INDEX].flow != FREE_SPACE_TO_WRITE);
     }
-	
+}
+
+void output_data(){
+    //Used for formatting numbers with commas
+    setlocale(LC_NUMERIC, "");
+
+    //Get the algorithm name
+    char* algName = getName();
+
+    //Indicate to the user that we are printing the results
+    printf("\nResults:\n");
+
     size_t finalCount = 0;
+    //Output how many packets each output queue processed
     for(int i = 0; i < output.queueCount; i++){
         printf("Queue %d: %ld packets passed in %d seconds\n", i, output.queues[i].count, RUNTIME);
         finalCount += output.queues[i].count;
     }
 
-    //Output the data to a file
-    printf("Success, passed all packets in order!\n");
+    //Print to the user that the tests ran successfully
+    printf("\nSuccess, passed all packets in order!\n");
 	
+    //Create the file to write the data to
     FILE *fptr;
     char fileName[10000];
 	
-    // append .csv to algorithm name
+    //append .csv to algorithm name
     snprintf(fileName, sizeof(fileName),"%s.csv", algName);
 
-    // file exists
+    //if the file alreadty exists, open it
     if(access(fileName, F_OK) != -1){
         fptr = Fopen(fileName, "a");
     }
-    // file does not exit, append header
+    //if the file does not exit, create one, then assign the appropriate head to the .csv file
     else{
         fptr = Fopen(fileName, "a");
         fprintf(fptr, "Algorithm,Input,Output,Packet\n");
     }	
 	
-    //Output data to the file
+    //Output the data to the file
     fprintf(fptr, "%s,%lu,%lu,%lu\n", algName, input.queueCount, output.queueCount, finalCount/RUNTIME);
     fclose(fptr);
 	
-    //Output data to the user
-    printf("%s,%lu,%lu,%lu\n", algName, input.queueCount, output.queueCount, finalCount/RUNTIME);
+    //Output the data to the user
+    printf("\n%s algorithm passed %'lu packets per second\n", algName, finalCount/RUNTIME);
+}
+
+void main(int argc, char**argv){
+    //Error checking for proper running
+    if (argc < 3){
+        printf("*Usage: Queues <# input queues>, <# output queues>\n");
+        exit(0);
+    }
+
+    //Assign the main thread to run on the first core and dont change its scheduling
+    assign_to_zero();
+
+    //Initialize the stop/start flags for the algorithm
+    startFlag = 0;
+    endFlag = 0;
+
+    //Grab the number of input and output queues to use
+    input.queueCount = atoi(argv[1]);
+    output.queueCount = atoi(argv[2]);
+
+    //Make sure that the number of input and output queues is valid
+    assert(input.queueCount <= MAX_NUM_INPUT_QUEUES);
+    assert(output.queueCount <= MAX_NUM_OUTPUT_QUEUES);
+    assert(input.queueCount >= MIN_INPUT_QUEUE_COUNT && output.queueCount >= MIN_OUTPUT_QUEUE_COUNT);
+
+    //Initialize thread attributes
+    pthread_attr_t attrs;
+    pthread_attr_init(&attrs);
+
+    //Tell the system we are setting the schedule for the thread, instead of inheriting
+    Pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED);
+
+    //Initialize all values in the input and output queues
+    init_queues();
+
+    //initialize all mutex locks
+    init_locks();
+
+    //spawn the input generation threads.
+    create_input_queues(attrs);
+
+    //spawn the output processing threads.
+    create_output_queues(attrs);
+
+    //wait for the input queues to fill before we start passing
+    fill_queues();
+
+    //Run the algorithm
+    run(NULL);
+	
+    //wait until the first and last position of all processing queues are empty
+    //Because we are looking at packets passed, instead of processed and the output queues
+    //maintain the count, we wait until the output queues finish counting all the packets passed to them
+    drain_queues();
+
+    //Output all data to user and files
+    output_data();
 } 

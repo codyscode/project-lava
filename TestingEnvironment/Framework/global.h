@@ -23,25 +23,29 @@
 //Constants for threads
 #define BUFFERSIZE 1024
 
-// defines how many seconds an algorithm should run for
+//Defines how many seconds an algorithm should run for
 #define RUNTIME 30
 
-//Used for calibrating the amount of clock cycles in a second
-#define CAL_DUR 2000000ULL
-#define CALIBRATION 5
-
+//Used to determine packet size
 #define MAX_PAYLOAD_SIZE 9000
 #define MIN_PAYLOAD_SIZE 64
 
 #define MIN_PACKET_SIZE 192 + 64
 #define MAX_PACKET_SIZE 192 + 9000
 
+//Number of unique flows that each input queue generates
 #define FLOWS_PER_QUEUE 8
 
-#define HEADER_SIZE 24
+#define FREE_SPACE_TO_WRITE 0
 
-#define OUTPUTFILE "output.csv"
+#define MIN_INPUT_QUEUE_COUNT 1
+#define MIN_OUTPUT_QUEUE_COUNT 1
 
+#define FIRST_INDEX 0
+#define LAST_INDEX BUFFERSIZE - 1
+
+//Define a memory fence that tells the compiler to not reorder instructions
+//In order to make sure writes are in order
 #define FENCE() \
    __asm__ volatile ("mfence" ::: "memory");
 
