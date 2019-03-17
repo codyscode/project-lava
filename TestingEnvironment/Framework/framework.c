@@ -45,7 +45,7 @@ void* input_thread(void *args){
     //Continuously generate input numbers until the buffer fills up. 
     //Once it hits an entry that is not empty, it will wait until the input is grabbed.
     int index = 0;
-	int seed = time(NULL);
+    int seed = time(NULL);
     while(1){
         //Assign a random flow within a range: [n, n + 1, n + 2, n + 3, n + 4]. +1 is to avoid the 0 flow
         currFlow = (rand_r(&seed) % FLOWS_PER_QUEUE) + offset + 1;
