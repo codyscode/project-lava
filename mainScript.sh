@@ -10,7 +10,7 @@ displayHelp() {
 
 #runs all 64 iteration of each algorithm being made
 testAllAlgorithms() {
-	
+	echo ">>>>>>>> RUNNING FULL TEST <<<<<<<<"
 	for dir in ./TestingEnvironment/Algorithm*/ ; do
 		make -C "$dir"
 		 ./testScript.sh
@@ -20,7 +20,7 @@ testAllAlgorithms() {
 
 #quicktestAllAlgorithms only runs one iteration of each algorithm m = 4 n = 4. This is for testing purposes and the data should not be pushed unless it is being used for testing.
 quicktestAllAlgorithms() {
-	echo "in quick test"
+	echo ">>>>>>>> RUNNING QUICK TEST <<<<<<<<<"
         for dir in ./TestingEnvironment/Algorithm*/ ; do
                 make -C "$dir"
                  ./testScript.sh -q
