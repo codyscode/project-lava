@@ -5,7 +5,7 @@
 #disabled for testing but needs to be turned back on for real runs.
 if [ $1 == "-q" ]
 	then 
-		./TestingEnvironment/Framework/framework 1 1
+		./TestingEnvironment/Framework/framework 4 4
 	else
 
 
