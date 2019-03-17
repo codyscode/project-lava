@@ -112,12 +112,10 @@ void* processing_thread(void *args){
         //Get the current flow for the packet
         int currFlow = (*processQueue).data[index].flow;
 
-		// set expected order for given flow to the first packet that it sees
-        //-------------REDEFINE FLOWS SUCH THAT THEY RESET TO SIMULATE REAL WORLD PACKETS--------
-        //-------------IF A 0 IS SEEN IN FLOW, THEN RESET EXPECTED[FLOW] TO 0---------
-		if(expected[currFlow] == 0){
-			expected[currFlow] = (*processQueue).data[index].order;
-		}
+        // set expected order for given flow to the first packet that it sees
+        if(expected[currFlow] == 0){
+            expected[currFlow] = (*processQueue).data[index].order;
+        }
 		
         //Packets order must be equal to the expected order.
         //Implementing less than currflow causes race conditions with writing
@@ -253,9 +251,9 @@ void main(int argc, char**argv){
     printf("\nTesting with: \n%lu Input Queues \n%lu Output Queues\n\n", input.queueCount, output.queueCount);
 
     //Allow buffers to fill
-	for(int i = 0; i < input.queueCount; i++){
-		while(input.queues[i].data[BUFFERSIZE-1].flow != 0);
-	}
+    for(int i = 0; i < input.queueCount; i++){
+        while(input.queues[i].data[BUFFERSIZE-1].flow != 0);
+    }
 
     //Run thread ID
     pthread_t runID;
@@ -263,41 +261,42 @@ void main(int argc, char**argv){
     //Run the algorithm
     run(NULL);
 	
-	// check if first and last position of queues are empty
-	// this works since queues are written in a sequential order
-	for(int i = 0; i < output.queueCount; i++){
-		while(output.queues[i].data[0].flow != 0); 
-		while(output.queues[i].data[BUFFERSIZE-1].flow != 0);
-		
-	}
+    // check if first and last position of queues are empty
+    // this works since queues are written in a sequential order
+    for(int i = 0; i < output.queueCount; i++){
+        while(output.queues[i].data[0].flow != 0); 
+        while(output.queues[i].data[BUFFERSIZE-1].flow != 0);
+    }
 	
     size_t finalCount = 0;
     for(int i = 0; i < output.queueCount; i++){
-		printf("Queue %d: %ld packets passed in %d seconds\n", i, output.queues[i].count, RUNTIME);
+        printf("Queue %d: %ld packets passed in %d seconds\n", i, output.queues[i].count, RUNTIME);
         finalCount += output.queues[i].count;
     }
 
     //Output the data to a file
-	printf("Success, passed all packets in order!\n");
+    printf("Success, passed all packets in order!\n");
 	
-	FILE *fptr;
-	char fileName[10000];
+    FILE *fptr;
+    char fileName[10000];
 	
-	// append .csv to algorithm name
-	snprintf(fileName, sizeof(fileName),"%s.csv", algName);
+    // append .csv to algorithm name
+    snprintf(fileName, sizeof(fileName),"%s.csv", algName);
+
+    // file exists
+    if(access(fileName, F_OK) != -1){
+        fptr = Fopen(fileName, "a");
+    }
+    // file does not exit, append header
+    else{
+        fptr = Fopen(fileName, "a");
+        fprintf(fptr, "Algorithm,Input,Output,Packet\n");
+    }	
 	
-	// file exists
-	if(access(fileName, F_OK) != -1){
-		fptr = Fopen(fileName, "a");
-	}
-	// file does not exit, append header
-	else{
-		fptr = Fopen(fileName, "a");
-		fprintf(fptr, "Algorithm,Input,Output,Packet\n");
-	}	
-	
+    //Output data to the file
     fprintf(fptr, "%s,%lu,%lu,%lu\n", algName, input.queueCount, output.queueCount, finalCount/RUNTIME);
-	fclose(fptr);
+    fclose(fptr);
 	
-	printf("%s,%lu,%lu,%lu\n", algName, input.queueCount, output.queueCount, finalCount/RUNTIME);
+    //Output data to the user
+    printf("%s,%lu,%lu,%lu\n", algName, input.queueCount, output.queueCount, finalCount/RUNTIME);
 } 
