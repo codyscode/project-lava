@@ -14,6 +14,8 @@ import seaborn as sns
 import os
 import shutil
 from pathlib import Path
+from mpl_toolkits.axes_grid1 import ImageGrid
+import numpy as np
 NUMPLOT =0
 """
 Checks to see if "Plots" Folder exists, creates one if it doesnt
@@ -59,6 +61,7 @@ Takes in:
 def catSubPlot( fd, fileNum, baseName, directory):
     plt.figure
     cat = sns.catplot(x="Input" , y= "Packet",hue ="Output", dodge = True, data= fd)
+    cat.set(xlabel="Input Queue Count", ylabel="Packets Per Second")
     cat.fig.suptitle(baseName)
     filename = 'cat_'+ baseName+".png"
     cat.savefig(filename)
@@ -77,9 +80,11 @@ Takes in:
 def barSubPlot( fd, input, fileCount,directory):
     figNum = input+ fileCount
     #print("Fignum is:", figNum)
-    plt.figure(figNum)
-    title = 'InputQueue' + str(input)  
+    plt.figure(figNum, figsize=(10, 10))
+    title = 'Input Queue Count: ' + str(input)  
     sns.barplot(x="Output" , y= "Packet",hue ="Algorithm", dodge = True, data= fd[fd['Input']==input]).set_title(title)
+    plt.xlabel("Output Queue Count")
+    plt.ylabel("Packets Per Second")
     filename = 'bar_collection_'+str(input)+".png"
     plt.figure(figNum).savefig(filename)
     CWD = os.getcwd()
@@ -138,6 +143,7 @@ Reads in all csv files into database then runs
 """
 def collectionRun(directoryPath, fileCount):
     list = []
+    outBar = [8]
     for root,dirs,files in os.walk(directoryPath):
         for file in files:
             if file.endswith(".csv"):
@@ -149,7 +155,7 @@ def collectionRun(directoryPath, fileCount):
                 list.append(df)
 
     big_frame = pd.concat(list, axis = 0, ignore_index = True)
-
+    image = np.arange(100).reshape((10,10))
     for i in range(1, 9):
         barSubPlot(big_frame, i,fileCount, os.path.join(os.getcwd(), 'Plots'))
    
