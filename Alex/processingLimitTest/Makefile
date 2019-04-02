@@ -1,0 +1,26 @@
+#-I: 		Tell the compiler to look in the current directory
+#-g: 		Addds debugging information
+#-Wall: 	Turns on most compiler warnings
+#-std=c99:	Tells which standard we want to use
+CFLAGS = -I. -g -Wall -std=c99 #-O3
+
+#The compiler: gcc for C program, define as g++ for C++
+CC = gcc
+
+#-lm: 			Math 
+#-lpthread:		library and p
+LIBS = -lm -lpthread
+
+#.c source files
+SRC = algorithm.c
+
+#File that should be created
+TARGET = algorithm.o
+
+#Move the algorithm to the framework folder then call make
+default: $(TARGET)
+	mv algorithm.o ../Framework/algorithm.o
+	cd ../Framework && $(MAKE)
+
+$(TARGET): $(SRC)
+	$(CC) $(CFLAGS) -c $(SRC) -o $@ $(LIBS)

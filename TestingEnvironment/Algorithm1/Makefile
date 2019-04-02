@@ -1,6 +1,6 @@
 LDFLAGS=-pthread
 CFLAGS = -I.
-CC=gcc
+CC = gcc
 
 subsystem: algorithm.o
 	mv algorithm.o ../Framework/algorithm.o
