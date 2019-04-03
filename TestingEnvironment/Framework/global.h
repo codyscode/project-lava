@@ -104,7 +104,6 @@ typedef struct input{
     queue_t queues[MAX_NUM_INPUT_QUEUES];
     size_t finished[MAX_NUM_INPUT_QUEUES];
 }input_t;
-input_t input;
 
 //Initialize items for output threads
 //queueCount (size_t) - The number of output queues
@@ -121,7 +120,23 @@ typedef struct output{
     queue_t queues[MAX_NUM_OUTPUT_QUEUES];
     size_t finished[MAX_NUM_OUTPUT_QUEUES];
 }output_t;
-output_t output;
+
+
+typedef struct io{
+    pthread_t threadID;
+    threadArgs_t threadArgs;
+    pthread_mutex_t lock;
+    queue_t queue;
+    size_t finished;
+}io_t;
+
+io_t input[MAX_NUM_INPUT_QUEUES];
+io_t output[MAX_NUM_OUTPUT_QUEUES];
+
+size_t inputQueueCount;
+size_t outputQueueCount;
+
+
 
 // flag used to start moving packets - used by alarm functions
 int startFlag;

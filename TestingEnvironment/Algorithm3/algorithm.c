@@ -26,7 +26,7 @@ void sig_alrm(int signo)
 
 void *run(void *argsv){
 	
-	if(input.queueCount != output.queueCount){
+	if(inputQueueCount != outputQueueCount){
 		fprintf(stderr, "ERROR: this algorithm only runs for 1:1 ratio m to m queues\n");
 		exit(1);
 	}
@@ -50,16 +50,16 @@ void *run(void *argsv){
 	}
 	*/
 	
-	pthread_t tid[input.queueCount];
+	pthread_t tid[inputQueueCount];
 	int *id;	
 	
-	for(int i = 0; i < input.queueCount; i++){
+	for(int i = 0; i < inputQueueCount; i++){
 		id = Malloc(sizeof(int));
 		*id = i;
 		Pthread_create(&tid[i], NULL, movePackets, (void *) id);
 	}
 
-	while(threadsWaiting < input.queueCount);
+	while(threadsWaiting < inputQueueCount);
 	//--New code--
 	alarm_start();
 	/* --Old code--Defined in global.c
@@ -67,7 +67,7 @@ void *run(void *argsv){
 	alarm(RUNTIME); // set alarm for RUNTIME seconds
 	*/
 	
-	for(int i = 0; i < input.queueCount; i++)
+	for(int i = 0; i < inputQueueCount; i++)
 		pthread_join(tid[i], NULL);  
 
 	if(missedPackets > 0)
@@ -81,10 +81,10 @@ static void *movePackets(void *args){
 	int id = *((int *) args);
 	free(args);
 	
-	set_thread_props(id + (output.queueCount + input.queueCount+1));
+	set_thread_props(id + (outputQueueCount + inputQueueCount+1));
 	
-	queue_t *in = &input.queues[id];
-	queue_t *out = &output.queues[id];
+	queue_t *in = &input[id].queue;
+	queue_t *out = &output[id].queue;
 	
 	// initialize variables
 	size_t *read = &(in->toRead);

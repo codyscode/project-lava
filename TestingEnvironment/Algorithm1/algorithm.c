@@ -18,30 +18,30 @@ workerThreadArgs_t wThreadArgs;
 
 void grabPackets(int toGrabCount, queue_t* mainQueue){
     //Go through each queue and grab the stated amount of packets from it
-    for(int qIndex = 0; qIndex < input.queueCount; qIndex++){
+    for(int qIndex = 0; qIndex < inputQueueCount; qIndex++){
         for(int packetCount = 0; packetCount < toGrabCount; packetCount++){
             //Used for readability
             int mainWriteIndex = (*mainQueue).toWrite;
-            int inputReadIndex = input.queues[qIndex].toRead;
+            int inputReadIndex = input[qIndex].queue.toRead;
 
             //If there is no where to write then start processing
             if((*mainQueue).data[mainWriteIndex].flow != 0){
-                qIndex = input.queueCount;
+                qIndex = inputQueueCount;
                 break;
             }
 
             //If there is nothing to grab then move to next queue
-            if(input.queues[qIndex].data[inputReadIndex].flow == 0){
+            if(input[qIndex].queue.data[inputReadIndex].flow == 0){
                 break;
             }
 
             //Grab the packets data and move it into the mainQueue
-            (*mainQueue).data[mainWriteIndex].flow = input.queues[qIndex].data[inputReadIndex].flow;
-            (*mainQueue).data[mainWriteIndex].order = input.queues[qIndex].data[inputReadIndex].order;
+            (*mainQueue).data[mainWriteIndex].flow = input[qIndex].queue.data[inputReadIndex].flow;
+            (*mainQueue).data[mainWriteIndex].order = input[qIndex].queue.data[inputReadIndex].order;
 
             //Indicate the next spot to read from in the input queue
-            input.queues[qIndex].toRead++;
-            input.queues[qIndex].toRead = input.queues[qIndex].toRead % BUFFERSIZE;
+            input[qIndex].queue.toRead++;
+            input[qIndex].queue.toRead = input[qIndex].queue.toRead % BUFFERSIZE;
 
             //Indicade the next spot to write to in the main queue
             (*mainQueue).toWrite++;
@@ -51,7 +51,7 @@ void grabPackets(int toGrabCount, queue_t* mainQueue){
             FENCE()
 
             //Indicate the space is free to write to in the input queue
-            input.queues[qIndex].data[inputReadIndex].flow = 0;
+            input[qIndex].queue.data[inputReadIndex].flow = 0;
         }
     }
 }
@@ -68,23 +68,23 @@ void passPackets(queue_t* mainQueue){
         }
 
         //Get the appropriate output queue that this should be sending to
-        int qIndex = (*mainQueue).data[mainReadIndex].flow % output.queueCount;
+        int qIndex = (*mainQueue).data[mainReadIndex].flow % outputQueueCount;
 
         //Used for readability
-        int outputWriteIndex = output.queues[qIndex].toWrite;
+        int outputWriteIndex = output[qIndex].queue.toWrite;
 
         //If the queue is full, then wait for it to become unfull
-        while(output.queues[qIndex].data[outputWriteIndex].flow != 0){
+        while(output[qIndex].queue.data[outputWriteIndex].flow != 0){
             ;
         }
 
         //Grab the packets data and move it into the output queue
-        output.queues[qIndex].data[outputWriteIndex].order = (*mainQueue).data[mainReadIndex].order;
-        output.queues[qIndex].data[outputWriteIndex].flow = (*mainQueue).data[mainReadIndex].flow;
+        output[qIndex].queue.data[outputWriteIndex].order = (*mainQueue).data[mainReadIndex].order;
+        output[qIndex].queue.data[outputWriteIndex].flow = (*mainQueue).data[mainReadIndex].flow;
 
         //Indicate the next spot to write to in the output queue
-        output.queues[qIndex].toWrite++;
-        output.queues[qIndex].toWrite = output.queues[qIndex].toWrite % BUFFERSIZE;
+        output[qIndex].queue.toWrite++;
+        output[qIndex].queue.toWrite = output[qIndex].queue.toWrite % BUFFERSIZE;
 
         //Indicade the next spot to read from in the main queue
         (*mainQueue).toRead++;
@@ -106,7 +106,7 @@ void * workerThread(void* args){
 
     //Set the thread to its own core
     //+1 is neccessary as we have core 0, input threads, output threads
-    set_thread_props(input.queueCount + output.queueCount + 1);
+    set_thread_props(inputQueueCount + outputQueueCount + 1);
 
     //start the alarm
     alarm_start();
@@ -126,7 +126,7 @@ void * workerThread(void* args){
 
 void *run(void *argsv){
     //The amount of packets to grab from each queue. This algorithm gives all queues equal priority
-    int toGrabCount = BUFFERSIZE / input.queueCount;
+    int toGrabCount = BUFFERSIZE / inputQueueCount;
 
     //The main "wire" queue where everything will be written
     queue_t *mainQueue = Malloc(sizeof(queue_t));
