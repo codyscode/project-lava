@@ -85,43 +85,11 @@ typedef struct threadArgs{
     size_t coreNum;
 }threadArgs_t;
 
-//input and output struct are mostly identical right now and mainly used to
-//abstract the inputs resources from the outputs resources but we may want
-//to add unique characteristics to each at some point.
-
-//Initialize items for input threads
-//queueCount (size_t) - The number of input queues
-//threadIds (pthread_t) - The Id's for ech input thread
+//threadID (pthread_t) - The Id for the thread
 //threadArgs (threadArgs_t) - Arguments to be passed to input threads
-//locks (pthread_mutex_t) - locks for each input queue
-//queues (queue_t) - an array input queue structs
+//lock (pthread_mutex_t) - lock for the queue
+//queue (queue_t) - a queue struct
 //finished (size_t) - flag that indicates when a given thread has generated x number of packets
-typedef struct input{
-    size_t queueCount;
-    pthread_t threadIDs[MAX_NUM_INPUT_QUEUES]; 
-    threadArgs_t threadArgs[MAX_NUM_INPUT_QUEUES];
-    pthread_mutex_t locks[MAX_NUM_INPUT_QUEUES];
-    queue_t queues[MAX_NUM_INPUT_QUEUES];
-    size_t finished[MAX_NUM_INPUT_QUEUES];
-}input_t;
-
-//Initialize items for output threads
-//queueCount (size_t) - The number of output queues
-//threadIds (pthread_t) - The Id's for ech output thread
-//threadArgs (threadArgs_t) - Arguments to be passed to output threads
-//locks (pthread_mutex_t) - locks for each output queue
-//queues (queue_t) - an array of output queue structs
-//finished (size_t) - flag that indicates when a given thread has processed x number of packets
-typedef struct output{
-    size_t queueCount;
-    pthread_t threadIDs[MAX_NUM_OUTPUT_QUEUES]; 
-    threadArgs_t threadArgs[MAX_NUM_OUTPUT_QUEUES];
-    pthread_mutex_t locks[MAX_NUM_OUTPUT_QUEUES];
-    queue_t queues[MAX_NUM_OUTPUT_QUEUES];
-    size_t finished[MAX_NUM_OUTPUT_QUEUES];
-}output_t;
-
-
 typedef struct io{
     pthread_t threadID;
     threadArgs_t threadArgs;
@@ -130,6 +98,7 @@ typedef struct io{
     size_t finished;
 }io_t;
 
+//initialize input and ouput arrays
 io_t input[MAX_NUM_INPUT_QUEUES];
 io_t output[MAX_NUM_OUTPUT_QUEUES];
 
