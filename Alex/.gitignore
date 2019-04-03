@@ -4,6 +4,9 @@ queuecode
 algorithm
 framework
 
+#csv files
+*.csv
+
 #Test Code
 testenv
 testenv.c

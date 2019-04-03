@@ -50,6 +50,8 @@
 #define FENCE() \
    __asm__ volatile ("mfence" ::: "memory");
 
+typedef unsigned long long tsc_t;
+
 //Data structure to represent a packet.
 //length (size_t) - The total size of the data memeber for the packet
 //flow (size_t) - The flow of the packet
@@ -62,6 +64,7 @@ typedef struct packet{
     unsigned char data[MAX_PAYLOAD_SIZE];
 }packet_t;
 
+//Data field for the queue
 typedef struct data{
     size_t isOccupied;
     packet_t packet;
@@ -89,43 +92,22 @@ typedef struct threadArgs{
     size_t coreNum;
 }threadArgs_t;
 
-//input and output struct are mostly identical right now and mainly used to
-//abstract the inputs resources from the outputs resources but we may want
-//to add unique characteristics to each at some point.
-
-//Initialize items for input threads
-//queueCount (size_t) - The number of input queues
-//threadIds (pthread_t) - The Id's for ech input thread
+//threadID (pthread_t) - The Id for the thread
 //threadArgs (threadArgs_t) - Arguments to be passed to input threads
-//locks (pthread_mutex_t) - locks for each input queue
-//queues (queue_t) - an array input queue structs
-//finished (size_t) - flag that indicates when a given thread has generated x number of packets
-typedef struct input{
-    size_t queueCount;
-    pthread_t threadIDs[MAX_NUM_INPUT_QUEUES]; 
-    threadArgs_t threadArgs[MAX_NUM_INPUT_QUEUES];
-    pthread_mutex_t locks[MAX_NUM_INPUT_QUEUES];
-    queue_t queues[MAX_NUM_INPUT_QUEUES];
-    size_t finished[MAX_NUM_INPUT_QUEUES];
-}input_t;
-input_t input;
+//queue (queue_t) - a queue struct
+typedef struct io{
+    pthread_t threadID;
+    threadArgs_t threadArgs;
+    queue_t queue;
+}io_t;
 
-//Initialize items for output threads
-//queueCount (size_t) - The number of output queues
-//threadIds (pthread_t) - The Id's for ech output thread
-//threadArgs (threadArgs_t) - Arguments to be passed to output threads
-//locks (pthread_mutex_t) - locks for each output queue
-//queues (queue_t) - an array of output queue structs
-//finished (size_t) - flag that indicates when a given thread has processed x number of packets
-typedef struct output{
-    size_t queueCount;
-    pthread_t threadIDs[MAX_NUM_OUTPUT_QUEUES]; 
-    threadArgs_t threadArgs[MAX_NUM_OUTPUT_QUEUES];
-    pthread_mutex_t locks[MAX_NUM_OUTPUT_QUEUES];
-    queue_t queues[MAX_NUM_OUTPUT_QUEUES];
-    size_t finished[MAX_NUM_OUTPUT_QUEUES];
-}output_t;
-output_t output;
+//initialize array of input and ouput threads
+io_t input[MAX_NUM_INPUT_QUEUES];
+io_t output[MAX_NUM_OUTPUT_QUEUES];
+
+//Used for number of input and output queues
+size_t inputQueueCount;
+size_t outputQueueCount;
 
 // flag used to start moving packets - used by alarm functions
 int startFlag;

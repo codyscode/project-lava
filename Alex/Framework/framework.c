@@ -15,7 +15,7 @@
 //  count is an array to allow multiple threads to access any count variable
 // - You will need to set thread props for the run function, otherwise your algorithm will perform very poorly
 
-#include"global.h"
+#include"global.h" 
 #include"wrapper.h"
 #include"algorithm.h"
 #include <locale.h>
@@ -47,6 +47,7 @@ void* input_thread(void *args){
     int index = 0;
     unsigned int seed = (unsigned int)time(NULL);
 
+    /*
     //Setup all data in a queue to pull from and get random values in the queue
     for(size_t index = 0; index < BUFFERSIZE; index++){
         //Assign a random flow within a range: [n, n + 1, n + 2, n + 3, n + 4]. +1 is to avoid the 0 flow
@@ -67,9 +68,11 @@ void* input_thread(void *args){
         //Update the next flow number to assign
         orderForFlow[currFlow - offset - 1]++;
     }
+    */
 
     //After having the base queue fill up, maintain all the packets in the queue by just overwriting their order number
     while(1){
+        /*
         //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
         while((*inputQueue).data[index].isOccupied == OCCUPIED){
             ;
@@ -79,7 +82,38 @@ void* input_thread(void *args){
         (*inputQueue).data[index].packet.order = orderForFlow[(*inputQueue).data[index].packet.flow - offset - 1];
 
         //Update the next flow number to assign
-        orderForFlow[(*inputQueue).data[index].packet.flow- offset - 1]++;
+        orderForFlow[(*inputQueue).data[index].packet.flow - offset - 1]++;
+
+        //Say that the spot is ready to be read
+        (*inputQueue).data[index].isOccupied = OCCUPIED;
+
+        //Update the next spot to be written in the queue
+        index++;
+        index = index % BUFFERSIZE;
+
+        //Increment the number of packets generated
+        (*inputQueue).count++;
+        */
+        //Assign a random flow within a range: [n, n + 1, n + 2, n + 3, n + 4]. +1 is to avoid the 0 flow
+        currFlow = (rand_r(&seed) % FLOWS_PER_QUEUE) + offset + 1;
+
+        //Assign a random length to the packet. Length defines the entire packet struct, not just payload
+        //Minimum size computed below is MIN_PACKET_SIZE
+        //Maximum size computed below is MAX_PACKET_SIZE
+        currLength = rand_r(&seed) % (MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;
+
+        //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
+        while((*inputQueue).data[index].isOccupied == OCCUPIED){
+            ;
+        }
+
+        //Create the new packet. Write the order and length first before flow as flow > 0 indicates theres a packet there
+        (*inputQueue).data[index].packet.order = orderForFlow[currFlow - offset - 1];
+        (*inputQueue).data[index].packet.length = currLength;
+        (*inputQueue).data[index].packet.flow = currFlow;
+
+        //Update the next flow number to assign
+        orderForFlow[currFlow - offset - 1]++;
 
         //Say that the spot is ready to be read
         (*inputQueue).data[index].isOccupied = OCCUPIED;
@@ -101,7 +135,7 @@ void* processing_thread(void *args){
     threadArgs_t *processArgs = (threadArgs_t *)args;
 
     int queueNum = processArgs->queueNum;
-    int numInputs = (int)input.queueCount;   
+    int numInputs = (int)inputQueueCount;   
     queue_t *processQueue = (queue_t *)processArgs->queue;
 
     //Set the thread to its own core
@@ -166,39 +200,27 @@ void* processing_thread(void *args){
 
 void init_queues(){
     //initialize input queues to all 0 values
-    for(int queueIndex = 0; queueIndex < input.queueCount; queueIndex++){
+    for(int qIndex = 0; qIndex < inputQueueCount; qIndex++){
         for(int dataIndex = 0; dataIndex < BUFFERSIZE; dataIndex++){
-            input.queues[queueIndex].data[dataIndex].packet.flow = 0;
-            input.queues[queueIndex].data[dataIndex].packet.order = 0;
-            input.queues[queueIndex].data[dataIndex].packet.length = 0;
-            input.queues[queueIndex].data[dataIndex].isOccupied = 0;
+            input[qIndex].queue.data[dataIndex].packet.flow = 0;
+            input[qIndex].queue.data[dataIndex].packet.order = 0;
+            input[qIndex].queue.data[dataIndex].packet.length = 0;
+            input[qIndex].queue.data[dataIndex].isOccupied = NOT_OCCUPIED;
         }
-        input.queues[queueIndex].toRead = 0;
-        input.queues[queueIndex].toWrite = 0;
+        input[qIndex].queue.toRead = 0;
+        input[qIndex].queue.toWrite = 0;
     }
 
     //initialize ouput queues to all 0 values
-    for(int queueIndex = 0; queueIndex < output.queueCount; queueIndex++){
+    for(int qIndex = 0; qIndex < outputQueueCount; qIndex++){
         for(int dataIndex = 0; dataIndex < BUFFERSIZE; dataIndex++){
-            output.queues[queueIndex].data[dataIndex].packet.flow = 0;
-            output.queues[queueIndex].data[dataIndex].packet.order = 0;
-            output.queues[queueIndex].data[dataIndex].packet.length = 0;
-            output.queues[queueIndex].data[dataIndex].isOccupied = 0;
+            output[qIndex].queue.data[dataIndex].packet.flow = 0;
+            output[qIndex].queue.data[dataIndex].packet.order = 0;
+            output[qIndex].queue.data[dataIndex].packet.length = 0;
+            output[qIndex].queue.data[dataIndex].isOccupied = NOT_OCCUPIED;
         }
-        output.queues[queueIndex].toRead = 0;
-        output.queues[queueIndex].toWrite = 0;
-    }
-}
-
-void init_locks(){
-    //Initialize input locks
-    for(int index = 0; index < MAX_NUM_INPUT_QUEUES; index++){
-        Pthread_mutex_init(&input.locks[index], NULL);
-    }
-
-    //Initialize output locks
-    for(int index = 0; index < MAX_NUM_OUTPUT_QUEUES; index++){
-        Pthread_mutex_init(&output.locks[index], NULL);
+        output[qIndex].queue.toRead = 0;
+        output[qIndex].queue.toWrite = 0;
     }
 }
 
@@ -207,64 +229,61 @@ void create_input_queues(pthread_attr_t attrs){
     int core = 1;
 
     //Each input queue has a thread associated with it
-    for(int index = 0; index < input.queueCount; index++){
+    for(int index = 0; index < inputQueueCount; index++){
         //Initialize Thread Arguments with first queue and number of queues
-        input.threadArgs[index].queue = &input.queues[index];
-        input.threadArgs[index].queueNum = index;
-        input.threadArgs[index].coreNum = core;
+        input[index].threadArgs.queue = &input[index].queue;
+        input[index].threadArgs.queueNum = index;
+        input[index].threadArgs.coreNum = core;
         core++;
 
         //Spawn input thread
-        Pthread_create(&input.threadIDs[index], &attrs, input_thread, (void *)&input.threadArgs[index]);
+        Pthread_create(&input[index].threadID, &attrs, input_thread, (void *)&input[index].threadArgs);
 
         //Detach the thread
-        Pthread_detach(input.threadIDs[index]);
+        Pthread_detach(input[index].threadID);
     }
 
     //Indicate to user that input queues have spawned
-    printf("\nSpawned %lu input queue(s)\n", input.queueCount);
+    printf("\nSpawned %lu input queue(s)\n", inputQueueCount);
 }
 
 void create_output_queues(pthread_attr_t attrs){
     //Core for each output thread to be assigned to
     //Next available queue after cores have been assigned ot input queues
-    int core = input.queueCount + 1;
+    int core = inputQueueCount + 1;
 
     //Each output queue has a thread associated with it
-    for(int index = 0; index < output.queueCount; index++){
+    for(int index = 0; index < outputQueueCount; index++){
         //Initialize Thread Arguments with first queue and number of queues
-        output.threadArgs[index].queue = &output.queues[index];
-        output.threadArgs[index].queueNum = index;
-        output.threadArgs[index].coreNum = core;
+        output[index].threadArgs.queue = &output[index].queue;
+        output[index].threadArgs.queueNum = index;
+        output[index].threadArgs.coreNum = core;
         core++;
 
         //Spawn the thread
-        Pthread_create(&output.threadIDs[index], &attrs, processing_thread, (void *)&output.threadArgs[index]);
+        Pthread_create(&output[index].threadID, &attrs, processing_thread, (void *)&output[index].threadArgs);
 
         //Detach the thread
-        Pthread_detach(output.threadIDs[index]);
+        Pthread_detach(output[index].threadID);
     }
     
     //Indicate to user that output queues have spawned
-    printf("Spawned %lu output queue(s)\n", output.queueCount);
+    printf("Spawned %lu output queue(s)\n", outputQueueCount);
 }
 
 void fill_queues(){
     //Allow input buffers to fill before starting algorithm
-    for(int i = 0; i < input.queueCount; i++){
-        while(input.queues[i].data[BUFFERSIZE-1].isOccupied == NOT_OCCUPIED);
+    for(int qIndex = 0; qIndex < inputQueueCount; qIndex++){
+        while(input[qIndex].queue.data[BUFFERSIZE-1].isOccupied == NOT_OCCUPIED);
     }
-
-    //Indicate to the user that the tests are starting
-    printf("\nStarting Metric...\n");
 }
 
 void drain_queues(){
     //Check if first and last position of queues are empty
     //This works since queues are written in a sequential order
-    for(int i = 0; i < output.queueCount; i++){
-        while(output.queues[i].data[FIRST_INDEX].isOccupied == OCCUPIED); 
-        while(output.queues[i].data[LAST_INDEX].isOccupied == OCCUPIED);
+    for(int qIndex = 0; qIndex < outputQueueCount; qIndex++){
+        while(output[qIndex].queue.data[FIRST_INDEX].isOccupied == OCCUPIED); 
+        while(output[qIndex].queue.data[LAST_INDEX].isOccupied == OCCUPIED);
     }
 }
 
@@ -280,9 +299,9 @@ void output_data(){
 
     size_t finalCount = 0;
     //Output how many packets each output queue processed
-    for(int i = 0; i < output.queueCount; i++){
-        printf("Queue %d: %ld packets passed in %d seconds\n", i, output.queues[i].count, RUNTIME);
-        finalCount += output.queues[i].count;
+    for(int qIndex = 0; qIndex < outputQueueCount; qIndex++){
+        printf("Queue %d: %ld packets passed in %d seconds\n", qIndex, output[qIndex].queue.count, RUNTIME);
+        finalCount += output[qIndex].queue.count;
     }
 
     //Print to the user that the tests ran successfully
@@ -306,11 +325,11 @@ void output_data(){
     }	
 	
     //Output the data to the file
-    fprintf(fptr, "%s,%lu,%lu,%lu\n", algName, input.queueCount, output.queueCount, finalCount/RUNTIME);
+    fprintf(fptr, "%s,%lu,%lu,%lu\n", algName, inputQueueCount, outputQueueCount, finalCount/RUNTIME);
     fclose(fptr);
 	
     //Output the data to the user
-    printf("\n%s algorithm passed %'lu packets per second\n", algName, finalCount/RUNTIME);
+    printf("\nAlgorithm %s passed %'lu packets per second\n", algName, finalCount/RUNTIME);
 }
 
 int main(int argc, char**argv){
@@ -328,13 +347,13 @@ int main(int argc, char**argv){
     endFlag = 0;
 
     //Grab the number of input and output queues to use
-    input.queueCount = atoi(argv[1]);
-    output.queueCount = atoi(argv[2]);
+    inputQueueCount = atoi(argv[1]);
+    outputQueueCount = atoi(argv[2]);
 
     //Make sure that the number of input and output queues is valid
-    assert(input.queueCount <= MAX_NUM_INPUT_QUEUES);
-    assert(output.queueCount <= MAX_NUM_OUTPUT_QUEUES);
-    assert(input.queueCount >= MIN_INPUT_QUEUE_COUNT && output.queueCount >= MIN_OUTPUT_QUEUE_COUNT);
+    assert(inputQueueCount <= MAX_NUM_INPUT_QUEUES);
+    assert(outputQueueCount <= MAX_NUM_OUTPUT_QUEUES);
+    assert(inputQueueCount >= MIN_INPUT_QUEUE_COUNT && outputQueueCount >= MIN_OUTPUT_QUEUE_COUNT);
 
     //Initialize thread attributes
     pthread_attr_t attrs;
@@ -346,9 +365,6 @@ int main(int argc, char**argv){
     //Initialize all values in the input and output queues
     init_queues();
 
-    //initialize all mutex locks
-    init_locks();
-
     //spawn the input generation threads.
     create_input_queues(attrs);
 
@@ -357,6 +373,9 @@ int main(int argc, char**argv){
 
     //wait for the input queues to fill before we start passing
     fill_queues();
+
+    //Indicate to the user that the tests are starting
+    printf("\nStarting Metric...\n");
 
     //Run the algorithm
     run(NULL);
