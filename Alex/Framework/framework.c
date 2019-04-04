@@ -18,7 +18,6 @@
 #include"global.h" 
 #include"wrapper.h"
 #include"algorithm.h"
-#include <locale.h>
 
 //The job of the input threads is to make packets to populate the buffers. As of now the packets are stored in a buffer.
 //--Need to work out working memory simulation for packet retrieval--
@@ -45,18 +44,19 @@ void* input_thread(void *args){
     //Continuously generate input numbers until the buffer fills up. 
     //Once it hits an entry that is not empty, it will wait until the input is grabbed.
     int index = 0;
-    unsigned int seed = (unsigned int)time(NULL);
+    unsigned int g_seed = (unsigned int)time(NULL);
 
+    //--Uncomment for loop for Lazy/Fast Method -- Faster for n m where n. m > 1, slower for 1 1
     /*
     //Setup all data in a queue to pull from and get random values in the queue
     for(size_t index = 0; index < BUFFERSIZE; index++){
         //Assign a random flow within a range: [n, n + 1, n + 2, n + 3, n + 4]. +1 is to avoid the 0 flow
-        currFlow = (rand_r(&seed) % FLOWS_PER_QUEUE) + offset + 1;
+        currFlow = (rand_r(&g_seed) % FLOWS_PER_QUEUE) + offset + 1;
 
         //Assign a random length to the packet. Length defines the entire packet struct, not just payload
         //Minimum size computed below is MIN_PACKET_SIZE
         //Maximum size computed below is MAX_PACKET_SIZE
-        currLength = rand_r(&seed) % (MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;
+        currLength = rand_r(&g_seed) % (MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;
 
         //Create the new packet and store it in the queue
         (*inputQueue).data[index].packet.order = orderForFlow[currFlow - offset - 1];
@@ -67,40 +67,20 @@ void* input_thread(void *args){
 
         //Update the next flow number to assign
         orderForFlow[currFlow - offset - 1]++;
-    }
-    */
+    }*/
 
     //After having the base queue fill up, maintain all the packets in the queue by just overwriting their order number
     while(1){
-        /*
-        //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
-        while((*inputQueue).data[index].isOccupied == OCCUPIED){
-            ;
-        }
+        //Fast Thread Independent Psuedo Random Number Generator
+        g_seed = (214013*g_seed+2531011); //-Comment Out For Lazy/Fast Method
 
-        //Create the new packet. Write the order and length first before flow as flow > 0 indicates theres a packet there
-        (*inputQueue).data[index].packet.order = orderForFlow[(*inputQueue).data[index].packet.flow - offset - 1];
-
-        //Update the next flow number to assign
-        orderForFlow[(*inputQueue).data[index].packet.flow - offset - 1]++;
-
-        //Say that the spot is ready to be read
-        (*inputQueue).data[index].isOccupied = OCCUPIED;
-
-        //Update the next spot to be written in the queue
-        index++;
-        index = index % BUFFERSIZE;
-
-        //Increment the number of packets generated
-        (*inputQueue).count++;
-        */
         //Assign a random flow within a range: [n, n + 1, n + 2, n + 3, n + 4]. +1 is to avoid the 0 flow
-        currFlow = (rand_r(&seed) % FLOWS_PER_QUEUE) + offset + 1;
+        currFlow = ((g_seed>>16)&0x7FFF % FLOWS_PER_QUEUE) + offset + 1; //-Comment Out For Lazy/Fast Method
 
         //Assign a random length to the packet. Length defines the entire packet struct, not just payload
         //Minimum size computed below is MIN_PACKET_SIZE
         //Maximum size computed below is MAX_PACKET_SIZE
-        currLength = rand_r(&seed) % (MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;
+        currLength = (g_seed>>16)&0x7FFF % ((MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE); //-Comment Out For Lazy/Fast Method
 
         //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
         while((*inputQueue).data[index].isOccupied == OCCUPIED){
@@ -109,11 +89,12 @@ void* input_thread(void *args){
 
         //Create the new packet. Write the order and length first before flow as flow > 0 indicates theres a packet there
         (*inputQueue).data[index].packet.order = orderForFlow[currFlow - offset - 1];
-        (*inputQueue).data[index].packet.length = currLength;
-        (*inputQueue).data[index].packet.flow = currFlow;
+        (*inputQueue).data[index].packet.length = currLength; //-Comment Out For Lazy/Fast Method
+        (*inputQueue).data[index].packet.flow = currFlow; //-Comment Out For Lazy/Fast Method
 
         //Update the next flow number to assign
-        orderForFlow[currFlow - offset - 1]++;
+        orderForFlow[currFlow - offset - 1]++; //-Comment Out For Lazy/Fast Method
+        //orderForFlow[(*inputQueue).data[index].packet.flow - offset - 1]++; //-UNComment Out For Lazy/Fast Method
 
         //Say that the spot is ready to be read
         (*inputQueue).data[index].isOccupied = OCCUPIED;
@@ -195,6 +176,97 @@ void* processing_thread(void *args){
             //Set the position to free. Say it has already processed data
             (*processQueue).data[index].isOccupied = NOT_OCCUPIED;
         }
+    }
+}
+
+void check_if_ideal_conditions(){
+    if(!SUPPORTED_PLATFORM){
+        printf("Unsupported Platform.\nExiting...\n");
+        exit(1);
+    }
+    #define sizeIgnore 7
+    char * line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    FILE *fptr;
+
+    //Get the parent process ID into a string
+    long ppID = (long)getppid();
+    int ppIDlength = snprintf(NULL, 0, "%ld", ppID);
+    char* ppidString = Malloc(ppIDlength + 1);
+    snprintf(ppidString, ppIDlength + 1, "%ld", ppID);
+
+    //Get the processID into a string
+    long pID = (long) getpid();
+    int pIDlength = snprintf(NULL, 0, "%ld", pID);
+    char* pidString = Malloc(pIDlength + 1);
+    snprintf(pidString, pIDlength + 1, "%ld", pID);
+    
+    //If a process contains one of these, then it is ok to run in the background
+    char * toIgnore[sizeIgnore] = {"USER", "bash", "sh", "ps", "tty1", pidString, ppidString};
+
+    //Used for the command line argument
+    char * fileName = "temp";
+    char * cmd = "rm -f temp; ps -au >> temp";
+
+    //Check to see if a shell is open
+    if(system(NULL) == 0){
+        printf("Shell Not Available, Cannot Check Processes. Exiting...");
+        exit(0);
+    }
+    else{
+        //Execute the command
+        system(cmd);
+
+        //Open the file that the data was stored in
+        if(access(fileName, F_OK) != -1){
+            fptr = Fopen(fileName, "r");
+        }
+
+        //Go line by line and look for if another process is running that would degrade performance
+        while ((read = getline(&line, &len, fptr)) != -1) {
+            //Cycle through each word in the line using tokenization
+            char * word;
+            word = strtok (line, " -\n");
+            int ignore = 0;
+            while (word != NULL && ignore == 0){
+                //If the word is an ignore word, then the process is ok to exist
+                for(int i = 0; i < sizeIgnore; i++){
+                    //If the strings are the same then the line can be ignored
+                    if(strcmp(word, toIgnore[i]) == 0){
+                        ignore = 1;
+                        break;
+                    }
+                }
+
+                //move onto the next word in the line
+                word = strtok (NULL, " -\n");
+            }
+
+            //If we make it out of the loop and we havent found a word signaling the process is ok to run
+            //Then we have a process that shouldn't be running and we should not run the framework yet
+            if(ignore == 0){
+                printf("Another process is running that will skew the results.\nExiting...\n");
+                exit(1);
+            }
+            ignore = 0;
+        }
+
+        //Close the file
+        fclose(fptr);
+
+        //Free the line variable
+        if (line){
+            free(line);
+        }
+
+        //Delete the temporary file
+        int status = remove(fileName);
+
+        if (status != 0){
+            printf("Unable to delete the file\n");
+            perror("Following error occurred");
+        }   
     }
 }
 
@@ -333,11 +405,14 @@ void output_data(){
 }
 
 int main(int argc, char**argv){
-    //Error checking for proper running
+    //Error checking for proper command line arguments
     if (argc < 3){
         printf("*Usage: Queues <# input queues>, <# output queues>\n");
         exit(0);
     }
+
+    //Ensure that no other process is running in the background
+    check_if_ideal_conditions();
 
     //Assign the main thread to run on the first core and dont change its scheduling
     assign_to_zero();

@@ -7,12 +7,14 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 #include <errno.h>
 #include <sched.h>
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <locale.h>
 #include <signal.h>
 
 //Constants for upper limit of queues
@@ -49,6 +51,12 @@
 //In order to make sure writes are in order
 #define FENCE() \
    __asm__ volatile ("mfence" ::: "memory");
+
+#if defined (__linux__)
+    #define SUPPORTED_PLATFORM 1
+#else 
+    #define SUPPORTED_PLATFORM 0
+#endif
 
 typedef unsigned long long tsc_t;
 
