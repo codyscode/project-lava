@@ -58,7 +58,8 @@
     #define SUPPORTED_PLATFORM 0
 #endif
 
-typedef unsigned long long tsc_t;
+//function type for a method that returns a void * method with void * arguments
+typedef void* (*function)(void * args);
 
 //Data structure to represent a packet.
 //length (size_t) - The total size of the data memeber for the packet

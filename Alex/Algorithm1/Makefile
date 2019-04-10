@@ -24,6 +24,3 @@ default: $(TARGET)
 
 $(TARGET): $(SRC)
 	$(CC) $(CFLAGS) -c $(SRC) -o $@ $(LIBS)
-	
-
-

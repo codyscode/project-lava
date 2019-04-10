@@ -1,26 +1,42 @@
-//This is meant to act as a test bed for algorithms that pass packets between two spaces.
-//The framework consists of input and output queues that serve as the "connection" between the two spaces,
-//with the input queues representing a queue in a NIC and the output queue representing passing to the other
-//workload in order
+//-This is meant to act as a test bed for algorithms that pass packets between two "processes".
+// --Processes is a relative term here that just refers to two separate entities doing their own work.
+//-The framework consists of input and output queues that serve as the buffers to write and read into respectivley
+//-with the input queues representing a queue in a NIC and the output queue representing a buffer to put the packets
+//-into for the other process to read
 
-// -Algorithm speed is measured by the main function.
-// -The algorithm allows the run function to go for 3 seconds, measures the count, run for 10 seconds, then measure the count.
-//  Packets per second is equal to (second count - first count) / 10.
-//REQUIRED:
-// -algorithm.c that defines a function void* run(void*)
-// -algorithm.c that defines a function char* getName()
-// -algorithm.h that defines the functions used in algorithm.c
-// -algorithm.c needs to import global.h in order to have access to queues
-// -alogrithm.c has access to count[] which is an array to keep track of the count.
-//  count is an array to allow multiple threads to access any count variable
-// - You will need to set thread props for the run function, otherwise your algorithm will perform very poorly
+
+//-Algorithm speed is measured in packets per second:
+// --Sampling is done by using the sig_alarm method
+// --The user inidicates when to start the timer within their algorithm
+//   by setting a global variable telling the alarm to be set for 30 seconds
+// --The generate packets function within gloabl.c keeps track of the overhead in
+//   the time it takes to generate packets as a local variable and in the end the
+//   total overhead is subtracted from the 30 second alarm
+
+
+//-REQUIRED in algorithm.c:
+// --void* run(void*)
+//   ---This will spawn input and output threads that handle each queue
+// --char* getName()
+//   ---This will return the algorithm name for data purposes
+// --function get_fill_method()
+//   ---This will return the proper way to fill a custom queue or standard queue
+//   ---return NULL if using default input queues
+// --function get_drain_method()
+//   ---This will return the proper way to drain a custom queue or standard queue
+//   ---return NULL if using default output queues
+// --import global.h 
+//   ---Have access to the queue structures
+// --It is advised to assign threads to certain cores
+//   otherwise your algorithm could perform very poorly
+// --IMPORTANT: To have your thread exit properly instead of doing
+//   Instead of:    while(1){ //constant work  } 
+//   Do:            while(endFlag == 0){ //constant work  }
 
 #include"global.h" 
 #include"wrapper.h"
-#include"algorithm.h"
 
 //The job of the input threads is to make packets to populate the buffers. As of now the packets are stored in a buffer.
-//--Need to work out working memory simulation for packet retrieval--
 //Attributes:
 // -Each input queue generates packets in a circular buffer
 // -Input queue stops writing when the buffer is full and continues when it is empty
@@ -84,7 +100,7 @@ void* input_thread(void *args){
 
         //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
         while((*inputQueue).data[index].isOccupied == OCCUPIED){
-            ;
+            ;//Do Nothing until a space is available to write
         }
 
         //Create the new packet. Write the order and length first before flow as flow > 0 indicates theres a packet there
@@ -136,7 +152,7 @@ void* processing_thread(void *args){
 
         //If there is no packet, continuously check until something shows up
         while((*processQueue).data[index].isOccupied == NOT_OCCUPIED){
-            ;
+            ;//Do Nothing until there is a packet to read
         }
 
         //Get the current flow for the packet
@@ -270,7 +286,7 @@ void check_if_ideal_conditions(){
     }
 }
 
-void init_queues(){
+void init_queue_sets(){
     //initialize input queues to all 0 values
     for(int qIndex = 0; qIndex < inputQueueCount; qIndex++){
         for(int dataIndex = 0; dataIndex < BUFFERSIZE; dataIndex++){
@@ -296,66 +312,28 @@ void init_queues(){
     }
 }
 
-void create_input_queues(pthread_attr_t attrs){
-    //Core for each input thread to be assigned to
-    int core = 1;
-
-    //Each input queue has a thread associated with it
-    for(int index = 0; index < inputQueueCount; index++){
-        //Initialize Thread Arguments with first queue and number of queues
-        input[index].threadArgs.queue = &input[index].queue;
-        input[index].threadArgs.queueNum = index;
-        input[index].threadArgs.coreNum = core;
-        core++;
-
-        //Spawn input thread
-        Pthread_create(&input[index].threadID, &attrs, input_thread, (void *)&input[index].threadArgs);
-
-        //Detach the thread
-        Pthread_detach(input[index].threadID);
+void fill_queues(function custom_fill){
+    if(custom_fill != NULL){
+        custom_fill();
     }
-
-    //Indicate to user that input queues have spawned
-    printf("\nSpawned %lu input queue(s)\n", inputQueueCount);
-}
-
-void create_output_queues(pthread_attr_t attrs){
-    //Core for each output thread to be assigned to
-    //Next available queue after cores have been assigned ot input queues
-    int core = inputQueueCount + 1;
-
-    //Each output queue has a thread associated with it
-    for(int index = 0; index < outputQueueCount; index++){
-        //Initialize Thread Arguments with first queue and number of queues
-        output[index].threadArgs.queue = &output[index].queue;
-        output[index].threadArgs.queueNum = index;
-        output[index].threadArgs.coreNum = core;
-        core++;
-
-        //Spawn the thread
-        Pthread_create(&output[index].threadID, &attrs, processing_thread, (void *)&output[index].threadArgs);
-
-        //Detach the thread
-        Pthread_detach(output[index].threadID);
-    }
-    
-    //Indicate to user that output queues have spawned
-    printf("Spawned %lu output queue(s)\n", outputQueueCount);
-}
-
-void fill_queues(){
     //Allow input buffers to fill before starting algorithm
-    for(int qIndex = 0; qIndex < inputQueueCount; qIndex++){
-        while(input[qIndex].queue.data[BUFFERSIZE-1].isOccupied == NOT_OCCUPIED);
+    for(int i = 0; i < inputQueueCount; i++){
+        while(input[i].queue.data[BUFFERSIZE-1].flow != FREE_SPACE_TO_WRITE);
     }
+
+    //Indicate to the user that the tests are starting
+    printf("\nStarting Metric...\n");
 }
 
-void drain_queues(){
+void drain_queues(function custom_drain){
+    if(custom_drain != NULL){
+        custom_drain();
+    }
     //Check if first and last position of queues are empty
     //This works since queues are written in a sequential order
-    for(int qIndex = 0; qIndex < outputQueueCount; qIndex++){
-        while(output[qIndex].queue.data[FIRST_INDEX].isOccupied == OCCUPIED); 
-        while(output[qIndex].queue.data[LAST_INDEX].isOccupied == OCCUPIED);
+    for(int i = 0; i < outputQueueCount; i++){
+        while(output[i].queue.data[FIRST_INDEX].flow != FREE_SPACE_TO_WRITE); 
+        while(output[i].queue.data[LAST_INDEX].flow != FREE_SPACE_TO_WRITE);
     }
 }
 
@@ -430,35 +408,25 @@ int main(int argc, char**argv){
     assert(outputQueueCount <= MAX_NUM_OUTPUT_QUEUES);
     assert(inputQueueCount >= MIN_INPUT_QUEUE_COUNT && outputQueueCount >= MIN_OUTPUT_QUEUE_COUNT);
 
-    //Initialize thread attributes
-    pthread_attr_t attrs;
-    pthread_attr_init(&attrs);
+    //Initialize the sets of queues to 0
+    init_queue_sets();
 
-    //Tell the system we are setting the schedule for the thread, instead of inheriting
-    Pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED);
-
-    //Initialize all values in the input and output queues
-    init_queues();
-
-    //spawn the input generation threads.
-    create_input_queues(attrs);
-
-    //spawn the output processing threads.
-    create_output_queues(attrs);
-
-    //wait for the input queues to fill before we start passing
-    fill_queues();
+    //Wait for the queues to fill up before passing
+    fill_queues(get_fill_method());
 
     //Indicate to the user that the tests are starting
     printf("\nStarting Metric...\n");
 
-    //Run the algorithm
+    //Call the users run method which handles:
+    // -spawning the threads for dealing with input
+    // -spawning the threads that deal with processing output
+    // -Dealing with passing packets to the other sets of queues
     run(NULL);
-	
+
     //wait until the first and last position of all processing queues are empty
     //Because we are looking at packets passed, instead of processed and the output queues
     //maintain the count, we wait until the output queues finish counting all the packets passed to them
-    drain_queues();
+    drain_queues(get_drain_method());
 
     //Output all data to user and files
     output_data();

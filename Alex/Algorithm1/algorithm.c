@@ -1,10 +1,11 @@
 /*
 -This algorithm creates a single "wire".
--The wire work by grabbing the same amount of packets from each input queues then empties them into the appropriate output queue and it repeats this indefinitely
+-The wire works by grabbing the same amount of packets from each input queues then empties them into the appropriate output queue and it repeats this indefinitely
+-The algorithm uses 3 sets of queues, One input, One wire, and One Output queue
 */
 
-#include"../Framework/global.h"
-#include"../Framework/wrapper.h"
+#include "../Framework/global.h"
+#include "../Framework/wrapper.h"
 
 #define ALGNAME "singleWire"
 
@@ -15,6 +16,59 @@ typedef struct WorkerThreadArgs{
 
 pthread_t worker;
 workerThreadArgs_t wThreadArgs;
+
+char* getName(){
+    return ALGNAME;
+}
+
+function get_fill_method(){
+    return NULL;
+}
+
+function get_drain_method(){
+    return NULL;
+}
+
+void spawn_input_process(pthread_attr_t attrs, function input_function{
+    //Core for each input thread to be assigned to
+    int core = 1;
+
+    //Each input queue has a thread associated with it
+    for(int index = 0; index < inputQueueCount; index++){
+        //Initialize Thread Arguments with first queue and number of queues
+        input[index].threadArgs.queue = &input[index].queue;
+        input[index].threadArgs.queueNum = index;
+        input[index].threadArgs.coreNum = core;
+        core++;
+
+        //Spawn input thread
+        Pthread_create(&input[index].threadID, &attrs, input_function, (void *)&input[index].threadArgs);
+
+        //Detach the thread
+        Pthread_detach(input[index].threadID);
+    }
+}
+
+void spawn_output_process(pthread_attr_t attrs, function output_function){
+    //Core for each output thread to be assigned to
+    //Next available queue after cores have been assigned ot input queues
+    int core = inputQueueCount + 1;
+
+    //Each output queue has a thread associated with it
+    for(int index = 0; index < outputQueueCount; index++){
+        //Initialize Thread Arguments with first queue and number of queues
+        output[index].threadArgs.queue = &output[index].queue;
+        output[index].threadArgs.queueNum = index;
+        output[index].threadArgs.coreNum = core;
+        core++;
+
+        //Spawn the thread
+        Pthread_create(&output[index].threadID, &attrs, processing_thread, (void *)&output[index].threadArgs);
+
+        //Detach the thread
+        Pthread_detach(output[index].threadID);
+    }
+}
 
 void grabPackets(int toGrabCount, queue_t* mainQueue){
     //Go through each queue and grab the stated amount of packets from it
@@ -108,6 +162,9 @@ void * workerThread(void* args){
     //+1 is neccessary as we have core 0, input threads, output threads
     set_thread_props(inputQueueCount + outputQueueCount + 1);
 
+    //Allow the input queues to fill
+    fill_queues()
+
     //start the alarm
     alarm_start();
 
@@ -155,8 +212,4 @@ void *run(void *argsv){
     Pthread_join(worker, NULL);
 
     return NULL;
-}
-
-char* getName(){
-    return ALGNAME;
 }
