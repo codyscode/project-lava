@@ -90,7 +90,52 @@ def barSubPlot( fd, input, fileCount,directory):
     CWD = os.getcwd()
     shutil.copy(os.path.join(CWD,filename), directory)
     os.remove(os.path.join(CWD,filename))
+
+
+
+"""
+Creates linePlot for desired Algorithm
+OverLays two plots on top of each other:
+    Dot-plot
+    Line-graph
+Then moves plot images into "Plots" subdirectory
+Takes in:
+    fd: panda database
+    fileNum: keeps track of number of unique figures created
+    basename: CSV file name to label title
+    directory: folder to move content into
+"""
+def lineSubPlot( fd, fileNum, baseName, directory):
+    fig = plt.figure(fileNum, figsize=(8,8))
+    markerArray = ['1', "x", "*","o","d","^","s","8"]
+    markColors = ['blue', 'orange', 'green','red','purple','brown','pink','grey']
+    sns.set( rc={"lines.linewidth": 0.7})
+    cat = sns.pointplot(x="Input" , y= "Packet",hue ="Output",
+    ci = None, dodge = False, errwidth=None, data= fd,
+    markers="", scale = .5).legend.remove()
+
     
+    cat = sns.pointplot(x="Input" , y= "Packet",hue ="Output",
+    ci = None, dodge = False, linestyles = " ", errwidth=None, data= fd,
+    markers=markerArray, scale = 1.8).set_title(baseName)
+    
+    symbol=[]
+    for i in range (0,8):
+        symbol.append( mlines.Line2D([], [], color=markColors[i], marker=markerArray[i], linestyle='None', markersize=6, label=str(i+1)))
+
+    lgd = plt.legend(title= "Output Queue" , loc='center left', bbox_to_anchor=(1, 0.5),
+    handles=[symbol[0], symbol[1], symbol[2],symbol[3],symbol[4],symbol[5],symbol[6],symbol[7]])
+
+    plt.xlabel("Input Queue Count")
+    plt.ylabel("Packets Per Second")    
+    filename = 'point_'+ baseName+".png"
+    fig.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight')
+    CWD = os.getcwd()
+    shutil.copy(os.path.join(CWD,filename), directory)
+    os.remove(os.path.join(CWD,filename))
+
+
+
 
 """
 Runs through and creates Swarm plots for CSV file inputted
@@ -116,10 +161,21 @@ def runCat(fileName):
     fd = pd.read_csv(fileName)
     catSubPlot(fd, baseName, os.path.join(os.getcwd(), 'Plots'))
     del fd
-         
 
 """
-Finds all '.csv' files from specified directory and creates a cat Plot for that run
+Runs through and creates Swarm plots for CSV file inputted
+
+"""
+def runLine(fileName, fileNum):
+    baseName =  Path(fileName).stem
+    fd = pd.read_csv(fileName)
+    lineSubPlot(fd,fileNum, baseName, os.path.join(os.getcwd(), 'Plots'))
+    del fd
+         
+
+
+"""
+Finds all .csv files from specified directory and creates a Line/Dot Plot for that individual run
 """
 def singleRun(directoryPath):
     numberFiles =0
@@ -129,10 +185,10 @@ def singleRun(directoryPath):
                 folderPath = os.path.join(os.getcwd(),sys.argv[1])
                 filePath = os.path.join(folderPath,file)
                 print(os.path.splitext(filePath)[0])
-                runCat(filePath)
+                runLine(filePath, numberFiles)
                 numberFiles +=1
     return numberFiles
-    
+
 
 """
 Reads in all csv files into database then 
