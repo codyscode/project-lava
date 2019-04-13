@@ -13,7 +13,7 @@ pthread_t algThreadIDS[2];
 void* testProcessing(void* args){
     //Assign thread to test core
     int queueNum = *((int *)args);
-    int testCore = input.queueCount + output.queueCount + 3 + queueNum;
+    int testCore = inputQueueCount + outputQueueCount + 3 + queueNum;
 
     //Set the thread to its own core
     set_thread_props(testCore);
@@ -27,13 +27,13 @@ void* testProcessing(void* args){
     //Go through mainQueue and write its contents to the appropriate output queue
     while(1){
         //If the queue is full, then wait for it to become unfull
-        while(output.queues[qIndex].data[outputWriteIndex].flow != 0){
+        while(output[qIndex].queue.data[outputWriteIndex].flow != 0){
             ;
         }
         
         //Grab the packets data and move it into the output queue
-        output.queues[qIndex].data[outputWriteIndex].order = order;
-        output.queues[qIndex].data[outputWriteIndex].flow = flow;
+        output[qIndex].queue.data[outputWriteIndex].order = order;
+        output[qIndex].queue.data[outputWriteIndex].flow = flow;
 
         //Indicate the next spot to write to in the output queue
         if(outputWriteIndex == BUFFERSIZE - 1){
@@ -48,7 +48,7 @@ void* testProcessing(void* args){
 }
 
 void* determineSpeedOutput(void* args){
-    int spdCore = input.queueCount + output.queueCount + 2;
+    int spdCore = inputQueueCount + outputQueueCount + 2;
     int i = 0;
 
     //Set the thread to its own core
@@ -63,8 +63,8 @@ void* determineSpeedOutput(void* args){
         usleep(1000000);
 
         //Sample number of packets generated for all input queues
-        for(int qIndex = 0; qIndex < output.queueCount; qIndex++){
-            currTotal[qIndex] = output.queues[qIndex].count;
+        for(int qIndex = 0; qIndex < outputQueueCount; qIndex++){
+            currTotal[qIndex] = output[qIndex].queue.count;
 
             printf("Processing %lu packets per second in queue %d\n", currTotal[qIndex] - prevTotal[qIndex], qIndex);
 
@@ -82,7 +82,7 @@ void *run(void *argsv){
     fflush(NULL);
 
     //set the core
-    int runCore = input.queueCount + output.queueCount + 1;
+    int runCore = inputQueueCount + outputQueueCount + 1;
 
     int queueNum[MAX_NUM_INPUT_QUEUES];
 
@@ -90,7 +90,7 @@ void *run(void *argsv){
     set_thread_props(runCore);
     
     //Create the passer threads
-    for(int i = 0; i < output.queueCount; i++){
+    for(int i = 0; i < outputQueueCount; i++){
         queueNum[i] = i;
         Pthread_create(&algThreadIDS[0], NULL, testProcessing, &queueNum[i]);
 
