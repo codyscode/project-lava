@@ -1,0 +1,12 @@
+1. Updated inputLimitTest and outputLimitTest to work with new array-of-struct
+setup.
+
+2. In framework.c in input_thread():
+	a. Added Alex's fast PRNG
+	b. Added "packet_t *packet = &((*inputQueue).data[index]) and replaced
+	all subsequent calls to (*inputQueue.data[index]) with packet.
+	c. Change "wrap around" logic from index = index % BUFFERSIZE to
+	if(index == BUFFERSIZE){ index = 0;}
+
+3. In framework.c in processing_thread() did the same things as input_thread() not
+including the PRNG

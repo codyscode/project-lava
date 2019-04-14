@@ -1,0 +1,110 @@
+2/21/2019 - Cody
+
+	The main point of this was to separate the input queues from the output queues.
+Initially I only did that but then there was some weird logic where threadIDs[],
+threadArgs[], locks[], and finished[] were still on the old numbering system
+(0 through m+n) while queues[] was on the new numbering system. I fixed this by
+creating and intializing structs in global.h that encapsulate all these in an 
+input struct and an output struct. So for example if you want to access output
+queue 3 you would say output.queue[2] and if you want to lock on that thread
+you would use output.locks[2].
+	I noticed inputQueueCount and outputQueueCount were getting passed around as 
+arguments a lot so I added them to the input/output structs and replaced all 
+mentions with input.queueCount and output.queueCount. 
+	I updated algorithm.c to use the modified framework and everything seems
+to be working. Other than that I tried to change as little as possible.
+You can use the same Makefile in this folder to test it out.
+
+Files modified: framework.c, global.h, algorithm.c, algorithm.h
+
+2/22/2019 - Alex
+	-Added random number generator for generating the length member of the packet structure. 
+		-Min payload size is 64 and max payload size is 9000
+			-This translates to min packet struct size of 256 and max packet struct size of 9192
+
+	-Added Comments to global.h file (no code added)
+
+2/23/2019 - Alex
+	-detached input and processing threads
+	-Explicitly set expected array in process_thread() to all zeros
+	-Included <string.h> in global.h file in order to use memset()
+	-Included <math.h> in order to use in algorithm Files
+	-Modified (added -lm) Makefile to work with <math.h> functions 
+
+	Files modified: framework.c, global.h, Makefile
+
+2/23/2019 - Regi
+	- Implemented function to change the seed of rand(), so that our results aren't skewed towards a single data set
+	- changed minimum payload size to 0, since there are packets that just transfer the header with no payload.
+		- minimum packet struct size is now 24 and max is 9024 (in terms of bytes)
+	- set expected[], line 96 in framework.c, to the order of the first packet it recieved 
+	- moved original algorithm.c (singe wire algorithm) to newly created algorithm folder and renamed it to singleWire.c
+	- detached main algorithm thread
+	- defined HEADER_SIZE 24, line 36 in global.h. Defines first 24 bytes in packet header
+	- changed length variable of packet to correspond to payload size instead of header size
+	- implemented some error handling in the framework
+	- changed globally defined variable to be represented in bytes. There was an issue in regards to calculating the size of the structures and the size
+		in terms of bits and bytes were not consistent. I chose bytes since that's what most functions will use when calculating size.
+	- tried testing out memcpy() for the current algorithm, but there seems to be issues possibly because of thread premption or memory ordering
+
+	Files modified: framework.c, global.h
+	
+2/24/2019 - Lito
+	- changed this line $(CC) $(LDFLAGS) -c -o $@ $< $(CFLAGS)
+	  $(CC) $(LDFLAGS) -std=c99 -c -o $@ $< $(CFLAGS)
+	  So that the for loops don't have issues building on linux
+	- changed asm to __asm__ because this is required for c99 as well.
+	Files Modified: Makefile, global.h, testScript.sh
+
+2/27/2019 - Alex
+	-Removed duplicated code and optimized processing queues.
+	-Added Processing test limit algorithm
+	-Removed Unneccessary functions
+	-Added new exit conditions for framework
+	-Changed framework to run for 10 seconds after waiting 3 seconds for ramp up, then recording average number of packets passed
+
+	File modified: global.h global.c framework.c algorithm.h
+
+3/01/2019 - Alex
+	-Formatted output
+	-Added getName function to framework to get algName constant from algorithm.c file
+	-Put * in front of all print statements that shouldnt be processed
+	-Added set_thread_props function to assign thread to core
+	-Assigned processing and input generation threads to specific cores
+	-Changed algorithms to work on specific cores
+	-Added input generation metric test
+	-Fixed processing metric test
+
+	File modified: global.h global.c framework.c algorithm.h
+	
+3/02/2019 - Regi
+	- added .gitignore for binaries in framework folder
+	- Fixed currlength variable for generating payload size to not include the header of packet (otherwise memmove() or memcopy() won't work since they'll read over the memory space allocated)
+	- added <signal.h> library to global.h, this library is meant for handling the timer for the algorithm
+	- changed #define RUNTIME from packets to seconds and set it to 10
+	- changed buffer size to 1024
+	- Removed "passedCount[]" and MAX_NUM_THREADS from global.h since each queue is keeping track of their own count
+	- Removed usleep() which was used to wait for input buffers to fill up with loop that checks the last queue position of inputs queues are filled
+	- Removed usleep() which was being used as a timer since I implemented a signal system in the algorithm
+	- created "Algorithm3" for the purpose of testing timer functionality with signals
+	- implemented writing to output file for data collection in the framework
+	
+	Files modified: global.h framework.c wrapper.h wrapper.c 
+	Created: Algorithm3
+
+3/02/2019 - Alex
+	- Took Regi's alarm code and abstracted it to methods to be implemented in code. Put in global.c
+		-Modified Regi's algorithm3 to work with global.c (commented out old code and put comments next to new code)
+	- Moved initilization of startFlag and endFlag to framework.c
+	- Added template algorithm to follow when creating future algorithm.c files
+	- Modified algorithm 1 and 2 to work with framework
+	- Renamed start_alarm to alarm_start
+
+	Files Modified: global.h, global.c, framework.c
+	Created: TemplateAlgorithm
+
+3/03/2019 - Alex
+	- Fixed repinning of cores, as of now rand slows it down
+
+	Files Modified: global.h, global.c, framework.c
+	Created: TemplateAlgorithm
