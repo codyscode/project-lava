@@ -200,7 +200,7 @@ void check_if_ideal_conditions(){
         printf("Unsupported Platform.\nExiting...\n");
         exit(1);
     }
-    #define sizeIgnore 7
+    #define sizeIgnore 8
     char * line = NULL;
     size_t len = 0;
     ssize_t read;
@@ -219,7 +219,7 @@ void check_if_ideal_conditions(){
     snprintf(pidString, pIDlength + 1, "%ld", pID);
     
     //If a process contains one of these, then it is ok to run in the background
-    char * toIgnore[sizeIgnore] = {"USER", "bash", "sh", "ps", "tty1", pidString, ppidString};
+    char * toIgnore[sizeIgnore] = {"USER", "bash", "sh", "ps", "tty1" "vim", pidString, ppidString};
 
     //Used for the command line argument
     char * fileName = "temp";
@@ -314,11 +314,11 @@ void init_queue_sets(){
 
 void fill_queues(function custom_fill){
     if(custom_fill != NULL){
-        custom_fill();
+        custom_fill(NULL);
     }
     //Allow input buffers to fill before starting algorithm
     for(int i = 0; i < inputQueueCount; i++){
-        while(input[i].queue.data[BUFFERSIZE-1].flow != FREE_SPACE_TO_WRITE);
+        while(input[i].queue.data[BUFFERSIZE-1].isOccupied != NOT_OCCUPIED);
     }
 
     //Indicate to the user that the tests are starting
@@ -327,13 +327,54 @@ void fill_queues(function custom_fill){
 
 void drain_queues(function custom_drain){
     if(custom_drain != NULL){
-        custom_drain();
+        custom_drain(NULL);
     }
     //Check if first and last position of queues are empty
     //This works since queues are written in a sequential order
     for(int i = 0; i < outputQueueCount; i++){
-        while(output[i].queue.data[FIRST_INDEX].flow != FREE_SPACE_TO_WRITE); 
-        while(output[i].queue.data[LAST_INDEX].flow != FREE_SPACE_TO_WRITE);
+        while(output[i].queue.data[FIRST_INDEX].isOccupied != NOT_OCCUPIED); 
+        while(output[i].queue.data[LAST_INDEX].isOccupied != NOT_OCCUPIED);
+    }
+}
+
+void spawn_input_process(pthread_attr_t attrs){
+    //Core for each input thread to be assigned to
+    int core = 1;
+
+    //Each input queue has a thread associated with it
+    for(int index = 0; index < inputQueueCount; index++){
+        //Initialize Thread Arguments with first queue and number of queues
+        input[index].threadArgs.queue = &input[index].queue;
+        input[index].threadArgs.queueNum = index;
+        input[index].threadArgs.coreNum = core;
+        core++;
+
+        //Spawn input thread
+        Pthread_create(&input[index].threadID, &attrs, input_thread, (void *)&input[index].threadArgs);
+
+        //Detach the thread
+        Pthread_detach(input[index].threadID);
+    }
+}
+
+void spawn_output_process(pthread_attr_t attrs){
+    //Core for each output thread to be assigned to
+    //Next available queue after cores have been assigned ot input queues
+    int core = inputQueueCount + 1;
+
+    //Each output queue has a thread associated with it
+    for(int index = 0; index < outputQueueCount; index++){
+        //Initialize Thread Arguments with first queue and number of queues
+        output[index].threadArgs.queue = &output[index].queue;
+        output[index].threadArgs.queueNum = index;
+        output[index].threadArgs.coreNum = core;
+        core++;
+
+        //Spawn the thread
+        Pthread_create(&output[index].threadID, &attrs, processing_thread, (void *)&output[index].threadArgs);
+
+        //Detach the thread
+        Pthread_detach(output[index].threadID);
     }
 }
 
@@ -395,6 +436,10 @@ int main(int argc, char**argv){
     //Assign the main thread to run on the first core and dont change its scheduling
     assign_to_zero();
 
+    //Initialize thread attributes
+    pthread_attr_t attrs;
+    pthread_attr_init(&attrs);
+
     //Initialize the stop/start flags for the algorithm
     startFlag = 0;
     endFlag = 0;
@@ -411,8 +456,13 @@ int main(int argc, char**argv){
     //Initialize the sets of queues to 0
     init_queue_sets();
 
+    spawn_input_process(attrs);
+
+    spawn_output_process(attrs);
+
     //Wait for the queues to fill up before passing
-    fill_queues(get_fill_method());
+    //fill_queues(get_fill_method());
+    fill_queues(NULL);
 
     //Indicate to the user that the tests are starting
     printf("\nStarting Metric...\n");
@@ -426,7 +476,8 @@ int main(int argc, char**argv){
     //wait until the first and last position of all processing queues are empty
     //Because we are looking at packets passed, instead of processed and the output queues
     //maintain the count, we wait until the output queues finish counting all the packets passed to them
-    drain_queues(get_drain_method());
+    //drain_queues(get_drain_method());
+    drain_queues(NULL);
 
     //Output all data to user and files
     output_data();

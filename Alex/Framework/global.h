@@ -25,25 +25,30 @@
 //Constants for threads
 #define BUFFERSIZE 1024
 
-//Defines how many seconds an algorithm should run for
+//Defines how many ticks an algorithm should run for
 #define RUNTIME 30
 
 //Used to determine packet size
-#define MAX_PAYLOAD_SIZE 9000
+//8000 Allows much faster packet generation
 #define MIN_PAYLOAD_SIZE 64
+#define MAX_PAYLOAD_SIZE 8000
 
-#define MIN_PACKET_SIZE 192 + 64
-#define MAX_PACKET_SIZE 192 + 9000
+//Maximum packet size
+#define MIN_PACKET_SIZE 192 + MIN_PAYLOAD_SIZE
+#define MAX_PACKET_SIZE 192 + MAX_PAYLOAD_SIZE
 
 //Number of unique flows that each input queue generates
 #define FLOWS_PER_QUEUE 8
 
+//Indicates whether a packet is there or not
 #define NOT_OCCUPIED 0
 #define OCCUPIED 1
 
+//Minimum number of queues required
 #define MIN_INPUT_QUEUE_COUNT 1
 #define MIN_OUTPUT_QUEUE_COUNT 1
 
+//Major indices in the buffer
 #define FIRST_INDEX 0
 #define LAST_INDEX BUFFERSIZE - 1
 
@@ -60,6 +65,9 @@
 
 //function type for a method that returns a void * method with void * arguments
 typedef void* (*function)(void * args);
+
+//Used for reading the time stamp counter
+typedef unsigned long long tsc_t;
 
 //Data structure to represent a packet.
 //length (size_t) - The total size of the data memeber for the packet
@@ -129,5 +137,10 @@ void assign_to_zero();
 void sig_alrm(int signo);
 void alarm_init();
 void alarm_start();
+
+char* getName();
+function get_fill_method();
+function get_drain_method();
+void * run(void * args);
 
 #endif

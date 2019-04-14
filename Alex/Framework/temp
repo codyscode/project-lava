@@ -1,0 +1,11 @@
+USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root     14282  0.0  0.0 110092   860 tty1     Ss+  Apr08   0:00 /sbin/agetty --noclear tty1 linux
+cohcunni 28053  0.0  0.0 115572  2184 pts/0    Ss+  03:07   0:00 -bash
+repineda 28323  0.0  0.0 115544  2028 pts/1    Ss+  03:14   0:00 -bash
+awidmann 28404  0.0  0.0 115572  2188 pts/2    Ss+  03:21   0:00 -bash
+cohcunni 28660  0.0  0.0 115572  2176 pts/3    Ss+  04:04   0:00 -bash
+awidmann 28714  0.0  0.0 115572  2176 pts/4    Ss   04:08   0:00 -bash
+root     29008  0.0  0.0 241136  4624 pts/4    S+   04:28   0:00 sudo ./framework 1 1
+root     29010  0.0  0.0 138104   460 pts/4    S+   04:28   0:00 ./framework 1 1
+root     29012  0.0  0.0 113176  1372 pts/4    S+   04:28   0:00 sh -c rm -f temp; ps -au >> temp
+root     29014  0.0  0.0 155360  1896 pts/4    R+   04:28   0:00 ps -au

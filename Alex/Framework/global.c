@@ -4,6 +4,31 @@
 #include<global.h>
 #include<wrapper.h>
 
+// Get the current value of the TSC.  This is a rolling 64 bit counter
+// and its frequency varies from across x64 CPU models so we have to
+// calibrate it.
+
+#if defined(__i386__)
+
+// Not actually used - most chips are x64 nowadays.
+static __inline__ tsc_t rdtsc(void)
+{
+    register tsc_t x;
+    __asm__ volatile (".byte 0x0f, 0x31" : "=A" (x));
+    return x;
+}
+
+#elif defined(__x86_64__)
+
+static __inline__ tsc_t rdtsc(void)
+{
+    register unsigned hi, lo;
+    __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
+    return ( (tsc_t)lo)|( ((tsc_t)hi)<<32 );
+}
+
+#endif
+
 // Set thread properties - specifically the ones that make this a
 // realtime thread, which means it will always be chosen to run
 // when considered against non-RT threads such as other normal
