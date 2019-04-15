@@ -9,7 +9,6 @@ framework
 
 #Test Code
 testenv
-testenv.c
 testenv.o
 
 #MacOS stuff
