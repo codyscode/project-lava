@@ -1,0 +1,19 @@
+#Binary Files
+*.o
+queuecode
+algorithm
+framework
+
+#Test Code
+testenv
+testenv.c
+testenv.o
+
+#MacOS stuff
+~/.DS_Store
+
+#VScode stuff
+.vscode
+
+#csv files
+*.csv

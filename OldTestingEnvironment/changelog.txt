@@ -1,0 +1,5 @@
+2/23/2019 - Alex
+The idea behind this directory is that this is where we test algorithms 
+The top level script that runs everything calls the highest level makefile (empty as of now)
+each algorithm is ran using a separate script file that runs tests and the output is recorded in a .csv file (not implemented yet).
+There are 2 different algorithms so far to test this with.
