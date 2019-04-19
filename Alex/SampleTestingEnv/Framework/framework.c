@@ -202,17 +202,20 @@ void check_if_ideal_conditions(){
     }
     #define sizeIgnore 8
     char * line = NULL;
+    char * response = NULL;
     size_t len = 0;
     ssize_t read;
     FILE *fptr;
 
     //Get the parent process ID into a string
+    //This is the sudo call for the framework
     long ppID = (long)getppid();
     int ppIDlength = snprintf(NULL, 0, "%ld", ppID);
     char* ppidString = Malloc(ppIDlength + 1);
     snprintf(ppidString, ppIDlength + 1, "%ld", ppID);
 
     //Get the processID into a string
+    //This is what is called from sudo
     long pID = (long) getpid();
     int pIDlength = snprintf(NULL, 0, "%ld", pID);
     char* pidString = Malloc(pIDlength + 1);
@@ -231,7 +234,7 @@ void check_if_ideal_conditions(){
         exit(0);
     }
     else{
-        //Execute the command
+        //Execute the command to list processes
         system(cmd);
 
         //Open the file that the data was stored in
@@ -262,8 +265,18 @@ void check_if_ideal_conditions(){
             //If we make it out of the loop and we havent found a word signaling the process is ok to run
             //Then we have a process that shouldn't be running and we should not run the framework yet
             if(ignore == 0){
-                printf("Another process is running that will skew the results.\nExiting...\n");
-                exit(1);
+                printf("Another process is running that will skew the results.\n");
+                printf("Running Process: %s\n", line);
+                scanf("Would you like to proceed(Y/N)", response);
+                if(strcmp(response, "Y") == 0){
+                    printf("\n");
+                    continue;
+                }
+                else{
+                    printf("Exiting...\n");
+                    exit(1);
+                }
+                
             }
             ignore = 0;
         }
@@ -337,7 +350,7 @@ void drain_queues(function custom_drain){
     }
 }
 
-void spawn_input_process(pthread_attr_t attrs){
+void spawn_input_threads(pthread_attr_t attrs){
     //Core for each input thread to be assigned to
     int core = 1;
 
@@ -357,7 +370,7 @@ void spawn_input_process(pthread_attr_t attrs){
     }
 }
 
-void spawn_output_process(pthread_attr_t attrs){
+void spawn_output_threads(pthread_attr_t attrs){
     //Core for each output thread to be assigned to
     //Next available queue after cores have been assigned ot input queues
     int core = inputQueueCount + 1;
@@ -456,9 +469,9 @@ int main(int argc, char**argv){
     //Initialize the sets of queues to 0
     init_queue_sets();
 
-    spawn_input_process(attrs);
+    spawn_input_threads(attrs);
 
-    spawn_output_process(attrs);
+    spawn_output_threads(attrs);
 
     //Wait for the queues to fill up before passing
     //fill_queues(get_fill_method());

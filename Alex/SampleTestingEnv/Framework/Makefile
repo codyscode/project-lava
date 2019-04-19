@@ -14,29 +14,22 @@ DEPS = algorithm.h global.h wrapper.h
 #-lpthread:		library and p
 LIBS = -lm -lpthread
 
-#Algorithm.c file
-ALG = algorithm
-
 #C soure files
 SRCS = framework.c wrapper.c global.c
 
 #Object files
-OBJS = $(SRCS:.c=.o) $(ALG).o
+OBJS = $(SRCS:.c=.o)
 
 #framework executable
-TARGET = framework
+TARGET = framework.o
 
 .PHONY: clean
 
-all: $(TARGET)
+all: $(OBJS)
 
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LIBS)
-
+#Compile all .c files to .o files
 %.o: %.c $(DEPS)
 	$(CC) $(CFLAGS) -c -o $@ $< $(LIBS)
 
 clean:
 	find . -name "*.o" -type f -delete
-	find . -name "*.csv" -type f -delete
-	find . -name $(TARGET) -type f -delete

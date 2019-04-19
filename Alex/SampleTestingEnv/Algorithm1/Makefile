@@ -17,10 +17,13 @@ SRC = algorithm.c
 #File that should be created
 TARGET = algorithm.o
 
+.PHONY: clean
+
 #Move the algorithm to the framework folder then call make
-default: $(TARGET)
-	mv algorithm.o ../Framework/algorithm.o
-	cd ../Framework && $(MAKE)
+all: $(TARGET)
 
 $(TARGET): $(SRC)
 	$(CC) $(CFLAGS) -c $(SRC) -o $@ $(LIBS)
+
+clean:
+	find . -name "*.o" -type f -delete
