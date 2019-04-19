@@ -15,7 +15,7 @@
 
 
 //-REQUIRED in algorithm.c:
-// --void* run(void*)
+// --pthread_t* run(void*)
 //   ---This will spawn input and output threads that handle each queue
 // --char* getName()
 //   ---This will return the algorithm name for data purposes
@@ -36,173 +36,18 @@
 #include"global.h" 
 #include"wrapper.h"
 
-//The job of the input threads is to make packets to populate the buffers. As of now the packets are stored in a buffer.
-//Attributes:
-// -Each input queue generates packets in a circular buffer
-// -Input queue stops writing when the buffer is full and continues when it is empty
-// -Each input queue generates 5 flows (i.e input 1: 1, 2, 3, 4, 5; input 2: 6, 7, 8, 9, 10)
-// -The flows can be scrambled coming from a single input (i.e stream: 1, 2, 1, 3, 4, 4, 3, 3, 5)
-void* input_thread(void *args){
-    //Get arguments and any other functions for input threads
-    threadArgs_t *inputArgs = (threadArgs_t *)args;
-
-    int queueNum = inputArgs->queueNum;   
-    queue_t * inputQueue = (queue_t *)inputArgs->queue;
-
-    //Set the thread to its own core
-    set_thread_props(inputArgs->coreNum);
-
-    //Each input buffer has 5 flows associated with it that it generates
-    int orderForFlow[FLOWS_PER_QUEUE] = {0};
-    int currFlow, currLength;
-    int offset = queueNum * FLOWS_PER_QUEUE;
-	
-    //Continuously generate input numbers until the buffer fills up. 
-    //Once it hits an entry that is not empty, it will wait until the input is grabbed.
-    int index = 0;
-    unsigned int g_seed = (unsigned int)time(NULL);
-
-    //--Uncomment for loop for Lazy/Fast Method -- Faster for n m where n. m > 1, slower for 1 1
-    /*
-    //Setup all data in a queue to pull from and get random values in the queue
-    for(size_t index = 0; index < BUFFERSIZE; index++){
-        //Assign a random flow within a range: [n, n + 1, n + 2, n + 3, n + 4]. +1 is to avoid the 0 flow
-        currFlow = (rand_r(&g_seed) % FLOWS_PER_QUEUE) + offset + 1;
-
-        //Assign a random length to the packet. Length defines the entire packet struct, not just payload
-        //Minimum size computed below is MIN_PACKET_SIZE
-        //Maximum size computed below is MAX_PACKET_SIZE
-        currLength = rand_r(&g_seed) % (MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;
-
-        //Create the new packet and store it in the queue
-        (*inputQueue).data[index].packet.order = orderForFlow[currFlow - offset - 1];
-        (*inputQueue).data[index].packet.length = currLength;
-        (*inputQueue).data[index].packet.flow = currFlow;
-
-        (*inputQueue).data[index].isOccupied = OCCUPIED;
-
-        //Update the next flow number to assign
-        orderForFlow[currFlow - offset - 1]++;
-    }*/
-
-    //After having the base queue fill up, maintain all the packets in the queue by just overwriting their order number
-    while(1){
-        //Fast Thread Independent Psuedo Random Number Generator
-        g_seed = (214013*g_seed+2531011); //-Comment Out For Lazy/Fast Method
-
-        //Assign a random flow within a range: [n, n + 1, n + 2, n + 3, n + 4]. +1 is to avoid the 0 flow
-        currFlow = ((g_seed>>16)&0x7FFF % FLOWS_PER_QUEUE) + offset + 1; //-Comment Out For Lazy/Fast Method
-
-        //Assign a random length to the packet. Length defines the entire packet struct, not just payload
-        //Minimum size computed below is MIN_PACKET_SIZE
-        //Maximum size computed below is MAX_PACKET_SIZE
-        currLength = (g_seed>>16)&0x7FFF % ((MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE); //-Comment Out For Lazy/Fast Method
-
-        //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
-        while((*inputQueue).data[index].isOccupied == OCCUPIED){
-            ;//Do Nothing until a space is available to write
-        }
-
-        //Create the new packet. Write the order and length first before flow as flow > 0 indicates theres a packet there
-        (*inputQueue).data[index].packet.order = orderForFlow[currFlow - offset - 1];
-        (*inputQueue).data[index].packet.length = currLength; //-Comment Out For Lazy/Fast Method
-        (*inputQueue).data[index].packet.flow = currFlow; //-Comment Out For Lazy/Fast Method
-
-        //Update the next flow number to assign
-        orderForFlow[currFlow - offset - 1]++; //-Comment Out For Lazy/Fast Method
-        //orderForFlow[(*inputQueue).data[index].packet.flow - offset - 1]++; //-UNComment Out For Lazy/Fast Method
-
-        //Say that the spot is ready to be read
-        (*inputQueue).data[index].isOccupied = OCCUPIED;
-
-        //Update the next spot to be written in the queue
-        index++;
-        index = index % BUFFERSIZE;
-
-        //Increment the number of packets generated
-        (*inputQueue).count++;
-    }
-}
-
-//The job of the processing threads is to ensure that the packets are being delivered in proper order by going through
-//output queues and reading the order
-//--Need to work out storing in memory for proper simulation--
-void* processing_thread(void *args){
-    //Get arguments and any other functions for input threads
-    threadArgs_t *processArgs = (threadArgs_t *)args;
-
-    int queueNum = processArgs->queueNum;
-    int numInputs = (int)inputQueueCount;   
-    queue_t *processQueue = (queue_t *)processArgs->queue;
-
-    //Set the thread to its own core
-    set_thread_props(processArgs->coreNum);
-
-    //"Process" packets to confirm they are in the correct order before consuming more. 
-    //Processing threads process until they get to a spot with no packets
-    int expected[numInputs * FLOWS_PER_QUEUE + 1]; 
-    int index; 
-
-    //Initialize array to 0. Because it is dynamically allocated at runtime we need to use memset() or a for loop
-    memset(expected, 0, (numInputs * FLOWS_PER_QUEUE + 1) * sizeof(int));
-
-    //Go through each space in the output queue until we reach an emtpy space in which case we swap to the other queue to process its packets
-    while(1){
-        index = (*processQueue).toRead;
-
-        //If there is no packet, continuously check until something shows up
-        while((*processQueue).data[index].isOccupied == NOT_OCCUPIED){
-            ;//Do Nothing until there is a packet to read
-        }
-
-        //Get the current flow for the packet
-        int currFlow = (*processQueue).data[index].packet.flow;
-
-        // set expected order for given flow to the first packet that it sees
-        if(expected[currFlow] == 0){
-            expected[currFlow] = (*processQueue).data[index].packet.order;
-        }
-		
-        //Packets order must be equal to the expected order.
-        //Implementing less than currflow causes race conditions with writing
-        //Any line that starts with a * is ignored by python script
-        if(expected[currFlow] != (*processQueue).data[index].packet.order){
-            //Print out the contents of the processing queue that caused an error
-            for(int i = 0; i < BUFFERSIZE; i++){
-                printf("*Position: %d, Flow: %ld, Order: %ld\n", i, (*processQueue).data[i].packet.flow, (*processQueue).data[i].packet.order);
-            }
-            
-            //Print out the specific packet that caused the error to the user
-            printf("Error Packet: Flow %lu | Order %lu\n", (*processQueue).data[index].packet.flow, (*processQueue).data[index].packet.order);
-            printf("Packet out of order in Output Queue %d. Expected %d | Got %lu\n", queueNum, expected[currFlow], (*processQueue).data[index].packet.order);
-            exit(0);
-        }
-        //Else "process" the packet by filling in 0 and incrementing the next expected
-        else{            
-            //increment the number of packets passed
-            (*processQueue).count++;
-
-            //Set what the next expected packet for the flow should be
-            expected[currFlow]++;
-
-            //Move to the next spot in the outputQueue to process
-            (*processQueue).toRead++;
-            (*processQueue).toRead = (*processQueue).toRead % BUFFERSIZE;
-
-            //Set the position to free. Say it has already processed data
-            (*processQueue).data[index].isOccupied = NOT_OCCUPIED;
-        }
-    }
-}
+#define sizeIgnore 8
 
 void check_if_ideal_conditions(){
     if(!SUPPORTED_PLATFORM){
         printf("Unsupported Platform.\nExiting...\n");
         exit(1);
     }
-    #define sizeIgnore 8
+    //Used for parseing running processes
+    char * word = NULL;
     char * line = NULL;
-    char * response = NULL;
+    char lineCpy[1000];
+    char response[10];
     size_t len = 0;
     ssize_t read;
     FILE *fptr;
@@ -222,7 +67,7 @@ void check_if_ideal_conditions(){
     snprintf(pidString, pIDlength + 1, "%ld", pID);
     
     //If a process contains one of these, then it is ok to run in the background
-    char * toIgnore[sizeIgnore] = {"USER", "bash", "sh", "ps", "tty1" "vim", pidString, ppidString};
+    char * toIgnore[sizeIgnore] = {"USER", "bash", "sh", "ps", "tty1", "vim", pidString, ppidString};
 
     //Used for the command line argument
     char * fileName = "temp";
@@ -239,16 +84,18 @@ void check_if_ideal_conditions(){
 
         //Open the file that the data was stored in
         if(access(fileName, F_OK) != -1){
-            fptr = Fopen(fileName, "r");
+            fptr = Fopen(fileName, "r+");
         }
 
         //Go line by line and look for if another process is running that would degrade performance
         while ((read = getline(&line, &len, fptr)) != -1) {
+            strcpy(lineCpy, line);
             //Cycle through each word in the line using tokenization
-            char * word;
-            word = strtok (line, " -\n");
+            word = strtok(line, " -\t\n");
             int ignore = 0;
-            while (word != NULL && ignore == 0){
+
+            //Go word by word
+            while(word != NULL && ignore == 0){
                 //If the word is an ignore word, then the process is ok to exist
                 for(int i = 0; i < sizeIgnore; i++){
                     //If the strings are the same then the line can be ignored
@@ -259,18 +106,25 @@ void check_if_ideal_conditions(){
                 }
 
                 //move onto the next word in the line
-                word = strtok (NULL, " -\n");
+                word = strtok(NULL, " -\n");
             }
 
             //If we make it out of the loop and we havent found a word signaling the process is ok to run
             //Then we have a process that shouldn't be running and we should not run the framework yet
             if(ignore == 0){
                 printf("Another process is running that will skew the results.\n");
-                printf("Running Process: %s\n", line);
-                scanf("Would you like to proceed(Y/N)", response);
-                if(strcmp(response, "Y") == 0){
-                    printf("\n");
-                    continue;
+                printf("Running Process: %s\n", lineCpy);
+                printf("Would you like to proceed(y/n): ");
+                scanf("%s", response);
+                if(response != NULL){
+                    if(strcmp(response, "y") == 0){
+                        printf("\n");
+                        continue;
+                    }
+                    else{
+                        printf("Exiting...\n");
+                        exit(1);
+                    }
                 }
                 else{
                     printf("Exiting...\n");
@@ -278,16 +132,13 @@ void check_if_ideal_conditions(){
                 }
                 
             }
-            ignore = 0;
         }
 
         //Close the file
         fclose(fptr);
 
         //Free the line variable
-        if (line){
-            free(line);
-        }
+        free(line);
 
         //Delete the temporary file
         int status = remove(fileName);
@@ -299,66 +150,43 @@ void check_if_ideal_conditions(){
     }
 }
 
-void init_queue_sets(){
-    //initialize input queues to all 0 values
+void init_built_in_sets(){
+    //initialize all values for built in input/output queues to 0
     for(int qIndex = 0; qIndex < inputQueueCount; qIndex++){
         for(int dataIndex = 0; dataIndex < BUFFERSIZE; dataIndex++){
             input[qIndex].queue.data[dataIndex].packet.flow = 0;
             input[qIndex].queue.data[dataIndex].packet.order = 0;
             input[qIndex].queue.data[dataIndex].packet.length = 0;
             input[qIndex].queue.data[dataIndex].isOccupied = NOT_OCCUPIED;
-        }
-        input[qIndex].queue.toRead = 0;
-        input[qIndex].queue.toWrite = 0;
-    }
 
-    //initialize ouput queues to all 0 values
-    for(int qIndex = 0; qIndex < outputQueueCount; qIndex++){
-        for(int dataIndex = 0; dataIndex < BUFFERSIZE; dataIndex++){
             output[qIndex].queue.data[dataIndex].packet.flow = 0;
             output[qIndex].queue.data[dataIndex].packet.order = 0;
             output[qIndex].queue.data[dataIndex].packet.length = 0;
             output[qIndex].queue.data[dataIndex].isOccupied = NOT_OCCUPIED;
         }
+        input[qIndex].queue.toRead = 0;
+        input[qIndex].queue.toWrite = 0;
+        
         output[qIndex].queue.toRead = 0;
         output[qIndex].queue.toWrite = 0;
+
+        input[qIndex].overhead = 0;
+        input[qIndex].count = 0;
+
+        output[qIndex].overhead = 0;
+        output[qIndex].count = 0;
     }
 }
 
-void fill_queues(function custom_fill){
-    if(custom_fill != NULL){
-        custom_fill(NULL);
-    }
-    //Allow input buffers to fill before starting algorithm
-    for(int i = 0; i < inputQueueCount; i++){
-        while(input[i].queue.data[BUFFERSIZE-1].isOccupied != NOT_OCCUPIED);
-    }
-
-    //Indicate to the user that the tests are starting
-    printf("\nStarting Metric...\n");
-}
-
-void drain_queues(function custom_drain){
-    if(custom_drain != NULL){
-        custom_drain(NULL);
-    }
-    //Check if first and last position of queues are empty
-    //This works since queues are written in a sequential order
-    for(int i = 0; i < outputQueueCount; i++){
-        while(output[i].queue.data[FIRST_INDEX].isOccupied != NOT_OCCUPIED); 
-        while(output[i].queue.data[LAST_INDEX].isOccupied != NOT_OCCUPIED);
-    }
-}
-
-void spawn_input_threads(pthread_attr_t attrs){
+void spawn_input_threads(pthread_attr_t attrs, function input_thread){
     //Core for each input thread to be assigned to
-    int core = 1;
+    int core = 2;
 
-    //Each input queue has a thread associated with it
+    //Spawn the input threads and pass appropriate arguments
     for(int index = 0; index < inputQueueCount; index++){
         //Initialize Thread Arguments with first queue and number of queues
         input[index].threadArgs.queue = &input[index].queue;
-        input[index].threadArgs.queueNum = index;
+        input[index].threadArgs.threadNum = index;
         input[index].threadArgs.coreNum = core;
         core++;
 
@@ -368,18 +196,21 @@ void spawn_input_threads(pthread_attr_t attrs){
         //Detach the thread
         Pthread_detach(input[index].threadID);
     }
+
+    //Indicate to user that input queues have spawned
+    printf("\nSpawned %lu input queue(s)\n", inputQueueCount);
 }
 
-void spawn_output_threads(pthread_attr_t attrs){
+void spawn_output_threads(pthread_attr_t attrs, function processing_thread){
     //Core for each output thread to be assigned to
     //Next available queue after cores have been assigned ot input queues
-    int core = inputQueueCount + 1;
+    int core = 10;
 
-    //Each output queue has a thread associated with it
+    //Spawn the output threads and pass appropriate arguments
     for(int index = 0; index < outputQueueCount; index++){
         //Initialize Thread Arguments with first queue and number of queues
         output[index].threadArgs.queue = &output[index].queue;
-        output[index].threadArgs.queueNum = index;
+        output[index].threadArgs.threadNum = index;
         output[index].threadArgs.coreNum = core;
         core++;
 
@@ -389,6 +220,9 @@ void spawn_output_threads(pthread_attr_t attrs){
         //Detach the thread
         Pthread_detach(output[index].threadID);
     }
+
+    //Indicate to user that output queues have spawned
+    printf("Spawned %lu output queue(s)\n", outputQueueCount);
 }
 
 void output_data(){
@@ -396,20 +230,10 @@ void output_data(){
     setlocale(LC_NUMERIC, "");
 
     //Get the algorithm name
-    char* algName = getName();
-
-    //Indicate to the user that we are printing the results
-    printf("\nResults:\n");
-
-    size_t finalCount = 0;
-    //Output how many packets each output queue processed
-    for(int qIndex = 0; qIndex < outputQueueCount; qIndex++){
-        printf("Queue %d: %ld packets passed in %d seconds\n", qIndex, output[qIndex].queue.count, RUNTIME);
-        finalCount += output[qIndex].queue.count;
-    }
+    char* algName = get_name();
 
     //Print to the user that the tests ran successfully
-    printf("\nSuccess, passed all packets in order!\n");
+    printf("Success, passed all packets in order!\n");
 	
     //Create the file to write the data to
     FILE *fptr;
@@ -417,6 +241,9 @@ void output_data(){
 	
     //append .csv to algorithm name
     snprintf(fileName, sizeof(fileName),"%s.csv", algName);
+
+    //Output the data to the user
+    printf("\nAlgorithm %s passed %'lu packets per second on average.\n", algName, finalTotal/(RUNTIME - overheadTotal));
 
     //if the file alreadty exists, open it
     if(access(fileName, F_OK) != -1){
@@ -429,14 +256,13 @@ void output_data(){
     }	
 	
     //Output the data to the file
-    fprintf(fptr, "%s,%lu,%lu,%lu\n", algName, inputQueueCount, outputQueueCount, finalCount/RUNTIME);
+    fprintf(fptr, "%s,%lu,%lu,%lu\n", algName, inputQueueCount, outputQueueCount, finalTotal/(RUNTIME - overheadTotal));
     fclose(fptr);
-	
-    //Output the data to the user
-    printf("\nAlgorithm %s passed %'lu packets per second\n", algName, finalCount/RUNTIME);
 }
 
 int main(int argc, char**argv){
+    int tries;
+
     //Error checking for proper command line arguments
     if (argc < 3){
         printf("*Usage: Queues <# input queues>, <# output queues>\n");
@@ -447,7 +273,7 @@ int main(int argc, char**argv){
     check_if_ideal_conditions();
 
     //Assign the main thread to run on the first core and dont change its scheduling
-    assign_to_zero();
+    set_thread_props(0, (long)NULL);
 
     //Initialize thread attributes
     pthread_attr_t attrs;
@@ -457,40 +283,103 @@ int main(int argc, char**argv){
     startFlag = 0;
     endFlag = 0;
 
+    //initialize ready signal flags for threads
+    for(int i = 0; i < MAX_NUM_INPUT_THREADS; i++){
+        input[i].readyFlag = 0;
+    }
+
     //Grab the number of input and output queues to use
     inputQueueCount = atoi(argv[1]);
     outputQueueCount = atoi(argv[2]);
 
     //Make sure that the number of input and output queues is valid
-    assert(inputQueueCount <= MAX_NUM_INPUT_QUEUES);
-    assert(outputQueueCount <= MAX_NUM_OUTPUT_QUEUES);
-    assert(inputQueueCount >= MIN_INPUT_QUEUE_COUNT && outputQueueCount >= MIN_OUTPUT_QUEUE_COUNT);
+    assert(inputQueueCount <= MAX_NUM_INPUT_THREADS);
+    assert(outputQueueCount <= MAX_NUM_OUTPUT_THREADS);
+    assert(inputQueueCount >= MIN_INPUT_THREAD_COUNT && outputQueueCount >= MIN_OUTPUT_THREAD_COUNT);
 
     //Initialize the sets of queues to 0
-    init_queue_sets();
+    init_built_in_sets();
 
-    spawn_input_threads(attrs);
+    printf("Spawning Threads:\n");
 
-    spawn_output_threads(attrs);
+    spawn_input_threads(attrs, get_input_thread());
 
-    //Wait for the queues to fill up before passing
-    //fill_queues(get_fill_method());
-    fill_queues(NULL);
+    spawn_output_threads(attrs, get_output_thread());
 
     //Indicate to the user that the tests are starting
-    printf("\nStarting Metric...\n");
+    printf("\nStarting Metric for Algorithm: %s\n", get_name());
 
     //Call the users run method which handles:
-    // -spawning the threads for dealing with input
-    // -spawning the threads that deal with processing output
-    // -Dealing with passing packets to the other sets of queues
-    run(NULL);
+    // - Spawn any additional threads their algorithm may need
+    // - Return the array of the spawned threads
+    pthread_t *extraThreads;
+    extraThreads = run(NULL);
 
-    //wait until the first and last position of all processing queues are empty
-    //Because we are looking at packets passed, instead of processed and the output queues
-    //maintain the count, we wait until the output queues finish counting all the packets passed to them
-    //drain_queues(get_drain_method());
-    drain_queues(NULL);
+    //Setup the alarm
+    alarm_init();
+
+    //Indicate we are waiting for threads to be ready
+    printf("\n\nWaiting for Threads to be Ready:\n\n");
+
+    //Ensure that every thread is ready before starting the timer
+    //This ensures the user sets the flag properly and acts as a barrier for timing
+    for(int i = 0; i < inputQueueCount; i++){
+        tries = 0;
+        while(input[i].readyFlag == 0){
+            usleep(1000000);
+            tries++;
+            if(tries == 10){
+                printf("\nAlgorithm fails to set ready flags for input threads in time.\nMake sure to set input[threadNum].readyFlag = 1 when your input thread is ready to start passing.\nExiting...\n");
+                exit(1);
+            }
+        }
+        printf("Input Thread %d: Ready - Running on Core %lu\n", i, input[i].threadArgs.coreNum);
+    }
+    for(int i = 0; i < outputQueueCount; i++){
+        tries = 0;
+        while(output[i].readyFlag == 0){
+            usleep(1000000);
+            tries++;
+            if(tries == 10){
+                printf("\nAlgorithm fails to set ready flags for output threads in time.\nMake sure to set output[threadNum].readyFlag = 1 when your output thread is ready to start passing.\nExiting...\n");
+                exit(1);
+            }
+        }
+        printf("Output Thread %d: Ready - Running on Core %lu\n", i, output[i].threadArgs.coreNum);
+    }
+
+    printf("\nAll Threads Ready. *** Starting Passing ***");
+    fflush(NULL);
+
+    //Set all count variables to 0 to prevent "cheating"
+    for(int i = 0; i < MAX_NUM_INPUT_THREADS; i++){
+        input[i].overhead = 0;
+        output[i].count = 0;
+        output[i].overhead = 0;
+        output[i].count = 0;
+    }
+
+    //Reset final results
+    finalTotal = 0;
+    overheadTotal = 0;
+
+    //Start the alarm and set start flag to signal all threads to start
+    alarm_start();
+
+    //Wait for 30 seconds
+    while(endFlag == 0){
+        ;//Wait for 30 seconds
+    }
+
+    printf("\n\n\nFinished. Waiting for thread cleanup...\n\n");
+
+    //Wait for any threads that were spawed in the run function to finish
+    if(extraThreads != NULL){
+        int size = sizeof(*extraThreads)/sizeof(pthread_t);
+        for(int i = 0; i < size; i++){
+            Pthread_join(extraThreads[i], NULL);
+        }
+    }
 
     //Output all data to user and files
     output_data();

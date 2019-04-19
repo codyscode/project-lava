@@ -8,7 +8,7 @@ CFLAGS = -I. -g -Wall -std=c99 #-O3
 CC = gcc
 
 #header file dependencies
-DEPS = algorithm.h global.h wrapper.h
+DEPS = global.h wrapper.h
 
 #-lm: 			Math 
 #-lpthread:		library and p
@@ -17,40 +17,78 @@ LIBS = -lm -lpthread
 #Framework Folder
 FWF = Framework/
 
-#Algorithm Folder
-ALGF = Algorithm1/
-
-#Algorithm.c file. Default is algorithm1
-ALGPATH = $(ALGF)algorithm.c
-
 #C soure files
 SRCS = framework.c wrapper.c global.c
 
 #Object files
-OBJS = $(addprefix $(FWF), $(SRCS:.c=.o)) $(ALGPATH:.c=.o)
+OBJS = $(addprefix $(FWF), $(SRCS:.c=.o)) $(APATH:.c=.o)
 
 #framework executable
 TARGET = framework
 
-.PHONY: clean
+.PHONY: clean help
 
+ifneq ("$(wildcard $(APATH))","")
 all: $(TARGET)
+else
+all: 
+	$(info Need to specify path to algorithm. Example: make APATH=Algorithm1/algorithm.c)
+	$(info For all arguments, run: make help)
+	$(error )
+endif
 
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LIBS)
 
-$(OBJS):
-ifdef $(ALGMAKE)
-	$(MAKE) -C $(ALGF)
-else
-	$(CC) $(CFLAGS) -c $(ALGPATH) -o $(ALGPATH:.c=.o) $(LIBS)
-endif
-	$(MAKE) -C $(FWF)
 
-clean:
-ifdef $(CLEANPATH)
-	$(MAKE) clean -C $(CLEANPATH)
+ifeq ($(AMAKE),)
+$(OBJS): $(addprefix $(FWF), $(SRCS)) $(addprefix $(FWF), $(DEPS))
+	$(CC) $(CFLAGS) -c $(APATH) -o $(APATH:.c=.o) $(LIBS)
+	$(MAKE) -C $(FWF)
+else
+$(OBJS): $(addprefix $(FWF), $(SRCS)) $(addprefix $(FWF), $(DEPS))
+	$(MAKE) -C $(AMAKE)
+	$(MAKE) -C $(FWF)
 endif
+
+ifeq ($(AMAKE),)
+clean:
 	$(MAKE) clean -C $(FWF)
 	find . -name "*.csv" -type f -delete
 	find . -name $(TARGET) -type f -delete
+else
+clean:
+	$(MAKE) clean -C $(AMAKE)
+	$(MAKE) clean -C $(FWF)
+	find . -name "*.csv" -type f -delete
+	find . -name $(TARGET) -type f -delete
+endif
+
+help:	
+	$(info make [options])
+	$(info )
+	$(info Options:)
+	$(info )
+	$(info - (required) APATH=relative/path/to/algorithm)
+	$(info -            Example: APATH=Algorithm1/algorithm.c)
+	$(info -            Description: Path to the algorithm.c file which contains the proper code)
+	$(info )
+	$(info - (optional) AMAKE=relative/path/to/folder/with/makefile)
+	$(info -            Example: AMAKE=Algorithm1/)
+	$(info -            Description: Path to the folder that contains the makefile to compile the algorithm and any other files.) 
+	$(info -            If this is not included, make will compile your algorithm.c file with the following code:)
+	$(info -            $(CC) $(CFLAGS) -c algorithm.c -o algorithm.o $(LIBS))
+	$(info )
+	$(info make [options] clean)
+	$(info )
+	$(info Options:)
+	$(info )
+	$(info - (required) AMAKE=relative/path/to/algorithm)
+	$(info -            Example: APATH=Algorithm1/algorithm.c)
+	$(info )
+	$(info Algorithm folder structure used in examples:)
+	$(info Algorithm1/)
+	$(info .    |_ algorithm.c)
+	$(info .    |_ Makefile)
+	$(info )
+	exit

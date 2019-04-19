@@ -35,15 +35,16 @@ static __inline__ tsc_t rdtsc(void)
 // Unix processes.  This means that we should be the only thing
 // that uses the core we pick.  It also assigns it to one core,
 // so that it doesn't move around and invalidate the L1 cache.
-void set_thread_props(int tgt_core){
+void set_thread_props(int tgt_core, long sched){
     pthread_t self = pthread_self();
     
-    const struct sched_param params = {
-	    .sched_priority = 2
-    };
-
-    if(pthread_setschedparam(self, SCHED_FIFO, &params)) {
-	    perror("pthread_setschedparam");
+    if(sched != (long)NULL){
+        const struct sched_param params = {
+	        .sched_priority = sched
+        };
+        if(pthread_setschedparam(self, SCHED_FIFO, &params)) {
+	        perror("pthread_setschedparam");
+        }
     }
 
     //Repin this thread to one specific core
@@ -57,23 +58,25 @@ void set_thread_props(int tgt_core){
     }
 }
 
-void assign_to_zero(){
-    pthread_t self = pthread_self();
+void sig_alrm(int signo){    
+    endFlag = 1;
 
-    //Repin this thread to one specific core
-    cpu_set_t cpuset;
-
-    CPU_ZERO(&cpuset);
-    CPU_SET(0, &cpuset);
-
-    if(pthread_setaffinity_np(self, sizeof(cpu_set_t), &cpuset)) {
-	    perror("pthread_attr_setaffinity_np");
+    //Determine which side the user kept count on
+    if(input[0].count != 0){
+        for(int i = 0; i < MAX_NUM_INPUT_THREADS; i++){
+            finalTotal += input[i].count;
+        }
     }
-}
+    else{
+        for(int i = 0; i < MAX_NUM_OUTPUT_THREADS; i++){
+            finalTotal += output[i].count;
+        }
+    }
 
-void sig_alrm(int signo)
-{
-	endFlag = 1;
+    for(int i = 0; i < MAX_NUM_OUTPUT_THREADS; i++){
+        overheadTotal += input[i].overhead;
+        overheadTotal += output[i].overhead;
+    }
 }
 
 void alarm_init(){
