@@ -22,6 +22,14 @@ char* get_name(){
     return ALGNAME;
 }
 
+function get_input_thread(){
+    return input_thread;
+}
+
+function get_output_thread(){
+    return output_thread;
+}
+
 //The job of the input threads is to make packets to populate the buffers. As of now the packets are stored in a buffer.
 //Attributes:
 // -Each input queue generates packets in a circular buffer
@@ -162,14 +170,6 @@ void * output_thread(void * args){
     }
 
     return NULL;
-}
-
-function get_input_thread(){
-    return input_thread;
-}
-
-function get_output_thread(){
-    return output_thread;
 }
 
 void grab_packets(int toGrabCount, queue_t* mainQueue){

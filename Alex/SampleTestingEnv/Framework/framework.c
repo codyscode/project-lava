@@ -1,44 +1,51 @@
-//-This is meant to act as a test bed for algorithms that pass packets between two "processes".
-// --Processes is a relative term here that just refers to two separate entities doing their own work.
-//-The framework consists of input and output queues that serve as the buffers to write and read into respectivley
-//-with the input queues representing a queue in a NIC and the output queue representing a buffer to put the packets
-//-into for the other process to read
+// *** FRAMEWORK ***
+// This is meant to act as a test bed for algorithms that pass packets between two sets of threads.
 
+// Times the algorithms and has an interface defined below for making algorithms "plug and play"
 
-//-Algorithm speed is measured in packets per second:
-// --Sampling is done by using the sig_alarm method
-// --The user inidicates when to start the timer within their algorithm
-//   by setting a global variable telling the alarm to be set for 30 seconds
-// --The generate packets function within gloabl.c keeps track of the overhead in
-//   the time it takes to generate packets as a local variable and in the end the
-//   total overhead is subtracted from the 30 second alarm
+// Handle joining all threads spawned and returning the results of the run.
 
+// Ensures no other processes are running
 
-// *** REQUIRED in algorithm.c ****
 //
-// * pthread_t* run(void*)
-//   ---This will spawn input and output threads that handle each queue
 
-// * char* getName()
-//   ---This will return the algorithm name for data purposes
 
-// * function get_input_thread()
-//   ---This will return the proper way to fill a custom queue or standard queue
-//   ---return NULL if using default input queues
 
-// * function get_output_thread()
-//   ---This will return the proper way to drain a custom queue or standard queue
-//   ---return NULL if using default output queues
+// *** TIMING ***
+// Algorithm speed is measured in packets per second:
 
-// * import global.h 
-//   ---Have access to built in queue structures and global variables
-//   
-// * It is advised to assign threads to certain cores
-//   otherwise your algorithm could perform very poorly
+// Sampling is done by using the sig_alarm method with a 30 second timer set
 
-// * IMPORTANT: To have your thread exit properly instead of doing
-//   Instead of:    while(1){ //constant work  } 
-//   Do:            while(endFlag == 0){ //constant work  }
+// The user inidicates when to start the timer within their algorithm
+// by setting a global variable telling the alarm to be set for 30 seconds
+
+// It is the user's job to keep track of overhead time for spawning packets and passing them
+// Overhead needs to be calculated fairly and accurately. We are trusting the user.
+
+
+// *** REQUIRED IN ALGORITHM SRC FILE ****
+
+// import global.h 
+//   - Have access to built in queue structures and global variables
+
+// pthread_t* run(void*)
+//   - This will spawn any additional threads or do other work your algorithm may need
+//   - Return NULL if no additional threads were spawned
+//   - Return the array containing the array of thread ID's if you did spawn more threads
+
+// char* getName()
+//   - This will return the algorithm name for data purposes
+
+// function get_input_thread()
+//   - This will return the function pointer to the method that the input threads should run.
+
+// function get_output_thread()
+//   - This will return the function pointer to the method that the output threads should run.
+   
+// It is advised to assign threads to certain cores otherwise your algorithm could perform very poorly
+
+// IMPORTANT: any additional threads you spawn in the pthread * run() function should return
+// The variable endFlag will be set after the 30 second signal
 
 #include"global.h" 
 #include"wrapper.h"
@@ -360,10 +367,9 @@ int main(int argc, char**argv){
 
     //Set all count variables to 0 to prevent "cheating"
     for(int i = 0; i < MAX_NUM_INPUT_THREADS; i++){
-        input[i].overhead = 0;
-        output[i].count = 0;
-        output[i].overhead = 0;
-        output[i].count = 0;
+        if(input[i].overhead > 0 || output[i].overhead > 0 || output[i].count > 0){
+            printf("Counting started before Timer, Results are not valid. Exiting...\n");
+        }
     }
 
     //Reset final results
@@ -373,17 +379,6 @@ int main(int argc, char**argv){
     //Start the alarm and set start flag to signal all threads to start
     alarm_start();
 
-    /*
-    int timer = RUNTIME;
-    printf("\n\nEstimated Time Remaining: %d", timer);
-    while(endFlag == 0){
-        printf("\rTime Remaining: %d   ", timer);
-        timer--;
-        fflush(NULL);
-        usleep(1000000);
-    }
-    */
-
     size_t prevCount = 0;
     size_t count = 0;
     int timer = RUNTIME;
@@ -392,8 +387,8 @@ int main(int argc, char**argv){
             for(int i = 0; i < outputThreadCount; i++){
                 count += output[i].count;
             }
-            printf("\x1b[A\rEstimated: \t%'lu Packets per Second\n", (count - prevCount) / 2);
-            printf("Time Remaining: %d Seconds  ", timer);
+            printf("\x1b[A\rEstimated: \t %'lu Packets per Second\n", (count - prevCount) / 2);
+            printf("Time Remaining:  %d Seconds  ", timer);
             fflush(NULL);
             prevCount = count;
             count = 0;
