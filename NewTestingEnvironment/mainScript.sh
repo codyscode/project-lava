@@ -1,11 +1,14 @@
 #!/bin/bash
 
+OPTION_VAL=""
 #help menu to detail how the program works
 displayHelp() {
-	echo "-h	Print help"
-	echo "-t	Run tests on all algorithms"
-	echo "-q        runs quick test on all algorithms"
-	echo "-w	Push benchmark results to wiki"	
+	echo "-h 	 Print help"
+	echo "-t	 Run tests on all algorithms"
+	echo "-q         runs quick test on all algorithms"
+	echo "-w	 Push benchmark results to wiki"	
+	echo "-v         Turns CSV files into visualizations"
+	echo "-s al_name Will run test on a specific algorithm only "
 }
 #Function that checks if the framework is already running on the server.
 check_isRunning(){
@@ -17,6 +20,25 @@ check_isRunning(){
 	else
     		echo "$SERVICE is not running starting testing"
 	fi
+}
+testSpecificAlgorithm(){
+	check_isRunning
+	echo "running test on Algorithm: "$OPTION_VAL
+		for dir in */ ; do
+		echo $dir
+		cd $dir
+		temp=$(grep "#define ALGNAME *" algorithm.c | awk '{print $3}')
+		echo "FIRST TEMP"
+		echo $temp
+		temp="${temp#\"}"
+		temp="${temp%\"}"
+		echo "$temp"
+		cd ..
+	done
+}
+runVisualization()
+{
+	echo "do nothing"
 }
 
 #runs all 64 iteration of each algorithm being made
@@ -72,12 +94,16 @@ fileStructure_markdown(){
 }
 
 #takes flags and runs the appropriate function
-while getopts 'htqwp' flag; do
+while getopts 'htqws:vp' flag; do
 	case "${flag}" in
 		h) displayHelp ;;
 		t) testAllAlgorithms ;;
 		q) quicktestAllAlgorithms ;;
 		w) pushWiki ;;
+		s) OPTION_VAL=$OPTARG
+		   testSpecificAlgorithm 
+		   ;;
+		v) runVisualization ;;
 		*) error "Unexpected option ${flag}" ;;
 	esac
 done
