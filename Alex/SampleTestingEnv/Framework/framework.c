@@ -14,22 +14,29 @@
 //   total overhead is subtracted from the 30 second alarm
 
 
-//-REQUIRED in algorithm.c:
-// --pthread_t* run(void*)
+// *** REQUIRED in algorithm.c ****
+//
+// * pthread_t* run(void*)
 //   ---This will spawn input and output threads that handle each queue
-// --char* getName()
+
+// * char* getName()
 //   ---This will return the algorithm name for data purposes
-// --function get_fill_method()
+
+// * function get_input_thread()
 //   ---This will return the proper way to fill a custom queue or standard queue
 //   ---return NULL if using default input queues
-// --function get_drain_method()
+
+// * function get_output_thread()
 //   ---This will return the proper way to drain a custom queue or standard queue
 //   ---return NULL if using default output queues
-// --import global.h 
-//   ---Have access to the queue structures
-// --It is advised to assign threads to certain cores
+
+// * import global.h 
+//   ---Have access to built in queue structures and global variables
+//   
+// * It is advised to assign threads to certain cores
 //   otherwise your algorithm could perform very poorly
-// --IMPORTANT: To have your thread exit properly instead of doing
+
+// * IMPORTANT: To have your thread exit properly instead of doing
 //   Instead of:    while(1){ //constant work  } 
 //   Do:            while(endFlag == 0){ //constant work  }
 
@@ -152,7 +159,7 @@ void check_if_ideal_conditions(){
 
 void init_built_in_sets(){
     //initialize all values for built in input/output queues to 0
-    for(int qIndex = 0; qIndex < inputQueueCount; qIndex++){
+    for(int qIndex = 0; qIndex < inputThreadCount; qIndex++){
         for(int dataIndex = 0; dataIndex < BUFFERSIZE; dataIndex++){
             input[qIndex].queue.data[dataIndex].packet.flow = 0;
             input[qIndex].queue.data[dataIndex].packet.order = 0;
@@ -183,7 +190,7 @@ void spawn_input_threads(pthread_attr_t attrs, function input_thread){
     int core = 2;
 
     //Spawn the input threads and pass appropriate arguments
-    for(int index = 0; index < inputQueueCount; index++){
+    for(int index = 0; index < inputThreadCount; index++){
         //Initialize Thread Arguments with first queue and number of queues
         input[index].threadArgs.queue = &input[index].queue;
         input[index].threadArgs.threadNum = index;
@@ -198,7 +205,7 @@ void spawn_input_threads(pthread_attr_t attrs, function input_thread){
     }
 
     //Indicate to user that input queues have spawned
-    printf("\nSpawned %lu input queue(s)\n", inputQueueCount);
+    printf("\nSpawned %lu input queue(s)\n", inputThreadCount);
 }
 
 void spawn_output_threads(pthread_attr_t attrs, function processing_thread){
@@ -207,7 +214,7 @@ void spawn_output_threads(pthread_attr_t attrs, function processing_thread){
     int core = 10;
 
     //Spawn the output threads and pass appropriate arguments
-    for(int index = 0; index < outputQueueCount; index++){
+    for(int index = 0; index < outputThreadCount; index++){
         //Initialize Thread Arguments with first queue and number of queues
         output[index].threadArgs.queue = &output[index].queue;
         output[index].threadArgs.threadNum = index;
@@ -216,19 +223,16 @@ void spawn_output_threads(pthread_attr_t attrs, function processing_thread){
 
         //Spawn the thread
         Pthread_create(&output[index].threadID, &attrs, processing_thread, (void *)&output[index].threadArgs);
-
+        
         //Detach the thread
         Pthread_detach(output[index].threadID);
     }
 
     //Indicate to user that output queues have spawned
-    printf("Spawned %lu output queue(s)\n", outputQueueCount);
+    printf("Spawned %lu output queue(s)\n", outputThreadCount);
 }
 
 void output_data(){
-    //Used for formatting numbers with commas
-    setlocale(LC_NUMERIC, "");
-
     //Get the algorithm name
     char* algName = get_name();
 
@@ -256,24 +260,27 @@ void output_data(){
     }	
 	
     //Output the data to the file
-    fprintf(fptr, "%s,%lu,%lu,%lu\n", algName, inputQueueCount, outputQueueCount, finalTotal/(RUNTIME - overheadTotal));
+    fprintf(fptr, "%s,%lu,%lu,%lu\n", algName, inputThreadCount, outputThreadCount, finalTotal/(RUNTIME - overheadTotal));
     fclose(fptr);
 }
 
 int main(int argc, char**argv){
-    int tries;
-
     //Error checking for proper command line arguments
     if (argc < 3){
         printf("*Usage: Queues <# input queues>, <# output queues>\n");
         exit(0);
     }
 
+    int tries;
+
+    //Used for formatting numbers with commas
+    setlocale(LC_NUMERIC, "");
+
     //Ensure that no other process is running in the background
     check_if_ideal_conditions();
 
     //Assign the main thread to run on the first core and dont change its scheduling
-    set_thread_props(0, (long)NULL);
+    set_thread_props(0, 2);
 
     //Initialize thread attributes
     pthread_attr_t attrs;
@@ -289,13 +296,13 @@ int main(int argc, char**argv){
     }
 
     //Grab the number of input and output queues to use
-    inputQueueCount = atoi(argv[1]);
-    outputQueueCount = atoi(argv[2]);
+    inputThreadCount = atoi(argv[1]);
+    outputThreadCount = atoi(argv[2]);
 
     //Make sure that the number of input and output queues is valid
-    assert(inputQueueCount <= MAX_NUM_INPUT_THREADS);
-    assert(outputQueueCount <= MAX_NUM_OUTPUT_THREADS);
-    assert(inputQueueCount >= MIN_INPUT_THREAD_COUNT && outputQueueCount >= MIN_OUTPUT_THREAD_COUNT);
+    assert(inputThreadCount <= MAX_NUM_INPUT_THREADS);
+    assert(outputThreadCount <= MAX_NUM_OUTPUT_THREADS);
+    assert(inputThreadCount >= MIN_INPUT_THREAD_COUNT && outputThreadCount >= MIN_OUTPUT_THREAD_COUNT);
 
     //Initialize the sets of queues to 0
     init_built_in_sets();
@@ -323,7 +330,7 @@ int main(int argc, char**argv){
 
     //Ensure that every thread is ready before starting the timer
     //This ensures the user sets the flag properly and acts as a barrier for timing
-    for(int i = 0; i < inputQueueCount; i++){
+    for(int i = 0; i < inputThreadCount; i++){
         tries = 0;
         while(input[i].readyFlag == 0){
             usleep(1000000);
@@ -333,9 +340,9 @@ int main(int argc, char**argv){
                 exit(1);
             }
         }
-        printf("Input Thread %d: Ready - Running on Core %lu\n", i, input[i].threadArgs.coreNum);
+        printf("Input Thread %d:   Ready - Running on Core %lu\n", i, input[i].threadArgs.coreNum);
     }
-    for(int i = 0; i < outputQueueCount; i++){
+    for(int i = 0; i < outputThreadCount; i++){
         tries = 0;
         while(output[i].readyFlag == 0){
             usleep(1000000);
@@ -345,10 +352,10 @@ int main(int argc, char**argv){
                 exit(1);
             }
         }
-        printf("Output Thread %d: Ready - Running on Core %lu\n", i, output[i].threadArgs.coreNum);
+        printf("Output Thread %d:  Ready - Running on Core %lu\n", i, output[i].threadArgs.coreNum);
     }
 
-    printf("\nAll Threads Ready. *** Starting Passing ***");
+    printf("\nAll Threads Ready. *** Starting Passing ***\n\n\n");
     fflush(NULL);
 
     //Set all count variables to 0 to prevent "cheating"
@@ -366,18 +373,45 @@ int main(int argc, char**argv){
     //Start the alarm and set start flag to signal all threads to start
     alarm_start();
 
-    //Wait for 30 seconds
+    /*
+    int timer = RUNTIME;
+    printf("\n\nEstimated Time Remaining: %d", timer);
     while(endFlag == 0){
-        ;//Wait for 30 seconds
+        printf("\rTime Remaining: %d   ", timer);
+        timer--;
+        fflush(NULL);
+        usleep(1000000);
     }
+    */
 
-    printf("\n\n\nFinished. Waiting for thread cleanup...\n\n");
+    size_t prevCount = 0;
+    size_t count = 0;
+    int timer = RUNTIME;
+    while(endFlag == 0){
+        if(timer % 2 == 0){
+            for(int i = 0; i < outputThreadCount; i++){
+                count += output[i].count;
+            }
+            printf("\x1b[A\rEstimated: \t%'lu Packets per Second\n", (count - prevCount) / 2);
+            printf("Time Remaining: %d Seconds  ", timer);
+            fflush(NULL);
+            prevCount = count;
+            count = 0;
+            timer--;    
+        }   
+        else{
+            printf("\rTime Remaining: %d Seconds  ", timer);
+            fflush(NULL);
+            timer--;  
+        }
+        usleep(1000000);
+    }
 
     //Wait for any threads that were spawed in the run function to finish
     if(extraThreads != NULL){
         int size = sizeof(*extraThreads)/sizeof(pthread_t);
         for(int i = 0; i < size; i++){
-            Pthread_join(extraThreads[i], NULL);
+            pthread_join(extraThreads[i], NULL);
         }
     }
 

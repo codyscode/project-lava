@@ -39,15 +39,15 @@ void * input_thread(void * args){
     set_thread_props(inputArgs->coreNum, 2);
 
     //Each input buffer has 5 flows associated with it that it generates
-    int orderForFlow[FLOWS_PER_QUEUE] = {0};
-    int currFlow, currLength;
-    int offset = threadNum * FLOWS_PER_QUEUE;
+    size_t orderForFlow[FLOWS_PER_QUEUE] = {0};
+    size_t currFlow, currLength;
+    size_t offset = threadNum * FLOWS_PER_QUEUE;
 	
     //Continuously generate input numbers until the buffer fills up. 
     //Once it hits an entry that is not empty, it will wait until the input is grabbed.
-    int index = 0;
-    unsigned int g_seed0 = (unsigned int)time(NULL);
-    unsigned int g_seed1 = (unsigned int)time(NULL);
+    size_t index = 0;
+    register unsigned int g_seed0 = (unsigned int)time(NULL);
+    register unsigned int g_seed1 = (unsigned int)time(NULL);
 
     input[threadNum].readyFlag = 1;
 
@@ -55,7 +55,7 @@ void * input_thread(void * args){
     while(startFlag == 0);
 
     //After having the base queue fill up, maintain all the packets in the queue by just overwriting their order number
-    while(endFlag == 0){
+    while(1){
         // *** FASTEST PACKET GENERATOR ***
         g_seed0 = (214013*g_seed0+2531011);   
         currFlow = ((g_seed0>>16)&0x0007) + offset + 1;//Min value offset + 1: Max value offset + 9:
@@ -83,8 +83,6 @@ void * input_thread(void * args){
         index = index % BUFFERSIZE;
     }
 
-    usleep(1000000);
-
     return NULL;
 }
 
@@ -96,7 +94,7 @@ void * output_thread(void * args){
     threadArgs_t *outputArgs = (threadArgs_t *)args;
 
     size_t threadNum = outputArgs->threadNum;
-    int numInputs = (int)inputQueueCount;   
+    size_t numInputs = inputThreadCount;   
     queue_t *outputQueue = (queue_t *)outputArgs->queue;
 
     //Set the thread to its own core
@@ -104,11 +102,11 @@ void * output_thread(void * args){
 
     //"Process" packets to confirm they are in the correct order before consuming more. 
     //Processing threads process until they get to a spot with no packets
-    int expected[numInputs * FLOWS_PER_QUEUE + 1]; 
-    int index; 
+    size_t expected[numInputs * FLOWS_PER_QUEUE + 1]; 
+    size_t index; 
 
     //Initialize array to 0. Because it is dynamically allocated at runtime we need to use memset() or a for loop
-    memset(expected, 0, (numInputs * FLOWS_PER_QUEUE + 1) * sizeof(int));
+    memset(expected, 0, (numInputs * FLOWS_PER_QUEUE + 1) * sizeof(size_t));
 
     output[threadNum].readyFlag = 1;
 
@@ -116,7 +114,7 @@ void * output_thread(void * args){
     while(startFlag == 0);
 
     //Go through each space in the output queue until we reach an emtpy space in which case we swap to the other queue to process its packets
-    while(endFlag == 0){
+    while(1){
         index = (*outputQueue).toRead;
 
         //If there is no packet, continuously check until something shows up
@@ -125,7 +123,7 @@ void * output_thread(void * args){
         }
 
         //Get the current flow for the packet
-        int currFlow = (*outputQueue).data[index].packet.flow;
+        size_t currFlow = (*outputQueue).data[index].packet.flow;
 
         // set expected order for given flow to the first packet that it sees
         if(expected[currFlow] == 0){
@@ -138,12 +136,12 @@ void * output_thread(void * args){
         if(expected[currFlow] != (*outputQueue).data[index].packet.order){
             //Print out the contents of the processing queue that caused an error
             for(int i = 0; i < BUFFERSIZE; i++){
-                printf("*Position: %d, Flow: %ld, Order: %ld\n", i, (*outputQueue).data[i].packet.flow, (*outputQueue).data[i].packet.order);
+                printf("Position: %d, Flow: %ld, Order: %ld\n", i, (*outputQueue).data[i].packet.flow, (*outputQueue).data[i].packet.order);
             }
             
             //Print out the specific packet that caused the error to the user
             printf("Error Packet: Flow %lu | Order %lu\n", (*outputQueue).data[index].packet.flow, (*outputQueue).data[index].packet.order);
-            printf("Packet out of order in Output Queue %lu. Expected %d | Got %lu\n", threadNum, expected[currFlow], (*outputQueue).data[index].packet.order);
+            printf("Packet out of order in Output Queue %lu. Expected %lu | Got %lu\n", threadNum, expected[currFlow], (*outputQueue).data[index].packet.order);
             exit(0);
         }
         //Else "process" the packet by filling in 0 and incrementing the next expected
@@ -163,8 +161,6 @@ void * output_thread(void * args){
         }
     }
 
-    usleep(1000000);
-
     return NULL;
 }
 
@@ -178,7 +174,7 @@ function get_output_thread(){
 
 void grab_packets(int toGrabCount, queue_t* mainQueue){
     //Go through each queue and grab the stated amount of packets from it
-    for(int qIndex = 0; qIndex < inputQueueCount; qIndex++){
+    for(int qIndex = 0; qIndex < inputThreadCount; qIndex++){
         for(int packetCount = 0; packetCount < toGrabCount; packetCount++){
             //Used for readability
             int mainWriteIndex = (*mainQueue).toWrite;
@@ -186,7 +182,7 @@ void grab_packets(int toGrabCount, queue_t* mainQueue){
 
             //If there is no where to write then start processing
             if((*mainQueue).data[mainWriteIndex].isOccupied == OCCUPIED){
-                qIndex = inputQueueCount;
+                qIndex = inputThreadCount;
                 break;
             }
 
@@ -228,7 +224,7 @@ void pass_packets(queue_t* mainQueue){
         }
 
         //Get the appropriate output queue that this should be sending to
-        int qIndex = (*mainQueue).data[mainReadIndex].packet.flow % outputQueueCount;
+        int qIndex = (*mainQueue).data[mainReadIndex].packet.flow % outputThreadCount;
 
         //Used for readability
         int outputWriteIndex = output[qIndex].queue.toWrite;
@@ -265,7 +261,7 @@ void * workerThread(void* args){
     queue_t * mainQueue = (queue_t *)(wargs.mainQueue);
 
     //Set the thread to its own core
-    set_thread_props(10 + outputQueueCount, 2);
+    set_thread_props(10 + outputThreadCount, 2);
 
     //wait for the alarm to start
     while(startFlag == 0);
@@ -282,7 +278,7 @@ void * workerThread(void* args){
 
 pthread_t * run(void *argsv){
     //The amount of packets to grab from each queue. This algorithm gives all queues equal priority
-    int toGrabCount = BUFFERSIZE / inputQueueCount;
+    int toGrabCount = BUFFERSIZE / inputThreadCount;
     
     //The main "wire" queue where everything will be written
     queue_t *mainQueue = Malloc(sizeof(queue_t));

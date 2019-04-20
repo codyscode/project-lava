@@ -129,8 +129,8 @@ io_t input[MAX_NUM_INPUT_THREADS];
 io_t output[MAX_NUM_OUTPUT_THREADS];
 
 //Used for number of input and output queues
-size_t inputQueueCount;
-size_t outputQueueCount;
+size_t inputThreadCount;
+size_t outputThreadCount;
 
 //flag used to start moving packets - used by alarm functions
 int startFlag;

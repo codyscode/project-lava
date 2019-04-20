@@ -60,19 +60,14 @@ void set_thread_props(int tgt_core, long sched){
 
 void sig_alrm(int signo){    
     endFlag = 1;
+    printf("\n\n\nFinished. Waiting for thread cleanup...\n\n");
 
-    //Determine which side the user kept count on
-    if(input[0].count != 0){
-        for(int i = 0; i < MAX_NUM_INPUT_THREADS; i++){
-            finalTotal += input[i].count;
-        }
-    }
-    else{
-        for(int i = 0; i < MAX_NUM_OUTPUT_THREADS; i++){
-            finalTotal += output[i].count;
-        }
+    //Take a snapshot of the count
+    for(int i = 0; i < MAX_NUM_OUTPUT_THREADS; i++){
+        finalTotal += output[i].count;
     }
 
+    //Take a snapshot of the overhead
     for(int i = 0; i < MAX_NUM_OUTPUT_THREADS; i++){
         overheadTotal += input[i].overhead;
         overheadTotal += output[i].overhead;
