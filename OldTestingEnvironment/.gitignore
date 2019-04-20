@@ -4,11 +4,9 @@ queuecode
 algorithm
 framework
 
-#csv files
-*.csv
-
 #Test Code
 testenv
+testenv.c
 testenv.o
 
 #MacOS stuff
@@ -16,3 +14,6 @@ testenv.o
 
 #VScode stuff
 .vscode
+
+#csv files
+*.csv

@@ -45,32 +45,46 @@ void* input_thread(void *args){
     //Continuously generate input numbers until the buffer fills up. 
     //Once it hits an entry that is not empty, it will wait until the input is grabbed.
     int index = 0;
-    int seed = time(NULL);
+    register unsigned int g_seed0 = (unsigned int)time(NULL);
+    register unsigned int g_seed1 = (unsigned int)time(NULL);
+
     while(1){
         //Assign a random flow within a range: [n, n + 1, n + 2, n + 3, n + 4]. +1 is to avoid the 0 flow
-        currFlow = (rand_r(&seed) % FLOWS_PER_QUEUE) + offset + 1;
+        //currFlow = (rand_r(&seed) % FLOWS_PER_QUEUE) + offset + 1;
+
+	// *** FASTEST PACKET GENERATOR ***
+	g_seed0 = (214013*g_seed0+2531011);
+        currFlow = ((g_seed0>>16)&0x0007) + offset + 1;//Min value offset + 1: Max value offset + 9:
+
+	g_seed1 = (214013*g_seed1+2531011);
+        currLength = ((g_seed1>>16)&0x1FFF) + 64; //Min value 64: Max value 8191 + 64:
 
         //Assign a random length to the packet. Length defines the entire packet struct, not just payload
         //Minimum size computed below is MIN_PACKET_SIZE
         //Maximum size computed below is MAX_PACKET_SIZE
-        currLength = rand_r(&seed) % (MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;
-		
+        //currLength = rand_r(&seed) % (MAX_PAYLOAD_SIZE + 1 - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;
+     
+	//Keeping references as shallow as possible speeds things up
+	packet_t *packet = &((*inputQueue).data[index]);
+
         //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
-        while((*inputQueue).data[index].flow != 0){
+        while(packet->flow != 0){
             ;
         }
 
         //Create the new packet. Write the order and length first before flow as flow > 0 indicates theres a packet there
-        (*inputQueue).data[index].order = flowNum[currFlow - offset - 1];
-        (*inputQueue).data[index].length = currLength;
-        (*inputQueue).data[index].flow = currFlow;
+        packet->order = flowNum[currFlow - offset - 1];
+        packet->length = currLength;
+        packet->flow = currFlow;
 
         //Update the next flow number to assign
         flowNum[currFlow - offset - 1]++;
 
         //Update the next spot to be written in the queue
         index++;
-        index = index % BUFFERSIZE;
+        if (index == BUFFERSIZE) {
+		index = 0;
+	}
 
         //Increment the number of packets generated
         (*inputQueue).count++;
@@ -104,31 +118,33 @@ void* processing_thread(void *args){
     while(1){
         index = (*processQueue).toRead;
 
+	packet_t *packet = &((*processQueue).data[index]);
+
         //If there is no packet, continuously check until something shows up
-        while((*processQueue).data[index].flow == 0){
+        while(packet->flow == 0){
             ;
         }
 
         //Get the current flow for the packet
-        int currFlow = (*processQueue).data[index].flow;
+        int currFlow = packet->flow;
 
         // set expected order for given flow to the first packet that it sees
         if(expected[currFlow] == 0){
-            expected[currFlow] = (*processQueue).data[index].order;
+            expected[currFlow] = packet->order;
         }
 		
         //Packets order must be equal to the expected order.
         //Implementing less than currflow causes race conditions with writing
         //Any line that starts with a * is ignored by python script
-        if(expected[currFlow] != (*processQueue).data[index].order){
+        if(expected[currFlow] != packet->order){
             //Print out the contents of the processing queue that caused an error
             for(int i = 0; i < BUFFERSIZE; i++){
                 printf("*Position: %d, Flow: %ld, Order: %ld\n", i, (*processQueue).data[i].flow, (*processQueue).data[i].order);
             }
             
             //Print out the specific packet that caused the error to the user
-            printf("*Error Packet: Flow %lu | Order %lu\n", (*processQueue).data[index].flow, (*processQueue).data[index].order);
-            printf("*Packet out of order in Output Queue %d. Expected %d | Got %lu\n", queueNum, expected[currFlow], (*processQueue).data[index].order);
+            printf("*Error Packet: Flow %lu | Order %lu\n", packet->flow, packet->order);
+            printf("*Packet out of order in Output Queue %d. Expected %d | Got %lu\n", queueNum, expected[currFlow], packet->order);
             exit(0);
         }
         //Else "process" the packet by filling in 0 and incrementing the next expected
@@ -141,10 +157,13 @@ void* processing_thread(void *args){
 
             //Move to the next spot in the outputQueue to process
             (*processQueue).toRead++;
-            (*processQueue).toRead = (*processQueue).toRead % BUFFERSIZE;
+            // (*processQueue).toRead = (*processQueue).toRead % BUFFERSIZE;
+	    if ((*processQueue).toRead == BUFFERSIZE) {
+		(*processQueue).toRead = 0;
+	    }
 
             //Set the position to free
-            (*processQueue).data[index].flow = 0;
+            packet->flow = 0;
         }
     }
 }
