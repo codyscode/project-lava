@@ -49,20 +49,22 @@ void *input_thread(void *args){
 		toWrite[i] = startPart; // set write pointer to correct partition
 	}
 	
-	unsigned int g_seed0, g_seed1, mask, currFlow, length;
-	unsigned char payload[MAX_PAYLOAD_SIZE];
+    register unsigned int g_seed0 = (unsigned int)time(NULL);
+    register unsigned int g_seed1 = (unsigned int)time(NULL);
+	
+	unsigned int mask, currFlow, length;
 	unsigned int outMask;
 	unsigned int flowNum[FLOWS_PER_QUEUE] = {0};
 	unsigned int offset = (core - 2)*FLOWS_PER_QUEUE;
 	
 	// set mask
-	if(inCount >= 7)
+	if(outCount >= 7)
 		mask = 15;
-	else if(inCount >= 5)
+	else if(outCount >= 5)
 		mask = 7;
-	else if(inCount >= 3)
+	else if(outCount >= 3)
 		mask = 3;	
-	else//(inCount >= 1)
+	else//(outCount >= 1)
 		mask = 1;
 		
 	tsc_t start, end;
@@ -74,7 +76,6 @@ void *input_thread(void *args){
 	printf("Mask = %d\n", mask);
 	fflush(stdout);
 	
-	
 	while(!startFlag); // wait for start condition
 
 	while(!endFlag){
@@ -82,7 +83,7 @@ void *input_thread(void *args){
 		// *** FAST PACKET GENERATOR ***
 		g_seed1 = (214013*g_seed1+2531011);
 		//length = ((g_seed1>>16)&0x1FFF) + 64; //Min value 64: Max value 8191 + 64:
-		currPkt.length = ((g_seed1>>16)&0x1FFF) + 64; //Min value 64: Max value 8191 + 64:
+		currPkt.length = (((g_seed1>>16)&0x1FFF) + 64)/8; //Min value 64: Max value 8191 + 64:
 		
 		g_seed0 = (214013*g_seed0+2531011);
 		//currFlow = ((g_seed0>>16)&0x0007) + offset + 1;//Min value offset + 1: Max value offset + 9:
@@ -99,13 +100,12 @@ void *input_thread(void *args){
 			outMask = 0;
 		
 		while(pktQueue[outMask][toWrite[outMask]].flow != 0); // wait for space in partition
-
+ 
 		memcpy(((char*)&pktQueue[outMask][toWrite[outMask]]) + 24, ((char *)&currPkt) + 24, currPkt.length);
-		memcpy(&pktQueue[outMask][toWrite[outMask]], &currPkt, 24);
+		//memcpy(&pktQueue[outMask][toWrite[outMask]], &currPkt, 24);
 		
-		//memcpy64(((char*)&pktQueue[outMask][toWrite[outMask]]) + 24, ((char *)&currPkt) + 24, currPkt.length/8);
-		//memcpy64(&pktQueue[outMask][toWrite[outMask]], &currPkt, 3);
-		
+		//memcpy64(((char*)&pktQueue[outMask][toWrite[outMask]]) + 24, ((char *)&currPkt) + 24, currPkt.length);
+		memcpy64(&pktQueue[outMask][toWrite[outMask]], &currPkt, 3);
 		
 		toWrite[outMask]++;
 		
@@ -114,7 +114,7 @@ void *input_thread(void *args){
 		
 		//end = rdtsc();
 		
-		inOverhead[threadID] += end - start;
+		//inOverhead[threadID] += end - start;
 		inPktCount[threadID]++;
 	}
 }
@@ -152,7 +152,7 @@ void *processing_thread(void * args){
 	
 	bzero(expected, sizeof(int) * (inCount*FLOWS_PER_QUEUE+1));
 	
-	outFlag[core-6] = 1;
+	outFlag[outNum] = 1;
 	printf("Set outflag for %d\n", core-6);
 	fflush(stdout);
 	

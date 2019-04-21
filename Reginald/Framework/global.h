@@ -27,7 +27,7 @@
 #define RUNTIME 5
 
 //Used to determine packet size
-#define MAX_PAYLOAD_SIZE 9000
+#define MAX_PAYLOAD_SIZE 9024
 #define MIN_PAYLOAD_SIZE 64
 
 #define MIN_PACKET_SIZE 192 + 64
