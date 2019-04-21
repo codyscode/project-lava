@@ -105,7 +105,11 @@ void *input_thread(void *args){
 		//memcpy(&pktQueue[outMask][toWrite[outMask]], &currPkt, 24);
 		
 		//memcpy64(((char*)&pktQueue[outMask][toWrite[outMask]]) + 24, ((char *)&currPkt) + 24, currPkt.length);
-		memcpy64(&pktQueue[outMask][toWrite[outMask]], &currPkt, 3);
+		
+		pktQueue[outMask][toWrite[outMask]].length = currPkt.length;
+		pktQueue[outMask][toWrite[outMask]].order = currPkt.order;
+		pktQueue[outMask][toWrite[outMask]].flow = currPkt.flow;
+		//memcpy64(&pktQueue[outMask][toWrite[outMask]], &currPkt, 3);
 		
 		toWrite[outMask]++;
 		
