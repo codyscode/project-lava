@@ -3,10 +3,10 @@
 OPTION_VAL=""
 #help menu to detail how the program works
 displayHelp() {
-	echo "-h 	 Print help"
-	echo "-t	 Run tests on all algorithms"
+	echo "-h 	     Print help"
+	echo "-t	     Run tests on all algorithms"
 	echo "-q         runs quick test on all algorithms"
-	echo "-w	 Push benchmark results to wiki"	
+	echo "-w	     Push benchmark results to wiki"	
 	echo "-v         Turns CSV files into visualizations"
 	echo "-s al_name Will run test on a specific algorithm only "
 }
@@ -24,31 +24,39 @@ check_isRunning(){
 testSpecificAlgorithm(){
 	check_isRunning
 	echo "running test on Algorithm: "$OPTION_VAL
-		for dir in */ ; do
-		echo $dir
+	for dir in Algorithm*/ ; do
 		cd $dir
 		temp=$(grep "#define ALGNAME *" algorithm.c | awk '{print $3}')
-		echo "FIRST TEMP"
-		echo $temp
 		temp="${temp#\"}"
 		temp="${temp%\"}"
-		echo "$temp"
-		cd ..
+		echo "Algorithm in current folder: $temp  Algorithm you are trying to run: $OPTION_VAL"
+
+		if [ "$temp" == "$OPTION_VAL" ]
+		then
+			echo "in the if statement"
+			cd ..
+			make APATH=Algorithm1/algorithm.c
+			echo "in if statement next is the working dir"
+			pwd
+			./testScript.sh
+			make clean
+		fi
+		cd ~/project-lava/NewTestingEnvironment/
 	done
 }
 runVisualization()
 {
-	echo "do nothing"
+	python ~/project-lava/NewTestingEnvironment/visualization.py
 }
 
 #runs all 64 iteration of each algorithm being made
 testAllAlgorithms() {
 	check_isRunning
 	echo ">>>>>>>> RUNNING FULL TEST <<<<<<<<"
-	for dir in ./TestingEnvironment/Algorithm*/ ; do
-		make -C "$dir"
+	for dir in Algorithm*/ ; do
+		make APATH="$dir"algorithm.c
 		 ./testScript.sh
-		make clean -C ./TestingEnvironment/Framework/
+		make clean
 	done
 	echo ">>>>>>>> FULL TEST COMPLETED <<<<<<<<<"
 }
@@ -57,10 +65,10 @@ testAllAlgorithms() {
 quicktestAllAlgorithms() {
 	check_isRunning
 	echo ">>>>>>>> RUNNING QUICK TEST <<<<<<<<<"
-        for dir in ./TestingEnvironment/Algorithm*/ ; do
-                make -C "$dir"
-                 ./testScript.sh -q
-                make clean -C ./TestingEnvironment/Framework/
+        for dir in Algorithm*/ ; do
+			make APATH="$dir"algorithm.c
+		 	./testScript.sh -q
+			make clean
         done
 	rm -f *.csv
 	echo ">>>>>>>> QUICK TEST COMPLETED <<<<<<<<<"
