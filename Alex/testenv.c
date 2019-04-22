@@ -14,6 +14,7 @@
 #include <locale.h>
 #include <signal.h>
 #include <pthread.h>
+#include <limits.h>
 
 typedef void* (*function)(void * args);
 
@@ -22,6 +23,9 @@ typedef void* (*function)(void * args);
 // calibrate it.
 
 typedef unsigned long long tsc_t;
+
+#define FENCE() \
+   __asm__ volatile ("mfence" ::: "memory");
 
 #if defined(__i386__)
 
@@ -44,26 +48,41 @@ static __inline__ tsc_t rdtsc(void)
 
 #endif
 
-#define numThreads 7
-#define PADDING 4
+//Defines how many microseconds an algorithm should run for
+#define RUNTIME 5000000
+#define THREADS 2
+#define SSIZE 2048
+#define FLOWS_PER_THREAD 8
 
-typedef struct Sample{
+typedef struct Packet{
+    size_t flow;
+    int sequence;
+    size_t order;
+    char data[9000];
+}packet_t;
+
+typedef struct ThreadData{
     tsc_t overhead;
-    size_t count;
-}sample_t;
+    size_t count[FLOWS_PER_THREAD];
+    size_t result[FLOWS_PER_THREAD];
+}data_t;
 
-pthread_t threadID[numThreads];
+typedef struct ThreadArgs{
+    data_t *results;
+    int core;
+}args_t;
 
-sample_t samples[numThreads * PADDING];
-
-size_t endFlags[numThreads * PADDING * 2];
-
-size_t spawnedFlag[numThreads];
-
+int readyFlag[THREADS];
+int startFlag;
+int endFlag;
+pthread_t threadID[THREADS];
+args_t threadArgs[THREADS];
+data_t threadData[THREADS];
 pthread_attr_t attrs;
 
-//Defines how many ticks an algorithm should run for
-#define RUNTIME 66000000000LL
+//List of sequences that the packets must follow. Used for varification
+//Sequences vary in length
+int sequencers[THREADS * FLOWS_PER_THREAD][SSIZE];
 
 void assign_to_zero(){
     pthread_t self = pthread_self();
@@ -101,129 +120,239 @@ void set_thread_props(int tgt_core){
     }
 }
 
-void * test(void * args){
-    printf("This function was called from a variable pointer\n\n");      
-}
-
-function get_input_function(){
-    return test;
-}
-
-tsc_t testing(int index, sample_t *counter){
-    // *** START TIMING TEST SECTION ***
-    // This Generates roughly 1 packet every 27 cycles
-    int count = 100000000; //100,000,000
-    tsc_t startTSC = 0, endTSC = 0;
-
-    int currFlow, length;
-    int offset = numThreads;
-
-    register unsigned int g_seed0 = (unsigned int)time(NULL);
-    register unsigned int g_seed1 = (unsigned int)time(NULL);
-    counter->overhead = 0;
+void generate_sequences(int amount){
+    int seqIndex = 0;
     
-    int i;
-    while(endFlags[index * PADDING] == 0){
-        // *** FASTEST/ACCURATE TIMING ***
-        startTSC = rdtsc();
+    //No seed so results are consistent across algorithms
+    while(seqIndex < amount * FLOWS_PER_THREAD){
+        //Generate a sequence for each flow
+        for(int i = 0; i < SSIZE; i++){
+            sequencers[seqIndex][i] = rand();
+        }
 
-        // *** FASTEST PACKET GENERATOR ***
-        g_seed0 = (214013*g_seed0+2531011);   
-        currFlow = ((g_seed0>>16)&0x0007) + offset + 1;//Min value offset + 1: Max value offset + 9:
-        g_seed1 = (214013*g_seed1+2531011); 
-        length = ((g_seed1>>16)&0x1FFF) + 64; //Min value 64: Max value 8191 + 64:
-
-        // *** FASTEST/ACCURATE TIMING ***
-        endTSC = rdtsc();
-        counter->overhead += endTSC - startTSC;
-        counter->count++;
+        //Move onto the next sequence
+        seqIndex++;
     }
-    return counter->overhead;
 }
 
-void * testRunnable(void * args){
+int verify_sequence(int flow, int count, size_t seqResult){
+    printf("Flow: %'d \tCount: %'d\tThread Result: %'lu\t", flow, count, seqResult);
+    //Generate a sequence for each input thread
+    size_t answer = INT_MAX;
+    int seqIndex = 0;
+    for(int i = 0; i < count; i++){
+        answer = answer & sequencers[flow][seqIndex];
+        answer = answer | sequencers[flow][seqIndex];
+        seqIndex++;
+        seqIndex = seqIndex % SSIZE;
+    }
+
+    printf("Actual Result: %'lu\n", answer);
+
+    if(answer == seqResult)
+        return 1;
+    else
+        return 0;
+}
+
+void * thread(void * args){
     //Assign it to a specific core
-    int core = *((int *)args);
+    args_t *targs = (args_t *)args;
+    int core = targs->core;
     set_thread_props(core);
 
-    spawnedFlag[core - 3] = 1;
+    // *** SEQUENCE TESTER ***
+    tsc_t startTSC;
+    int offset = (core - 3) * FLOWS_PER_THREAD;
 
-    //do 100,000,000 reads to rdtsc per thread
-    tsc_t result = testing(core - 3, &samples[(core - 3) * PADDING]);
-    printf("Thread %d Overhead Time: %ld ticks -- %lf Seconds\n\n", core - 3, result, (double)result / 2200000000);  
+    register unsigned int g_seed0 = (unsigned int)time(NULL);
+
+    register tsc_t overhead = 0;
+    register int flowIndex = 0;
+
+    size_t count[FLOWS_PER_THREAD] = {0};
+    int seqIndex[FLOWS_PER_THREAD] = {0};
+    int seq[FLOWS_PER_THREAD] = {INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX , INT_MAX};
+
+    packet_t packet;
+    data_t *records = targs->results;
+
+    readyFlag[core - 3] = 1;
+
+    while(startFlag == 0);
+
+    while(endFlag == 0){
+        // *** START TIMER ***
+        startTSC = rdtsc();
+
+        // *** PACKET GENERATOR ***
+        g_seed0 = (214013*g_seed0+2531011);  
+        flowIndex = ((g_seed0>>16)&0x0007);
+        packet.flow = flowIndex + offset;//Min value: 0 + offset || Max value: 7 + offset
+        packet.sequence = sequencers[flowIndex + offset][seqIndex[flowIndex]];
+
+        seqIndex[flowIndex]++;
+        if(seqIndex[flowIndex] >= SSIZE) seqIndex[flowIndex] = 0;
+        // *** END PACKET GENERATOR ***
+
+        // *** END TIMER ***
+        overhead += rdtsc() - startTSC;
+
+        // *** PACKET PROCESSOR ***
+        seq[packet.flow - offset] = (seq[packet.flow - offset] & packet.sequence) | packet.sequence;
+        count[packet.flow - offset]++;
+        // *** END PACKET PROCESSOR ***
+    }
+
+    records->overhead = overhead;
+    for(int i = 0; i < FLOWS_PER_THREAD; i++){
+        records->count[i] = count[i];
+        records->result[i] = seq[i];
+    }
 
     return NULL;
 }
 
-void threadSpawner(){
-    int cores[8] = {3, 4, 5, 6, 7, 8, 9, 10};
-    int index;
+void * thread_2(void * args){
+    //Assign it to a specific core
+    args_t *targs = (args_t *)args;
+    int core = targs->core;
+    set_thread_props(core);
 
-    for(index = 0; index < numThreads; index++){
-        //Spawn the thread
-        endFlags[index * PADDING] = 0;
-        spawnedFlag[index] = 0;
+    // *** SEQUENCE TESTER ***
+    tsc_t startTSC;
+    int offset = (core - 3) * FLOWS_PER_THREAD;
+
+    register unsigned int g_seed0 = (unsigned int)time(NULL);
+
+    register tsc_t overhead = 0;
+    register int flowIndex = 0;
+
+    size_t count[FLOWS_PER_THREAD] = {0};
+    int order[FLOWS_PER_THREAD] = {0};
+    int expected[FLOWS_PER_THREAD] = {0};
+
+    packet_t packet;
+    data_t *records = targs->results;
+
+    readyFlag[core - 3] = 1;
+
+    while(startFlag == 0);
+
+    while(endFlag == 0){
+        // *** START TIMER ***
+        startTSC = rdtsc();
+
+        // *** PACKET GENERATOR ***
+        g_seed0 = (214013*g_seed0+2531011);  
+        flowIndex = ((g_seed0>>16)&0x0007);
+        packet.flow = flowIndex + offset;//Min value: 0 + offset || Max value: 7 + offset
+        packet.order = order[flowIndex];
+
+        order[flowIndex]++;
+        // *** END PACKET GENERATOR ***
+
+        // *** END TIMER ***
+        overhead += rdtsc() - startTSC;
+
+        // *** PACKET PROCESSOR ***
+        if(expected[packet.flow - offset] != packet.order){
+            printf("Out of order");
+            exit(1);
+        }
+        expected[packet.flow - offset]++;
+        count[packet.flow - offset]++;
+        // *** END PACKET PROCESSOR ***
     }
 
-    for(index = 0; index < numThreads; index++){
-        //Spawn the thread
-        pthread_create(&threadID[index], &attrs, testRunnable, (void *)&cores[index]);
-    }  
-
-    for(index = 0; index < numThreads; index++){
-        while(spawnedFlag[index] == 0);
-        //Wait for the thread to be spawned
+    records->overhead = overhead;
+    for(int i = 0; i < FLOWS_PER_THREAD; i++){
+        records->count[i] = count[i];
+        records->result[i] = expected[i];
     }
+
+    return NULL;
 }
 
 void overview(){
-    register tsc_t total;
-    register tsc_t start = 0;
     size_t countTotal = 0;
-    size_t countRecord[numThreads];
-    int index;
+    size_t overheadTotal = 0;
+    data_t returnVal;
 
     printf("TESTING\n\n");
 
-    //Constantly check to ensure that we are under the 66,000,000,000 ticks limit
-    start = rdtsc();
-    while(rdtsc() - start < RUNTIME){
-        total = 0;
-        for(index = 0; index < numThreads; index++){
-            //take samples for when we potentially exit
-            total += samples[index * PADDING].overhead;
-            countRecord[index] = samples[index * PADDING].count;
+    //Wait for all threads to signal they are ready
+    for(int i = 0; i < THREADS; i++){
+        while(readyFlag[i] == 0);
+    }
+
+    startFlag = 1;
+
+    usleep(RUNTIME);
+    
+    endFlag = 1;
+
+    printf("Verifying Results:\n");
+    fflush(NULL);
+    for(int i = 0; i < THREADS; i++){
+        pthread_join(threadID[i], NULL); 
+        returnVal = threadData[i];
+
+        //Verify the results
+        printf("\nThread %d: \n", i);
+        for(int j = 0; j < FLOWS_PER_THREAD; j++){
+
+            overheadTotal += returnVal.overhead;
+
+            if(verify_sequence(i * FLOWS_PER_THREAD + j, returnVal.count[j], returnVal.result[j]) == 1)
+                countTotal += returnVal.count[j];
+            else
+               printf("Incorrect results for flow %d\n", i * FLOWS_PER_THREAD + j);
         }
     }
 
-    for(index = 0; index < numThreads; index++){
-        countTotal += countRecord[index];
-        endFlags[index * PADDING] = 1;
-    }
-
-    for(index = 0; index < numThreads; index++){
-        pthread_join(threadID[index], NULL);
-    }
-
-    printf("Finished\nPackets Generated: \t%ld\n", countTotal);  
-    printf("Runtime: \t\t%ld\n", RUNTIME * numThreads); 
-    printf("Overhead Ticks: \t%ld\n\n", total); 
+    //Print out overall data
+    printf("\nPackets Generated:\t\t%'ld Packets\n", countTotal);  
+    printf("Packets Generated Per Thread:\t%'ld Packets\n", countTotal / THREADS); 
+    printf("Runtime:\t\t\t%d Seconds\n", RUNTIME / 1000000); 
+    printf("Overhead Ticks:\t\t\t%'ld Ticks\n", overheadTotal); 
+    printf("Average Overhead Per Thread:\t%'ld Ticks\n", overheadTotal / THREADS); 
+    printf("Average Packet Creation Time:\t%'ld Ticks\n\n", overheadTotal / countTotal); 
 }
 
 int main(int argc, char**argv){
+    setlocale(LC_NUMERIC, "");
+
+    int numSeq = THREADS;
+
+    //Pin the overview to core 0
     assign_to_zero();
 
-    // *** RETURNING FUNCTION TEST ***
-    void * args = NULL;
-    function func = get_input_function();
-    func(NULL);
+    //Generate the sequences
+    generate_sequences(numSeq);
 
-    // *** TESTING MEASURING ***
-    pthread_t overviewThreadID;
     pthread_attr_init(&attrs);
 
     //Spawn the threads
-    threadSpawner();
+    int cores[8] = {3, 4, 5, 6, 7, 8, 9, 10};
+
+    startFlag = 0;
+    endFlag = 0;
+
+    for(int i = 0; i < THREADS; i++){
+        readyFlag[i] = 0;
+    }
+
+    for(int i = 0; i < THREADS; i++){
+        //Assign args
+        threadData[i].overhead = 0;
+
+        threadArgs[i].results = &threadData[i];
+        threadArgs[i].core = cores[i];
+
+        //Spawn the thread
+        pthread_create(&threadID[i], &attrs, thread, (void *)&threadArgs[i]);
+    }  
 
     //Keep time
     overview();
