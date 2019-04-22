@@ -3,3 +3,29 @@ The idea behind this directory is that this is where we test algorithms
 The top level script that runs everything calls the highest level makefile (empty as of now)
 each algorithm is ran using a separate script file that runs tests and the output is recorded in a .csv file (not implemented yet).
 There are 2 different algorithms so far to test this with.
+
+4/22/2019 - Alex
+*** FRAMEWORK OVERHAUL ***
+The idea of the new framework is to give the user more freedom in:
+    - How their algorithm generates the members required for the packet struct
+    - Where/How their algorithm places packets (queue, other data structre, no data structure)
+    - How the packets are passed between threads
+    - How the packets are "processed" (ensure they are in order)
+
+The framework is much lighter weight and now acts as an overseerer/error checker
+    - Ensures that no other processes are running in the background (Can be opted out by include a 3rd argument to the framework)
+    - Supplies users with real time data on on how well their algorithm is performing
+    - Prints out errors/tips when an algorithm is missing a feature required for interfacing with the framework
+    - Ensures accurate timing with start barriers and flags
+    - Outputs the algorithm results to csv files
+
+set_thread_props(int cpu, int sched)
+    - Changed so that the user can specify which core to pin a thread and what they want for the schedule.
+    - 2 means highest schedule
+    - NULL means dont change the schedule
+
+CodeSnippets.txt
+    - Contains very useful code snippets for desging algorithms
+    - Included are:
+        - Fast RNG
+        - Sample algorithm skeleton

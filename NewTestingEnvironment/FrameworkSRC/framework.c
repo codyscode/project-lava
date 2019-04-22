@@ -297,8 +297,12 @@ int main(int argc, char**argv){
     //Used for formatting numbers with commas
     setlocale(LC_NUMERIC, "");
 
-    //Ensure that no other process is running in the background
-    check_if_ideal_conditions();
+    //Ensure that no other process is running in the background. 
+    //If the user passes a flag indicating that they dont care about background processes
+    //then dont run this code.
+    if (argc < 4){
+        check_if_ideal_conditions();
+    }
 
     //Assign the main thread to run on the first core and dont change its scheduling
     set_thread_props(0, 2);
@@ -409,7 +413,7 @@ int main(int argc, char**argv){
             timer--;    
         }   
         else{
-            printf("\rTime Remaining: %d Seconds  ", timer);
+            printf("\rTime Remaining:  %d Seconds  ", timer);
             fflush(NULL);
             timer--;  
         }

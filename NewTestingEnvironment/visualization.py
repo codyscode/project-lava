@@ -24,7 +24,7 @@ Checks to see if "Plots" Folder exists, creates one if it doesnt
 def checkDirectory():
     foldername = 'Plots'
     CWD = os.getcwd()
-    final_directory = os.path.join(CWD, foldername) 
+    final_directory = os.path.join(CWD, foldername)
     if not os.path.exists(final_directory):
         os.makedirs(final_directory)
         print("Folder Created:", foldername)

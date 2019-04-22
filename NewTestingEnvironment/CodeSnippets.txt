@@ -8,3 +8,105 @@ g_seed1 = (214013*g_seed1+2531011);
 length = ((g_seed1>>16)&0x1FFF) + 64;
 
 - To avoid modding we use and to get a max value of a power of 2
+
+*** ALGORITHM.C FILE SKELETON ***
+#include "../FrameworkSRC/global.h"
+#include "../FrameworkSRC/wrapper.h"
+
+#define ALGNAME "singleWire"
+
+//Any additional threads not including input and output (Optional)
+//Keep in mind you only have 2 extra cores to work with.
+pthread_t workers[]; 
+
+char* get_name(){
+    return ALGNAME;
+}
+
+function get_input_thread(){
+    return input_thread;
+}
+
+function get_output_thread(){
+    return output_thread;
+}
+
+//The job of the input threads is to make packets to pass.
+void * input_thread(void * args){
+    // *** READ ARGUMENTS *** (Recommended)
+    threadArgs_t *inputArgs = (threadArgs_t *)args;
+
+    // *** REPIN CPU *** (Recommended)
+    set_thread_props(inputArgs->coreNum, 2);
+
+    // *** START: SET UP CODE ***
+    // Initialize variables
+    // Generate values etc
+    // ** END: SET UP CODE ***
+
+    // *** READY FLAG SET *** (Required)
+    input[threadNum].readyFlag = 1;
+
+    // *** WAIT FOR START FLAG *** (Required)
+    while(startFlag == 0);
+
+    // *** PASS PACKETS ***
+    while(1){
+        // *** START: GENERATE A PACKET *** (Required)
+        // Call Fast RNG for flow
+        // Generate whatever is needed to keep track of order
+        // *** END: GENERATE A PACKET ***
+
+        // *** START: PASS PACKET/PUSH PACKET TO QUEUE *** (One is Required)
+        // Example:
+        // Assigned packet data to spot in queue
+        // Set queue position to valid
+        // *** END: PASS PACKET/PUSH PACKET TO QUEUE ***
+    }
+
+    return NULL;
+}
+
+//The job of the output threads is to ensure those packets are in order
+void * output_thread(void * args){
+    // *** START: SET UP CODE ***
+    // *** READ ARGUMENTS *** (Recommended)
+    threadArgs_t *inputArgs = (threadArgs_t *)args;
+
+    // *** REPIN CPU *** (Recommended)
+    set_thread_props(inputArgs->coreNum, 2);
+
+    // Initialize variables
+    // Generate values etc
+    // ** END: SET UP CODE ***
+
+    // *** READY FLAG SET *** (Required)
+    input[threadNum].readyFlag = 1;
+
+    // *** WAIT FOR START FLAG *** (Required)
+    while(startFlag == 0);
+
+    // *** RECIEVE PACKETS ***
+    while(1){
+        // *** START: READ PACKET IN/PULL PACKET FROM INPUT SIDE *** (One is Required)
+        // Read packet data in
+        // Set queue position to free
+        // *** END: READ PACKET IN/PULL PACKET FROM INPUT SIDE ***
+
+        // *** START: PROCESS PACKET *** (Required)
+        // Ensure its in the proper order
+        // increment counting variable
+        // *** END: PROCESS PACKET ***
+    }
+
+    return NULL;
+}
+
+pthread_t * run(void *argsv){
+    //Initialize any additional threads you needed (Optional)
+    //Spawn the additional theads (Optional)
+    //Any setup your global variables in your algorithm will need
+
+    return workers; //If you spawned extra threads
+    return NULL; //If you didnt spawn any additional threads
+}

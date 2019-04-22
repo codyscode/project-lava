@@ -15,7 +15,7 @@ DEPS = global.h wrapper.h
 LIBS = -lm -lpthread
 
 #Framework Folder
-FWF = Framework/
+FWF = FrameworkSRC/
 
 #C soure files
 SRCS = framework.c wrapper.c global.c
@@ -39,7 +39,6 @@ endif
 
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LIBS)
-
 
 ifeq ($(AMAKE),)
 $(OBJS): $(addprefix $(FWF), $(SRCS)) $(addprefix $(FWF), $(DEPS))

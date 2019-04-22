@@ -4,8 +4,8 @@
 -The algorithm uses 3 sets of queues, One input, One wire, and One Output queue
 */
 
-#include "../Framework/global.h"
-#include "../Framework/wrapper.h"
+#include "../FrameworkSRC/global.h"
+#include "../FrameworkSRC/wrapper.h"
 
 #define ALGNAME "singleWire"
 

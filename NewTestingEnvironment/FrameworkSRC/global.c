@@ -60,6 +60,7 @@ void set_thread_props(int tgt_core, long sched){
 
 void sig_alrm(int signo){    
     endFlag = 1;
+    printf("\rTime Remaining:  0 Seconds  ");
     printf("\n\n\nFinished. Waiting for thread cleanup...\n\n");
 
     //Take a snapshot of the count
