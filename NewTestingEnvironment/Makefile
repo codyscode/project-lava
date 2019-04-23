@@ -38,11 +38,11 @@ $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LIBS)
 
 ifeq ($(AMAKE),)
-$(OBJS): $(addprefix $(FWF), $(SRCS))
+$(OBJS): $(addprefix $(FWF), $(SRCS)) $(APATH)
 	$(CC) $(CFLAGS) -c $(APATH) -o $(APATH:.c=.o) $(LIBS)
 	$(MAKE) -C $(FWF)
 else
-$(OBJS): $(addprefix $(FWF), $(SRCS))
+$(OBJS): $(addprefix $(FWF), $(SRCS)) $(APATH)
 	$(MAKE) -C $(AMAKE)
 	$(MAKE) -C $(FWF)
 endif
