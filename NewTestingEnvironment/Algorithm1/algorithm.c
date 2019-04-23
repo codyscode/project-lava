@@ -46,6 +46,9 @@ void * input_thread(void * args){
     //Set the thread to its own core
     set_thread_props(inputArgs->coreNum, 2);
 
+    //Data to write to the packet
+    unsigned char * packetData[9000];
+
     //Each input buffer has 5 flows associated with it that it generates
     size_t orderForFlow[FLOWS_PER_QUEUE] = {0};
     size_t currFlow, currLength;
@@ -79,6 +82,7 @@ void * input_thread(void * args){
         (*inputQueue).data[index].packet.order = orderForFlow[currFlow - offset - 1];
         (*inputQueue).data[index].packet.length = currLength;
         (*inputQueue).data[index].packet.flow = currFlow;
+        memcpy(&(*inputQueue).data[index].packet.data, packetData, currLength);
 
         //Update the next flow number to assign
         orderForFlow[currFlow - offset - 1]++;
@@ -172,133 +176,6 @@ void * output_thread(void * args){
     return NULL;
 }
 
-void grab_packets(int toGrabCount, queue_t* mainQueue){
-    //Go through each queue and grab the stated amount of packets from it
-    for(int qIndex = 0; qIndex < inputThreadCount; qIndex++){
-        for(int packetCount = 0; packetCount < toGrabCount; packetCount++){
-            //Used for readability
-            int mainWriteIndex = (*mainQueue).toWrite;
-            int inputReadIndex = input[qIndex].queue.toRead;
-
-            //If there is no where to write then start processing
-            if((*mainQueue).data[mainWriteIndex].isOccupied == OCCUPIED){
-                qIndex = inputThreadCount;
-                break;
-            }
-
-            //If there is nothing to grab then move to next queue
-            if(input[qIndex].queue.data[inputReadIndex].isOccupied == NOT_OCCUPIED){
-                break;
-            }
-
-            //Grab the packets data and move it into the mainQueue
-            (*mainQueue).data[mainWriteIndex].packet.flow = input[qIndex].queue.data[inputReadIndex].packet.flow;
-            (*mainQueue).data[mainWriteIndex].packet.order = input[qIndex].queue.data[inputReadIndex].packet.order;
-
-            //Indicate the next spot to read from in the input queue
-            input[qIndex].queue.toRead++;
-            input[qIndex].queue.toRead = input[qIndex].queue.toRead % BUFFERSIZE;
-
-            //Indicade the next spot to write to in the main queue
-            (*mainQueue).toWrite++;
-            (*mainQueue).toWrite = (*mainQueue).toWrite % BUFFERSIZE;
-
-            //Indicate the space is free to write to in the input queue
-            input[qIndex].queue.data[inputReadIndex].isOccupied = NOT_OCCUPIED;
-
-            //Indicate the space has data in the main queue
-            (*mainQueue).data[inputReadIndex].isOccupied = OCCUPIED;
-        }
-    }
-}
-
-void pass_packets(queue_t* mainQueue){
-    //Go through mainQueue and write its contents to the appropriate output queue
-    while(1){
-        //Used for readability
-        int mainReadIndex = (*mainQueue).toRead;
-
-        //If there is no more data, then exit and get more packets
-        if((*mainQueue).data[mainReadIndex].isOccupied == NOT_OCCUPIED){
-            break;
-        }
-
-        //Get the appropriate output queue that this should be sending to
-        int qIndex = (*mainQueue).data[mainReadIndex].packet.flow % outputThreadCount;
-
-        //Used for readability
-        int outputWriteIndex = output[qIndex].queue.toWrite;
-
-        //If the queue is full, then wait for it to become unfull
-        while(output[qIndex].queue.data[outputWriteIndex].isOccupied == OCCUPIED){
-            ;
-        }
-
-        //Grab the packets data and move it into the output queue
-        output[qIndex].queue.data[outputWriteIndex].packet.order = (*mainQueue).data[mainReadIndex].packet.order;
-        output[qIndex].queue.data[outputWriteIndex].packet.flow = (*mainQueue).data[mainReadIndex].packet.flow;
-
-        //Indicate the next spot to write to in the output queue
-        output[qIndex].queue.toWrite++;
-        output[qIndex].queue.toWrite = output[qIndex].queue.toWrite % BUFFERSIZE;
-
-        //Indicade the next spot to read from in the main queue
-        (*mainQueue).toRead++;
-        (*mainQueue).toRead = (*mainQueue).toRead % BUFFERSIZE;
-
-        //Indicate the space is free to write to in the main queue
-        (*mainQueue).data[mainReadIndex].isOccupied = NOT_OCCUPIED;
-
-        //Indicate the space is ready to read from in the output queue
-        output[qIndex].queue.data[outputWriteIndex].isOccupied = OCCUPIED;
-    }  
-}
-
-void * workerThread(void* args){
-    //Get argument struct into local variables
-    workerThreadArgs_t wargs = *((workerThreadArgs_t *)args);
-    int toGrabCount = (int)(wargs.toGrabCount);
-    queue_t * mainQueue = (queue_t *)(wargs.mainQueue);
-
-    //Set the thread to its own core
-    set_thread_props(10 + outputThreadCount, 2);
-
-    //wait for the alarm to start
-    while(startFlag == 0);
-
-    while(endFlag == 0){
-        grab_packets(toGrabCount, mainQueue);
-        pass_packets(mainQueue);
-    }
-
-    free(mainQueue);
-
-    return NULL;
-}
-
 pthread_t * run(void *argsv){
-    //The amount of packets to grab from each queue. This algorithm gives all queues equal priority
-    int toGrabCount = BUFFERSIZE / inputThreadCount;
-    
-    //The main "wire" queue where everything will be written
-    queue_t *mainQueue = Malloc(sizeof(queue_t));
-    mainQueue->toRead = 0;
-    mainQueue->toWrite = 0;
-
-    //Initialize thread attributes
-    pthread_attr_t attrs;
-    pthread_attr_init(&attrs);
-
-    wThreadArgs.mainQueue = mainQueue;
-    wThreadArgs.toGrabCount = toGrabCount;
-
-    //Tell the system we are setting the schedule for the thread, instead of inheriting
-    if(pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED)) {
-        perror("pthread_attr_setinheritsched");
-    }
-
-    //Spawn the worker thread
-    Pthread_create(&workers[0], &attrs, workerThread, (void *)&wThreadArgs);
-
-    return workers;
+    return NULL;
 }

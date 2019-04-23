@@ -7,9 +7,6 @@ CFLAGS = -I. -g -Wall -std=c99 #-O3
 #The compiler: gcc for C program, define as g++ for C++
 CC = gcc
 
-#header file dependencies
-DEPS = global.h wrapper.h
-
 #-lm: 			Math 
 #-lpthread:		library and p
 LIBS = -lm -lpthread
@@ -41,17 +38,18 @@ $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LIBS)
 
 ifeq ($(AMAKE),)
-$(OBJS): $(addprefix $(FWF), $(SRCS)) $(addprefix $(FWF), $(DEPS))
+$(OBJS): $(addprefix $(FWF), $(SRCS))
 	$(CC) $(CFLAGS) -c $(APATH) -o $(APATH:.c=.o) $(LIBS)
 	$(MAKE) -C $(FWF)
 else
-$(OBJS): $(addprefix $(FWF), $(SRCS)) $(addprefix $(FWF), $(DEPS))
+$(OBJS): $(addprefix $(FWF), $(SRCS))
 	$(MAKE) -C $(AMAKE)
 	$(MAKE) -C $(FWF)
 endif
 
 ifeq ($(AMAKE),)
 clean:
+	$(info To clean the algorithm folder, you need to specify a path to the makefile. Example: make APATH=Algorithm1/algorithm.c)
 	$(MAKE) clean -C $(FWF)
 	find . -name "*.csv" -type f -delete
 	find . -name $(TARGET) -type f -delete
