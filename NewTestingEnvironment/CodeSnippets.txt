@@ -81,7 +81,7 @@ void * output_thread(void * args){
     // ** END: SET UP CODE ***
 
     // *** READY FLAG SET *** (Required)
-    input[threadNum].readyFlag = 1;
+    output[threadNum].readyFlag = 1;
 
     // *** WAIT FOR START FLAG *** (Required)
     while(startFlag == 0);
