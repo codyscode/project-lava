@@ -34,13 +34,13 @@
 //Used to determine packet size
 //8000 Allows much faster packet generation
 #define MIN_PAYLOAD_SIZE 64
-#define MAX_PAYLOAD_SIZE 8000
+#define MAX_PAYLOAD_SIZE 9000
 
 //Maximum packet size
 #define MIN_PACKET_SIZE 192 + MIN_PAYLOAD_SIZE
 #define MAX_PACKET_SIZE 192 + MAX_PAYLOAD_SIZE
 
-//Number of unique flows that each input queue generates
+//Number of unique flows that each input thread generates
 #define FLOWS_PER_QUEUE 8
 
 //Indicates whether a packet is there or not
@@ -73,9 +73,9 @@ typedef unsigned long long tsc_t;
 //flow (size_t) - The flow of the packet
 //order (size_t) - The order of the packet within its flow
 //data (unsigned char array) - Payload of the packet
-typedef struct packet{ 
+typedef struct packet{
+    size_t flow; 
     size_t length;
-    size_t flow;
     size_t order;
     unsigned char data[MAX_PAYLOAD_SIZE];
 }packet_t;
@@ -94,7 +94,6 @@ typedef struct data{
 typedef struct Queue {
     size_t toRead;
     size_t toWrite;
-    size_t count;
     data_t data[BUFFERSIZE];
 }queue_t;
 
@@ -128,7 +127,7 @@ typedef struct io{
 io_t input[MAX_NUM_INPUT_THREADS];
 io_t output[MAX_NUM_OUTPUT_THREADS];
 
-//Used for number of input and output queues
+//Used for number of input and output threads
 size_t inputThreadCount;
 size_t outputThreadCount;
 

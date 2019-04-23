@@ -8,7 +8,7 @@ CFLAGS = -I. -g -Wall -std=c99 #-O3
 CC = gcc
 
 #header file dependencies
-DEPS = algorithm.h global.h wrapper.h
+DEPS = global.h wrapper.h
 
 #-lm: 			Math 
 #-lpthread:		library and p
