@@ -9,6 +9,5 @@ env:
 sudo: true
 
 script:
-        - pwd
-        - cd ~/project-lava/NewTestingEnvironment/
+        - cd NewTestingEnvironment/
         - ./mainScript.sh -q
