@@ -111,7 +111,7 @@ void * output_thread(void * args){
         // *** START: PROCESS PACKET *** (Required)
         // Ensure its in the proper order
         // Increment number of packets passed
-        output[threadNum].count++
+        output[threadNum].count += packet.data[index].length
         // *** END: PROCESS PACKET ***
     }
 

@@ -67,12 +67,6 @@ void sig_alrm(int signo){
     for(int i = 0; i < MAX_NUM_OUTPUT_THREADS; i++){
         finalTotal += output[i].count;
     }
-
-    //Take a snapshot of the overhead
-    for(int i = 0; i < MAX_NUM_OUTPUT_THREADS; i++){
-        overheadTotal += input[i].overhead;
-        overheadTotal += output[i].overhead;
-    }
 }
 
 void alarm_init(){

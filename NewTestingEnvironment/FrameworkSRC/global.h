@@ -37,8 +37,8 @@
 #define MAX_PAYLOAD_SIZE 1500
 
 //Maximum packet size
-#define MIN_PACKET_SIZE 192 + MIN_PAYLOAD_SIZE
-#define MAX_PACKET_SIZE 192 + MAX_PAYLOAD_SIZE
+#define MIN_PACKET_SIZE 24 + MIN_PAYLOAD_SIZE
+#define MAX_PACKET_SIZE 24 + MAX_PAYLOAD_SIZE
 
 //Number of unique flows that each input thread generates
 #define FLOWS_PER_THREAD 8
@@ -77,7 +77,7 @@ typedef struct packet{
     size_t flow; 
     size_t length;
     size_t order;
-    unsigned char data[MAX_PAYLOAD_SIZE];
+    unsigned char payload[MAX_PAYLOAD_SIZE];
 }packet_t;
 
 //Data field for the queue
@@ -119,8 +119,7 @@ typedef struct io{
     pthread_t threadID;
     queue_t queue;
     size_t readyFlag;
-    volatile size_t overhead;
-    volatile size_t count;
+    size_t count;
 }io_t;
 
 //initialize array of input and ouput threads

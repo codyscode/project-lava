@@ -68,7 +68,7 @@ void * input_thread(void * args){
         g_seed0 = (214013*g_seed0+2531011);   
         currFlow = ((g_seed0>>16)&0x0007) + offset;//Min value: offset || Max value: offset + 7
         g_seed1 = (214013*g_seed1+2531011); 
-        currLength = (((g_seed1>>16)&0xFFFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; //Min value: 64 || Max value: 8191 + 64
+        currLength = (((g_seed1>>16)&0x1FFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; //Min value: 64 || Max value: 8191 + 64
 
         //Determine which queue to write the packet data to
         qIndex = (currFlow % (maxQueueIndex - baseQueueIndex)) + baseQueueIndex;
@@ -80,9 +80,10 @@ void * input_thread(void * args){
         }
 
         //Write the packet data to the queue
-        memcpy(&mainQueues[qIndex].data[dataIndex].packet.data, packetData, currLength);
+        memcpy(&mainQueues[qIndex].data[dataIndex].packet.payload, packetData, currLength);
         mainQueues[qIndex].data[dataIndex].packet.order = orderForFlow[currFlow - offset];
         mainQueues[qIndex].data[dataIndex].packet.flow = currFlow;
+        mainQueues[qIndex].data[dataIndex].packet.length = currLength;
 
         //Say that the spot is ready to be read
         mainQueues[qIndex].data[dataIndex].isOccupied = OCCUPIED;
@@ -160,11 +161,13 @@ void * output_thread(void * args){
             printf("Packet out of order in Output Queue %lu. Expected %lu | Got %lu\n", threadNum, expected[currFlow], mainQueues[qIndex].data[dataIndex].packet.order);
             exit(1);
         }    
+        size_t currLength = mainQueues[qIndex].data[dataIndex].packet.length;
+
         //Pull the data out of the packet
-        memcpy(packetData, &mainQueues[qIndex].data[dataIndex].packet.data, mainQueues[qIndex].data[dataIndex].packet.length);
+        memcpy(packetData, &mainQueues[qIndex].data[dataIndex].packet.payload, currLength);
 
         //increment the number of packets passed
-        output[threadNum].count++;
+        output[threadNum].count += currLength + 24;
 
         //Set what the next expected packet for the flow should be
         expected[currFlow]++;

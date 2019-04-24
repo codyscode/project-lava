@@ -198,10 +198,8 @@ void init_built_in_sets(){
         output[qIndex].queue.toRead = 0;
         output[qIndex].queue.toWrite = 0;
 
-        input[qIndex].overhead = 0;
         input[qIndex].count = 0;
 
-        output[qIndex].overhead = 0;
         output[qIndex].count = 0;
     }
 }
@@ -268,7 +266,7 @@ void output_data(){
     snprintf(fileName, sizeof(fileName),"%s.csv", algName);
 
     //Output the data to the user
-    printf("\nAlgorithm %s passed %'lu packets per second on average.\n", algName, finalTotal/(RUNTIME - overheadTotal));
+    printf("\nAlgorithm %s passed %'lu bits per second on average.\n", algName, (finalTotal/RUNTIME) * 8);
 
     //if the file alreadty exists, open it
     if(access(fileName, F_OK) != -1){
@@ -281,7 +279,7 @@ void output_data(){
     }	
 	
     //Output the data to the file
-    fprintf(fptr, "%s,%lu,%lu,%lu\n", algName, inputThreadCount, outputThreadCount, finalTotal/(RUNTIME - overheadTotal));
+    fprintf(fptr, "%s,%lu,%lu,%lu\n", algName, inputThreadCount, outputThreadCount, (finalTotal/RUNTIME) * 8);
     fclose(fptr);
 }
 
@@ -385,14 +383,13 @@ int main(int argc, char**argv){
 
     //Set all count variables to 0 to prevent "cheating"
     for(int i = 0; i < MAX_NUM_INPUT_THREADS; i++){
-        if(input[i].overhead > 0 || output[i].overhead > 0 || output[i].count > 0){
+        if(output[i].count > 0){
             printf("Counting started before Timer, Results are not valid. Exiting...\n");
         }
     }
 
     //Reset final results
     finalTotal = 0;
-    overheadTotal = 0;
 
     //Start the alarm and set start flag to signal all threads to start
     alarm_start();
@@ -405,7 +402,7 @@ int main(int argc, char**argv){
             for(int i = 0; i < outputThreadCount; i++){
                 count += output[i].count;
             }
-            printf("\x1b[A\rEstimated: \t %'lu Packets per Second\n", (count - prevCount) / 2);
+            printf("\x1b[A\rEstimated: \t %'lu bits per second\n", ((count - prevCount) * 4));
             printf("Time Remaining:  %d Seconds  ", timer);
             fflush(NULL);
             prevCount = count;
