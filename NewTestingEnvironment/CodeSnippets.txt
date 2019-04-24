@@ -102,6 +102,10 @@ void * output_thread(void * args){
         // Set queue position to free
         // *** END: READ PACKET IN/PULL PACKET FROM INPUT SIDE ***
 
+        // *** NOTE ***
+        // YOU MUST READ THE DATA FIELD BY MEMCOPY OR SOME METHOD WITH THE LENGTH MEMBER
+        // DATA FIELD IS THE char * data[9000]
+
         // *** START: PROCESS PACKET *** (Required)
         // Ensure its in the proper order
         // Increment number of packets passed

@@ -41,7 +41,7 @@
 #define MAX_PACKET_SIZE 192 + MAX_PAYLOAD_SIZE
 
 //Number of unique flows that each input thread generates
-#define FLOWS_PER_QUEUE 8
+#define FLOWS_PER_THREAD 8
 
 //Indicates whether a packet is there or not
 #define NOT_OCCUPIED 0

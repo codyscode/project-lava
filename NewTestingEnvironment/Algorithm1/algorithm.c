@@ -45,9 +45,9 @@ void * input_thread(void * args){
     size_t maxQueueIndex = baseQueueIndex + outputThreadCount;
 
     //Each input buffer has 5 flows associated with it that it generates
-    size_t orderForFlow[FLOWS_PER_QUEUE] = {0};
+    size_t orderForFlow[FLOWS_PER_THREAD] = {0};
     size_t currFlow, currLength;
-    size_t offset = threadNum * FLOWS_PER_QUEUE;
+    size_t offset = threadNum * FLOWS_PER_THREAD;
 	
     //Continuously generate input numbers until the buffer fills up. 
     //Once it hits an entry that is not empty, it will wait until the input is grabbed.
@@ -117,9 +117,12 @@ void * output_thread(void * args){
 
     //"Process" packets to confirm they are in the correct order before consuming more. 
     //Processing threads process until they get to a spot with no packets
-    size_t expected[MAX_NUM_INPUT_THREADS * FLOWS_PER_QUEUE] = {0}; 
+    size_t expected[MAX_NUM_INPUT_THREADS * FLOWS_PER_THREAD] = {0}; 
     size_t qIndex = baseQueueIndex;
     size_t dataIndex = 0;
+
+    //Packet data
+    unsigned char packetData[9000];
 
     //Say this thread is ready to process
     output[threadNum].readyFlag = 1;
@@ -155,8 +158,11 @@ void * output_thread(void * args){
             //Print out the specific packet that caused the error to the user
             printf("\nError Packet: Flow %lu | Order %lu\n", mainQueues[qIndex].data[dataIndex].packet.flow,mainQueues[qIndex].data[dataIndex].packet.order);
             printf("Packet out of order in Output Queue %lu. Expected %lu | Got %lu\n", threadNum, expected[currFlow], mainQueues[qIndex].data[dataIndex].packet.order);
-            exit(0);
-        }       
+            exit(1);
+        }    
+        //Pull the data out of the packet
+        memcpy(packetData, &mainQueues[qIndex].data[dataIndex].packet.data, mainQueues[qIndex].data[dataIndex].packet.length);
+
         //increment the number of packets passed
         output[threadNum].count++;
 
