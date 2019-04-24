@@ -26,7 +26,7 @@
 #define MIN_OUTPUT_THREAD_COUNT 1
 
 //Buffersize for default queues
-#define BUFFERSIZE 1024
+#define BUFFERSIZE 512
 
 //Defines how many ticks an algorithm should run for
 #define RUNTIME 30
@@ -34,7 +34,7 @@
 //Used to determine packet size
 //8000 Allows much faster packet generation
 #define MIN_PAYLOAD_SIZE 64
-#define MAX_PAYLOAD_SIZE 9000
+#define MAX_PAYLOAD_SIZE 1500
 
 //Maximum packet size
 #define MIN_PACKET_SIZE 192 + MIN_PAYLOAD_SIZE

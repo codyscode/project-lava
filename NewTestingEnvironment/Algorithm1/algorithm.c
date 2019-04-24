@@ -66,9 +66,9 @@ void * input_thread(void * args){
     while(endFlag == 0){
         // *** FASTEST PACKET GENERATOR ***
         g_seed0 = (214013*g_seed0+2531011);   
-        currFlow = ((g_seed0>>16)&0x0007) + offset;//Min value: offset || Max value: offset + 7:
+        currFlow = ((g_seed0>>16)&0x0007) + offset;//Min value: offset || Max value: offset + 7
         g_seed1 = (214013*g_seed1+2531011); 
-        currLength = ((g_seed1>>16)&0x1FFF) + MIN_PAYLOAD_SIZE; //Min value: 64 || Max value: 8191 + 64:
+        currLength = (((g_seed1>>16)&0xFFFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; //Min value: 64 || Max value: 8191 + 64
 
         //Determine which queue to write the packet data to
         qIndex = (currFlow % (maxQueueIndex - baseQueueIndex)) + baseQueueIndex;

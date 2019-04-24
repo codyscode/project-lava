@@ -1,11 +1,13 @@
 *** FAST RANDOM NUMBER GENERATOR ***
 - Min value offset + 0: Max value offset + 7:
 g_seed0 = (214013*g_seed0+2531011);   
-currFlow = ((g_seed0>>16)&0x0007) + offset; 
+currFlow = ((g_seed0>>16)&0x0007) + offset;
+//Min value: offset || Max value: offset + 7
 
 - Min value 64: Max value 8191 + 64:
 g_seed1 = (214013*g_seed1+2531011); 
-length = ((g_seed1>>16)&0x1FFF) + MIN_PAYLOAD_SIZE;
+currLength = (((g_seed1>>16)&0xFFFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
+//Min value: 64 || Max value: 8191 + 64
 
 - To avoid modding we use and to get a max value of a power of 2
 
