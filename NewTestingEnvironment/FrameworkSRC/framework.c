@@ -232,7 +232,7 @@ void spawn_input_threads(pthread_attr_t attrs, function input_thread){
 void spawn_output_threads(pthread_attr_t attrs, function processing_thread){
     //Core for each output thread to be assigned to
     //Next available queue after cores have been assigned ot input queues
-    int core = 10;
+    int core = 11;
 
     //Spawn the output threads and pass appropriate arguments
     for(int index = 0; index < outputThreadCount; index++){

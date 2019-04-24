@@ -1,11 +1,11 @@
 *** FAST RANDOM NUMBER GENERATOR ***
 - Min value offset + 0: Max value offset + 7:
 g_seed0 = (214013*g_seed0+2531011);   
-currFlow = ((g_seed0>>16)&0x0007) + offset + 1; 
+currFlow = ((g_seed0>>16)&0x0007) + offset; 
 
 - Min value 64: Max value 8191 + 64:
 g_seed1 = (214013*g_seed1+2531011); 
-length = ((g_seed1>>16)&0x1FFF) + 64;
+length = ((g_seed1>>16)&0x1FFF) + MIN_PAYLOAD_SIZE;
 
 - To avoid modding we use and to get a max value of a power of 2
 
@@ -39,6 +39,11 @@ void * input_thread(void * args){
     // *** REPIN CPU *** (Recommended)
     set_thread_props(inputArgs->coreNum, 2);
 
+    // *** DATA TO COPY TO DATA FIELD *** (Recommended)
+    // There are global variable versions of this as well
+    // Faster if local though
+    //char * dataToCopy[9000];
+
     // *** START: SET UP CODE ***
     // Initialize variables
     // Generate values etc
@@ -54,12 +59,16 @@ void * input_thread(void * args){
     while(1){
         // *** START: GENERATE A PACKET *** (Required)
         // Call Fast RNG for flow
+        // Call Fast RNG for length
         // Generate whatever is needed to keep track of order
         // *** END: GENERATE A PACKET ***
 
         // *** START: PASS PACKET/PUSH PACKET TO QUEUE *** (One is Required)
         // Example:
-        // Assigned packet data to spot in queue
+        // Assigned packet to spot in queue
+        // *** NOTE ***
+        // YOU MUST WRITE THE DATA FIELD BY MEMCOPY OR SOME METHOD WITH THE LENGTH MEMBER
+        // DATA FIELD IS THE char * data[9000]
         // Set queue position to valid
         // *** END: PASS PACKET/PUSH PACKET TO QUEUE ***
     }
@@ -81,7 +90,7 @@ void * output_thread(void * args){
     // ** END: SET UP CODE ***
 
     // *** READY FLAG SET *** (Required)
-    input[threadNum].readyFlag = 1;
+    output[threadNum].readyFlag = 1;
 
     // *** WAIT FOR START FLAG *** (Required)
     while(startFlag == 0);
@@ -95,7 +104,8 @@ void * output_thread(void * args){
 
         // *** START: PROCESS PACKET *** (Required)
         // Ensure its in the proper order
-        // increment counting variable
+        // Increment number of packets passed
+        output[threadNum].count++
         // *** END: PROCESS PACKET ***
     }
 
