@@ -51,8 +51,8 @@ void * input_thread(void * args){
 	
 	unsigned int mask; //currFlow, length;
 	unsigned int outMask;
-	unsigned int flowNum[FLOWS_PER_QUEUE] = {0};
-	unsigned int offset = (core - 2)*FLOWS_PER_QUEUE;
+	unsigned int flowNum[FLOWS_PER_THREAD] = {0};
+	unsigned int offset = (core - 2)*FLOWS_PER_THREAD;
 	
 	// set mask
 	if(outCount >= 7)
@@ -101,7 +101,7 @@ void * input_thread(void * args){
 		
 		while(pktQueue[outMask][toWrite[outMask]].flow != 0); // wait for space in partition
  
-		memcpy(((char*)&pktQueue[outMask][toWrite[outMask]]) + 24, ((char *)&currPkt) + 24, currPkt.length);
+		memcpy(((char*)&pktQueue[outMask][toWrite[outMask]].data), ((char *)&currPkt.data), currPkt.length);
 		//memcpy(&(pktQueue[outMask][toWrite[outMask]].data), &(currPkt.data), currPkt.length);
 		//memcpy(&pktQueue[outMask][toWrite[outMask]], &currPkt, 24);
 		
@@ -109,7 +109,8 @@ void * input_thread(void * args){
 		
 		pktQueue[outMask][toWrite[outMask]].length = currPkt.length;
 		pktQueue[outMask][toWrite[outMask]].order = currPkt.order;
-		pktQueue[outMask][toWrite[outMask]].flow = currPkt.flow;
+		pktQueue[outMask][toWrite[outMask]].flow = currPkt.flow
+		//memcpy(&pktQueue[outMask][toWrite[outMask]], &currPkt, 24);
 		//memcpy64(&pktQueue[outMask][toWrite[outMask]], &currPkt, 3);
 		
 		toWrite[outMask]++;
@@ -132,7 +133,7 @@ void * output_thread(void * args){
 	threadArgs_t *threadArgs = (threadArgs_t*) args;
 	int core = threadArgs->coreNum;
 	int threadID = threadArgs->threadNum;
-	int outNum = core - 10; // since thread creations starts at core 6
+	int outNum = core - 11; // since thread creations starts at core 6
 	
 	int inCount = inputThreadCount;
 	int outCount = outputThreadCount;
@@ -160,11 +161,11 @@ void * output_thread(void * args){
 		pktQueue[outNum][i].flow = 0;
 	}
 	
-	unsigned int expected[inCount * FLOWS_PER_QUEUE + 1];
+	unsigned int expected[inCount * FLOWS_PER_THREAD + 1];
 	unsigned int currFlow;
 	int readPart = 0;
 	
-	bzero(expected, sizeof(int) * (inCount*FLOWS_PER_QUEUE+1));
+	bzero(expected, sizeof(int) * (inCount*FLOWS_PER_THREAD+1));
 	
 	outFlag[outNum] = 1;
 	printf("Set outflag for %d\n", core-6);
@@ -230,6 +231,7 @@ pthread_t * run(void *argsv){
     Pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED);
 	
 	// calculate cache lined partitions based on 1024 sized queue
+	
 	if((1024/inCount % 64) == 0)
 		partSize = 1024/inCount;
 	else
