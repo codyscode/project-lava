@@ -35,11 +35,9 @@ testSpecificAlgorithm(){
 		then
 			echo "in the if statement"
 			cd ..
-			make APATH=Algorithm1/algorithm.c
-			echo "in if statement next is the working dir"
-			pwd
+			make AP="$dir"/algorithm.c
 			./testScript.sh
-			make clean
+			make AM="$dir" clean
 		fi
 		cd ~/project-lava/NewTestingEnvironment/
 	done
@@ -54,9 +52,9 @@ testAllAlgorithms() {
 	check_isRunning
 	echo ">>>>>>>> RUNNING FULL TEST <<<<<<<<"
 	for dir in Algorithm*/ ; do
-		make APATH="$dir"algorithm.c
+		make AP="$dir"algorithm.c
 		 ./testScript.sh
-		make clean
+		make AM="$dir" clean
 	done
 	echo ">>>>>>>> FULL TEST COMPLETED <<<<<<<<<"
 }
@@ -66,9 +64,9 @@ quicktestAllAlgorithms() {
 	check_isRunning
 	echo ">>>>>>>> RUNNING QUICK TEST <<<<<<<<<"
         for dir in Algorithm*/ ; do
-			make APATH="$dir"algorithm.c
+			make AP="$dir"algorithm.c
 		 	./testScript.sh -q
-			make clean
+			make AM="$dir" clean
         done
 	rm -f *.csv
 	echo ">>>>>>>> QUICK TEST COMPLETED <<<<<<<<<"
