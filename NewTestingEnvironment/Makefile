@@ -52,7 +52,7 @@ endif
 
 ifeq ($(AM),)
 clean:
-	$(info To clean the algorithm folder, you need to specify a path to the makefile. Example: make AP=Algorithm1/algorithm.c)
+	$(info To clean the algorithm folder, you need to specify a path to the makefile. Example: make AM=Algorithm1/)
 	$(MAKE) clean -C $(FWF)
 	find . -name "*.csv" -type f -delete
 	find . -name $(TARGET) -type f -delete

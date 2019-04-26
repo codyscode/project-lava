@@ -73,7 +73,7 @@ typedef unsigned long long tsc_t;
 //flow (size_t) - The flow of the packet
 //order (size_t) - The order of the packet within its flow
 //data (unsigned char array) - Payload of the packet
-typedef struct packet{
+typedef struct Packet{
     size_t flow; 
     size_t length;
     size_t order;
@@ -81,7 +81,7 @@ typedef struct packet{
 }packet_t;
 
 //Data field for the queue
-typedef struct data{
+typedef struct Data{
     size_t isOccupied;
     packet_t packet;
 }data_t;
@@ -146,7 +146,6 @@ void set_thread_props(int tgt_core, long sched);
 void sig_alrm(int signo);
 void alarm_init();
 void alarm_start();
-
 
 void * input_thread(void * args);
 void * output_thread(void * args);

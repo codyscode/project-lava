@@ -38,7 +38,7 @@ void * input_thread(void * args){
     set_thread_props(inputArgs->coreNum, 2);
 
     //Data to write to the packet
-    unsigned char packetData[9000];
+    unsigned char packetData[MAX_PAYLOAD_SIZE];
 
     //Queues that the input thread writes to
     size_t baseQueueIndex = threadNum * outputThreadCount;
@@ -63,11 +63,11 @@ void * input_thread(void * args){
     while(startFlag == 0);
 
     //Write packets to their corresponding queues
-    while(endFlag == 0){
+    while(1){
         // *** FASTEST PACKET GENERATOR ***
         g_seed0 = (214013*g_seed0+2531011);   
         currFlow = ((g_seed0>>16)&0x0007) + offset;//Min value: offset || Max value: offset + 7
-        g_seed1 = (214013*g_seed1+2531011); 
+        g_seed1 = (214013*g_seed1 +2531011); 
         currLength = (((g_seed1>>16)&0x1FFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; //Min value: 64 || Max value: 8191 + 64
 
         //Determine which queue to write the packet data to
@@ -93,7 +93,7 @@ void * input_thread(void * args){
 
         //Update the next spot to be written in the queue
         mainQueues[qIndex].toWrite++;
-        if(mainQueues[qIndex].toWrite >= BUFFERSIZE)
+        if(mainQueues[qIndex].toWrite >= BUFFERSIZE) 
             mainQueues[qIndex].toWrite = 0;
         //mainQueues[qIndex].toWrite = mainQueues[qIndex].toWrite % BUFFERSIZE;
     }
@@ -123,7 +123,7 @@ void * output_thread(void * args){
     size_t dataIndex = 0;
 
     //Packet data
-    unsigned char packetData[9000];
+    unsigned char packetData[MAX_PAYLOAD_SIZE];
 
     //Say this thread is ready to process
     output[threadNum].readyFlag = 1;
@@ -132,7 +132,7 @@ void * output_thread(void * args){
     while(startFlag == 0);
 
     //Go through each space in the output queue until we reach an emtpy space in which case we swap to the other queue to process its packets
-    while(endFlag == 0){
+    while(1){
         dataIndex = mainQueues[qIndex].toRead;
 
         //If there is no packet move to the next queue it is managing and start reading
@@ -166,14 +166,14 @@ void * output_thread(void * args){
         //Pull the data out of the packet
         memcpy(packetData, &mainQueues[qIndex].data[dataIndex].packet.payload, currLength);
 
+        //Set the position to free. Say it has already processed data
+        mainQueues[qIndex].data[dataIndex].isOccupied = NOT_OCCUPIED;
+
         //increment the number of packets passed
         output[threadNum].count += currLength + 24;
 
         //Set what the next expected packet for the flow should be
         expected[currFlow]++;
-
-        //Set the position to free. Say it has already processed data
-        mainQueues[qIndex].data[dataIndex].isOccupied = NOT_OCCUPIED;
 
         //Move to the next spot in the outputQueue to process
         mainQueues[qIndex].toRead++;
