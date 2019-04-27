@@ -99,4 +99,3 @@ void alarm_start(){
 	alarm(RUNTIME); // set alarm for RUNTIME seconds
     startFlag = 1; // start moving packets
 }
-

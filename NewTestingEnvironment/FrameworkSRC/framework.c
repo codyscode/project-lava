@@ -57,6 +57,7 @@ void check_if_ideal_conditions(){
         printf("Unsupported Platform.\nExiting...\n");
         exit(1);
     }
+
     //Used for parseing running processes
     char * word = NULL;
     char * line = NULL;
@@ -65,6 +66,7 @@ void check_if_ideal_conditions(){
     size_t len = 0;
     ssize_t read;
     FILE *fptr;
+    int status;
 
     //Get the parent process ID into a string
     //This is the sudo call for the framework
@@ -149,14 +151,14 @@ void check_if_ideal_conditions(){
                     }
                 }
                 else{
-                    printf("Exiting...\n");
                     //Delete the temporary file
-                    int status = remove(fileName);
-
-                    if (status != 0){
+                    if ((status = remove(fileName)) != 0){
                         printf("Unable to delete temporary file: temp\n");
                         perror("Following error occurred");
                     }  
+
+                    //Indicate we are exiting
+                    printf("Exiting...\n");
                     exit(1);
                 }
                 
@@ -170,7 +172,7 @@ void check_if_ideal_conditions(){
         free(line);
 
         //Delete the temporary file
-        int status = remove(fileName);
+        status = remove(fileName);
 
         if (status != 0){
             printf("Unable to delete the file\n");
@@ -281,7 +283,7 @@ void check_threads(){
     }
 }
 
-void wait_for_threads(){
+void monitor_threads(){
     size_t prevCount = 0;
     size_t count = 0;
     int timer = RUNTIME;
@@ -290,7 +292,7 @@ void wait_for_threads(){
             for(int i = 0; i < outputThreadCount; i++){
                 count += output[i].count;
             }
-            printf("\x1b[A\rEstimated: \t %'lu bits per second\n", ((count - prevCount) * 4));
+            printf("\x1b[A\rEstimated: \t %'lu bits per second            \n", ((count - prevCount) * 4));
             printf("Time Remaining:  %d Seconds  ", timer);
             fflush(NULL);
             prevCount = count;
@@ -425,7 +427,7 @@ int main(int argc, char**argv){
 
     //Wait for threads to finish and print out to the user estimates
     //of how their algorithm is doing
-    wait_for_threads();
+    monitor_threads();
 
     //Wait for any threads that were spawed in the run function to finish
     if(extraThreads != NULL){

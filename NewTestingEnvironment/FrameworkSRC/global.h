@@ -101,9 +101,6 @@ typedef struct Queue {
 //queue (*queue_t) - pointer to the first queue for the thread to write to/process
 //coreNum (size_t) - used to define which core the processing queue should be assigned to
 //threadNum (size_t) - The queue number relative to other queues in its set
-//count (size_t) - The number of packets passed
-//overhead (size_t) - The overhead to be incremented for generating a packet
-
 typedef struct threadArgs{
     queue_t *queue;
     size_t coreNum;
@@ -114,6 +111,7 @@ typedef struct threadArgs{
 //threadArgs (threadArgs_t) - Arguments to be passed to input/output threads
 //queue (queue_t) - built in queues for passing
 //readyFlag (size_t) - Flag signaling thead is ready
+//count (size_t) - amount of data passed
 typedef struct io{
     threadArgs_t threadArgs;
     pthread_t threadID;
