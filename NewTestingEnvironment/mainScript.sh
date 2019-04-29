@@ -44,7 +44,7 @@ testSpecificAlgorithm(){
 }
 runVisualization()
 {
-	python ~/project-lava/NewTestingEnvironment/visualization.py
+	python ~/project-lava/NewTestingEnvironment/visualization.py "$1"
 }
 
 #runs all 64 iteration of each algorithm being made
@@ -100,7 +100,7 @@ fileStructure_markdown(){
 }
 
 #takes flags and runs the appropriate function
-while getopts 'htqws:vp' flag; do
+while getopts 'htqws:v:p' flag; do
 	case "${flag}" in
 		h) displayHelp ;;
 		t) testAllAlgorithms ;;
@@ -109,7 +109,7 @@ while getopts 'htqws:vp' flag; do
 		s) OPTION_VAL=$OPTARG
 		   testSpecificAlgorithm 
 		   ;;
-		v) runVisualization ;;
+		v) runVisualization $OPTARG ;;
 		*) error "Unexpected option ${flag}" ;;
 	esac
 done
