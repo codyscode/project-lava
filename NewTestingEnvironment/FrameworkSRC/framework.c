@@ -201,9 +201,8 @@ void init_built_in_queues(){
         output[qIndex].queue.toRead = 0;
         output[qIndex].queue.toWrite = 0;
 
-        input[qIndex].count = 0;
-
-        output[qIndex].count = 0;
+        output[qIndex].byteCount = 0;
+        output[qIndex].packetCount = 0;
     }
 }
 
@@ -290,7 +289,7 @@ void monitor_threads(){
     while(endFlag == 0){
         if(timer % 2 == 0){
             for(int i = 0; i < outputThreadCount; i++){
-                count += output[i].count;
+                count += output[i].byteCount;
             }
             printf("\x1b[A\rEstimated: \t %'lu bits per second            \n", ((count - prevCount) * 4));
             printf("Time Remaining:  %d Seconds  ", timer);
@@ -324,6 +323,7 @@ void output_data(){
 
     //Output the data to the user
     printf("\nAlgorithm %s passed %.3f Gbs on average.\n", algName, (double)((finalTotal/RUNTIME) * 8) / 1000000000);
+    printf("\nAlgorithm %s passed %lu Packets Per Second on average.\n", algName, (finalTotal/RUNTIME) / 762);
 
     //if the file alreadty exists, open it
     if(access(fileName, F_OK) != -1){
@@ -413,7 +413,7 @@ int main(int argc, char**argv){
 
     //Set all count variables to 0 to prevent "cheating"
     for(int i = 0; i < MAX_NUM_INPUT_THREADS; i++){
-        if(output[i].count > 0){
+        if(output[i].byteCount > 0){
             printf("Counting started before Timer, Results are not valid. Exiting...\n");
             exit(1);
         }

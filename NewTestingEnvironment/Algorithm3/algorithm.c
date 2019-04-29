@@ -176,7 +176,7 @@ void * output_thread(void * args){
                 memcpy(packetData, mainQueues[qIndex].segments[segIndex].data[dataIndex].payload, currLength);
 
                 //increment the number of bits passed
-                output[threadNum].count += currLength + 24;
+                output[threadNum].byteCount += currLength + 24;
 
                 //Set what the next expected packet for the flow should be
                 expected[currFlow]++;

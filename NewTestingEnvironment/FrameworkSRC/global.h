@@ -117,7 +117,7 @@ typedef struct io{
     pthread_t threadID;
     queue_t queue;
     size_t readyFlag;
-    size_t count;
+    size_t byteCount;
 }io_t;
 
 //initialize array of input and ouput threads

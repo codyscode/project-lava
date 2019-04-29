@@ -112,24 +112,26 @@ def lineSubPlot( fd, fileNum, baseName, directory):
     sns.set( rc={"lines.linewidth": 0.7})
     cat = sns.pointplot(x="Input" , y= "Packet",hue ="Output",
     ci = None, dodge = False, errwidth=None, data= fd,
-    markers="", scale = .5).legend.remove()
-
+    markers="", scale = 1).legend.remove()
     
     cat = sns.pointplot(x="Input" , y= "Packet",hue ="Output",
     ci = None, dodge = False, linestyles = " ", errwidth=None, data= fd,
     markers=markerArray, scale = 1.8).set_title(baseName)
+
+    plt.ticklabel_format(style='plain', axis='y')
     
     symbol=[]
     for i in range (0,8):
-        symbol.append( mlines.Line2D([], [], color=markColors[i], marker=markerArray[i], linestyle='None', markersize=6, label=str(i+1)))
+        symbol.append( matplotlib.lines.Line2D([], [], color=markColors[i], marker=markerArray[i], linestyle='None', markersize=6, label=str(i+1)))
 
-    lgd = plt.legend(title= "Output Queue" , loc='center left', bbox_to_anchor=(1, 0.5),
+    lgd = plt.legend(title= "Output Queue Count" , loc='center left', bbox_to_anchor=(1, 0.5),
     handles=[symbol[0], symbol[1], symbol[2],symbol[3],symbol[4],symbol[5],symbol[6],symbol[7]])
 
     plt.xlabel("Input Queue Count")
     plt.ylabel("Packets Per Second")    
     filename = 'point_'+ baseName+".png"
     fig.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight')
+    matplotlib.pyplot.close(fig)
     CWD = os.getcwd()
     shutil.copy(os.path.join(CWD,filename), directory)
     os.remove(os.path.join(CWD,filename))

@@ -74,7 +74,7 @@ void sig_alrm(int signo){
 
     //Take a snapshot of the count
     for(int i = 0; i < MAX_NUM_OUTPUT_THREADS; i++){
-        finalTotal += output[i].count;
+        finalTotal += output[i].byteCount;
     }
 }
 

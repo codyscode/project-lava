@@ -1,5 +1,7 @@
 #Binary Files
 *.o
+
+#Executables
 queuecode
 algorithm
 framework
