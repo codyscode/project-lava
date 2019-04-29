@@ -202,7 +202,6 @@ void init_built_in_queues(){
         output[qIndex].queue.toWrite = 0;
 
         output[qIndex].byteCount = 0;
-        output[qIndex].packetCount = 0;
     }
 }
 
@@ -291,7 +290,7 @@ void monitor_threads(){
             for(int i = 0; i < outputThreadCount; i++){
                 count += output[i].byteCount;
             }
-            printf("\x1b[A\rEstimated: \t %'lu bits per second            \n", ((count - prevCount) * 4));
+            printf("\x1b[A\rEstimated: \t %'lu bits per second          \n", ((count - prevCount) * 4));
             printf("Time Remaining:  %d Seconds  ", timer);
             fflush(NULL);
             prevCount = count;
@@ -322,8 +321,8 @@ void output_data(){
     snprintf(fileName, sizeof(fileName),"%s.csv", algName);
 
     //Output the data to the user
-    printf("\nAlgorithm %s passed %.3f Gbs on average.\n", algName, (double)((finalTotal/RUNTIME) * 8) / 1000000000);
-    printf("\nAlgorithm %s passed %lu Packets Per Second on average.\n", algName, (finalTotal/RUNTIME) / 762);
+    printf("\nAlgorithm %s passed %.3f Gbs on average.", algName, (double)((finalTotal/RUNTIME) * 8) / 1000000000);
+    printf("\nAlgorithm %s passed %'lu Packets Per Second on average.\n", algName, (finalTotal/RUNTIME) / (MAX_PACKET_SIZE / 2));
 
     //if the file alreadty exists, open it
     if(access(fileName, F_OK) != -1){
