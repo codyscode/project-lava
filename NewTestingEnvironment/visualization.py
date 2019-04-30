@@ -112,7 +112,7 @@ def lineSubPlot( fd, fileNum, baseName, directory):
     sns.set( rc={"lines.linewidth": 0.7})
     cat = sns.pointplot(x="Input" , y= "Packet",hue ="Output",
     ci = None, dodge = False, errwidth=None, data= fd,
-    markers="", scale = 1).legend.remove()
+    markers="", scale = 1)
     
     cat = sns.pointplot(x="Input" , y= "Packet",hue ="Output",
     ci = None, dodge = False, linestyles = " ", errwidth=None, data= fd,

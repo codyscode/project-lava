@@ -3,12 +3,12 @@
 OPTION_VAL=""
 #help menu to detail how the program works
 displayHelp() {
-	echo "-h 	     Print help"
-	echo "-t	     Run tests on all algorithms"
-	echo "-q         runs quick test on all algorithms"
-	echo "-w	     Push benchmark results to wiki"	
-	echo "-v         Turns CSV files into visualizations"
-	echo "-s al_name Will run test on a specific algorithm only "
+	echo "-h		Print help"
+	echo "-t		Run tests on all algorithms"
+	echo "-q		runs quick test on all algorithms"
+	echo "-w		Push benchmark results to wiki"	
+	echo "-v Data/	Turns CSV files in Data folder into visualizations"
+	echo "-s alg.c	Will run test on a specific algorithm only "
 }
 #Function that checks if the framework is already running on the server.
 check_isRunning(){
