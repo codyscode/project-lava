@@ -13,7 +13,7 @@ currLength = (((g_seed1>>16)&0xFFFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + 
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "singleWire"
+#define ALGNAME "sampleName"
 
 //Any additional threads not including input and output (Optional)
 //Keep in mind you only have 2 extra cores to work with.
@@ -39,15 +39,13 @@ void * input_thread(void * args){
     // *** REPIN CPU *** (Recommended)
     set_thread_props(inputArgs->coreNum, 2);
 
-    // *** DATA TO COPY TO DATA FIELD *** (Recommended)
-    // There are global variable versions of this as well
-    // Faster if local though
-    //char * dataToCopy[9000];
+    // *** DATA TO COPY TO DATA FIELD *** (Required)
+    char dataToCopy[9000];
 
     // *** START: SET UP CODE ***
     // Initialize variables
     // Generate values etc
-    // ** END: SET UP CODE ***
+    // *** END: SET UP CODE ***
 
     // *** READY FLAG SET *** (Required)
     input[threadNum].readyFlag = 1;
@@ -68,7 +66,7 @@ void * input_thread(void * args){
         // Assigned packet to spot in queue
         // *** NOTE ***
         // YOU MUST WRITE THE DATA FIELD BY MEMCOPY OR SOME METHOD WITH THE LENGTH MEMBER
-        // DATA FIELD IS THE char * data[9000]
+        // DATA FIELD IS THE char data[9000]
         // Set queue position to valid
         // *** END: PASS PACKET/PUSH PACKET TO QUEUE ***
     }
@@ -84,6 +82,9 @@ void * output_thread(void * args){
 
     // *** REPIN CPU *** (Recommended)
     set_thread_props(inputArgs->coreNum, 2);
+
+    // *** DATA TO WRITE TO FROM DATA FIELD *** (Required)
+    char dataToWriteTo[9000];
 
     // Initialize variables
     // Generate values etc
@@ -104,7 +105,7 @@ void * output_thread(void * args){
 
         // *** NOTE ***
         // YOU MUST READ THE DATA FIELD BY MEMCOPY OR SOME METHOD WITH THE LENGTH MEMBER
-        // DATA FIELD IS THE char * data[9000]
+        // DATA FIELD IS THE char data[9000]
 
         // *** START: PROCESS PACKET *** (Required)
         // Ensure its in the proper order
