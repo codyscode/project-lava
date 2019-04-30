@@ -19,3 +19,6 @@ testenv.o
 
 #csv files
 *.csv
+
+#png files
+*.png
