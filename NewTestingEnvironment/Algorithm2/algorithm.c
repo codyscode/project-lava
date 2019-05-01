@@ -1,5 +1,6 @@
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
+//#include "../FrameworkSRC/rte_memcpy.h"
 
 #define ALGNAME "Bitwise Partition"
 
@@ -30,7 +31,6 @@ void * input_thread(void * args){
 	int core = threadArgs->coreNum;
 	int threadID = threadArgs->threadNum;
 	int outCount = outputThreadCount;
-	//int threadID = core-2;
 
     //Set the thread to its own core
     set_thread_props(core, 2);
@@ -68,11 +68,6 @@ void * input_thread(void * args){
 	int outIndx = outCount - 1;
 	packet_t currPkt;
 	
-	inFlag[core-2] = 1;
-	printf("Set inflag for %d\n", core-2);
-	printf("Mask = %d\n", mask);
-	fflush(stdout);
-	
     input[threadID].readyFlag = 1;
 
     //Wait until everything else is ready
@@ -92,8 +87,6 @@ void * input_thread(void * args){
 		currPkt.order = flowNum[currPkt.flow - offset - 1]++;
 		// ************
 		
-		//start = rdtsc();
-		
 		// find which output queue to write to using flow and mask
 		//// use packet pointer instead???
 		if((outMask = currPkt.flow & mask) > outIndx)
@@ -101,17 +94,11 @@ void * input_thread(void * args){
 		
 		while(pktQueue[outMask][toWrite[outMask]].flow != 0); // wait for space in partition
  
-		memcpy(((char*)&pktQueue[outMask][toWrite[outMask]].data), ((char *)&currPkt.data), currPkt.length);
-		//memcpy(&(pktQueue[outMask][toWrite[outMask]].data), &(currPkt.data), currPkt.length);
-		//memcpy(&pktQueue[outMask][toWrite[outMask]], &currPkt, 24);
-		
-		//memcpy64(((char*)&pktQueue[outMask][toWrite[outMask]]) + 24, ((char *)&currPkt) + 24, currPkt.length);
+		memcpy(((char*)&pktQueue[outMask][toWrite[outMask]].payload), ((char *)&currPkt.payload), currPkt.length);
 		
 		pktQueue[outMask][toWrite[outMask]].length = currPkt.length;
 		pktQueue[outMask][toWrite[outMask]].order = currPkt.order;
-		pktQueue[outMask][toWrite[outMask]].flow = currPkt.flow
-		//memcpy(&pktQueue[outMask][toWrite[outMask]], &currPkt, 24);
-		//memcpy64(&pktQueue[outMask][toWrite[outMask]], &currPkt, 3);
+		pktQueue[outMask][toWrite[outMask]].flow = currPkt.flow;
 		
 		toWrite[outMask]++;
 		
@@ -167,9 +154,7 @@ void * output_thread(void * args){
 	
 	bzero(expected, sizeof(int) * (inCount*FLOWS_PER_THREAD+1));
 	
-	outFlag[outNum] = 1;
-	printf("Set outflag for %d\n", core-6);
-	fflush(stdout);
+	packet_t currPkt;
 	
     output[threadID].readyFlag = 1;
 
@@ -186,12 +171,14 @@ void * output_thread(void * args){
 				readPart = 0;
 		}
 		
-		currFlow = pktQueue[outNum][toRead[readPart]].flow;
+		memcpy(&currPkt, &pktQueue[outNum][toRead[readPart]], sizeof(packet_t));
 		
-		if(expected[currFlow] != pktQueue[outNum][toRead[readPart]].order){
-            fprintf(stderr,"ERROR: Packet out of order in queue %d for flow %d\n", outNum, currFlow);						
+		currFlow = currPkt.flow;
+		
+		if(expected[currFlow] != currPkt.order){
+            fprintf(stderr,"ERROR: Packet out of order in queue %d for flow %ld\n", outNum, currPkt.flow);						
             fprintf(stderr,"Expected: %d\n", expected[currFlow]);			
-            fprintf(stderr,"Actual: %ld\n", pktQueue[outNum][toRead[readPart]].order);
+            fprintf(stderr,"Actual: %ld\n", currPkt.order);
 			exit(0);
 		}
 		
@@ -199,7 +186,7 @@ void * output_thread(void * args){
 		pktQueue[outNum][toRead[readPart]].flow = 0;
 		
 		//pktCount[outNum]++;
-		output[threadID].count++;
+		output[threadID].byteCount += currPkt.length + 24;
 		expected[currFlow]++;
 		
 		toRead[readPart]++;
@@ -221,7 +208,6 @@ void * output_thread(void * args){
 
 pthread_t * run(void *argsv){
     int inCount = inputThreadCount;
-	int outCount = outputThreadCount;
 	
 	//Initialize thread attributes
     pthread_attr_t attrs;
