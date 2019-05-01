@@ -1,7 +1,9 @@
 /*
--This algorithm creates a single "wire".
--The wire works by grabbing the same amount of packets from each input queues then empties them into the appropriate output queue and it repeats this indefinitely
--The algorithm uses 3 sets of queues, One input, One wire, and One Output queue
+This algorithm uses a single set of queues rather than input queues and output queues. 
+The number of queues matches the number of input threads, i.e. each input thread writes to it's
+own queue. The merging happends on the output side where each output thread figures out
+which queues(s) it needs to read from. This is a simple algorithm where entire queues are
+pidgeon-holed into output threads rather than individual flows being pidgeon-holed
 */
 
 #include "../FrameworkSRC/global.h"
@@ -29,8 +31,6 @@ function get_input_thread(){
 function get_output_thread(){
     return output_thread;
 }
-
-
 
 //The job of the input threads is to make packets to populate the buffers. As of now the packets are stored in a buffer.
 //Attributes:
@@ -82,6 +82,7 @@ void * input_thread(void * args){
         (*inputQueue).data[index].packet.order = orderForFlow[currFlow - offset];
         (*inputQueue).data[index].packet.length = currLength;
         (*inputQueue).data[index].packet.flow = currFlow;
+        //memcpy simulates the packets data actually being written into the queue by the input thread
         memcpy((*inputQueue).data[index].packet.payload, dummyData, currLength);
 
         //Update the next flow number to assign
@@ -94,7 +95,6 @@ void * input_thread(void * args){
         index++;
         index = index % BUFFERSIZE;
     }
-
     return NULL;
 }
 
@@ -166,48 +166,36 @@ void * output_thread(void * args){
             (*outputQueue).toRead++;
             (*outputQueue).toRead = (*outputQueue).toRead % BUFFERSIZE;
 	 
+            //memcpy simulates the packets data being processed by the output thread.
 	        memcpy(dummyDestination, (*outputQueue).data[index].packet.payload, (*outputQueue).data[index].packet.length);
+
+
             //increment the number of bits passed
             output[threadNum].byteCount += (*outputQueue).data[index].packet.length + 24;
             //Set the position to free. Say it has already processed data
             (*outputQueue).data[index].isOccupied = NOT_OCCUPIED;
 
+            //Move to the next queue this output thread is responsible for
             currentQueue = currentQueue + outputThreadCount;
-            if(currentQueue > inputThreadCount) {
+            if(currentQueue >= inputThreadCount) {
                 currentQueue = threadNum;
             }
             outputQueue = &(input[currentQueue].queue);
-	   
         }
     }
-
     return NULL;
 }
 
 
 pthread_t * run(void *argsv){
-    //The amount of packets to grab from each queue. This algorithm gives all queues equal priority
-    //int toGrabCount = BUFFERSIZE / inputThreadCount;
-    
-    //The main "wire" queue where everything will be written
-    //queue_t *mainQueue = Malloc(sizeof(queue_t));
-   // mainQueue->toRead = 0;
-   // mainQueue->toWrite = 0;
 
     //Initialize thread attributes
     pthread_attr_t attrs;
     pthread_attr_init(&attrs);
 
-   // wThreadArgs.mainQueue = mainQueue;
-   // wThreadArgs.toGrabCount = toGrabCount;
-
     //Tell the system we are setting the schedule for the thread, instead of inheriting
     if(pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED)) {
         perror("pthread_attr_setinheritsched");
     }
-
-    //Spawn the worker thread
-    //Pthread_create(&workers[0], &attrs, workerThread, (void *)&wThreadArgs);
-
     return NULL;
 }
