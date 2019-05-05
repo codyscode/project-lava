@@ -94,7 +94,7 @@ void * input_thread(void * args){
 		
 		while(pktQueue[outMask][toWrite[outMask]].flow != 0); // wait for space in partition
  
-		memcpy(pktQueue[outMask][toWrite[outMask]].payload, &currPkt.payload, currPkt.length);
+		memcpy(&pktQueue[outMask][toWrite[outMask]].payload, &currPkt.payload, currPkt.length);
 		//rte_memcpy(pktQueue[outMask][toWrite[outMask]].payload, &currPkt.payload, currPkt.length);
 		
 		/*
