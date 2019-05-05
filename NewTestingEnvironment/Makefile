@@ -29,7 +29,7 @@ TARGET = framework
 .PHONY: clean help
 
 ifneq ("$(wildcard $(AP))","")
-all: $(TARGET)
+all: clean $(TARGET)
 else
 all: 
 	$(info Need to specify a path to your algorithm folder. 
