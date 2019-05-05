@@ -5,7 +5,7 @@
 #disabled for testing but needs to be turned back on for real runs.
 if [ $1 == "-q" ]
 	then 
-		./framework 4 4 i
+		./framework 1 1 i
 	else
 
 
