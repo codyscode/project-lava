@@ -8,7 +8,8 @@ displayHelp() {
 	echo "-q         runs quick test on all algorithms"
 	echo "-w	     Push benchmark results to wiki"	
 	echo "-v         Turns CSV files into visualizations"
-	echo "-s al_name Will run test on a specific algorithm only "
+	echo "-s al_name Will run test on a specific algorithm only"
+	echo "-r		 Will run all test on all algorithms 10 times and run visualizations each time"
 }
 #Function that checks if the framework is already running on the server.
 check_isRunning(){
@@ -98,9 +99,23 @@ fileStructure_markdown(){
 	sed -i 's|[`\'']|\||g' file_structure.md
 	sed -i'' 's|$|<br>|' file_structure.md	
 }
+#Function to run the test script on each algorithm 10 times and run the visualization script each time.
+repeatedRuns(){
+	for i in 1 2 3 4 5 6 7 8 9 10; do
+		echo ">>>>>>>> RUNNING FULL TEST <<<<<<<<"
+		for dir in Algorithm*/ ; do
+			make AP="$dir"algorithm.c
+			 ./testScript.sh -q
+			make AM="$dir" clean
+		done
+		echo ">>>>>>>> FULL TEST COMPLETED <<<<<<<<<"
+		runVisualization
+		pushWiki
+	done
+}
 
 #takes flags and runs the appropriate function
-while getopts 'htqws:vp' flag; do
+while getopts 'htqws:vrp' flag; do
 	case "${flag}" in
 		h) displayHelp ;;
 		t) testAllAlgorithms ;;
@@ -110,6 +125,7 @@ while getopts 'htqws:vp' flag; do
 		   testSpecificAlgorithm 
 		   ;;
 		v) runVisualization ;;
+		r) repeatedRuns ;;
 		*) error "Unexpected option ${flag}" ;;
 	esac
 done
