@@ -46,22 +46,22 @@ $(OBJS): $(addprefix $(FWF), $(SRCS)) $(AP) $(addprefix $(FWF), $(DEPS))
 	$(MAKE) -C $(FWF)
 else
 $(OBJS): $(addprefix $(FWF), $(SRCS)) $(AP) $(addprefix $(FWF), $(DEPS))
-	$(MAKE) -C $(AM)
 	$(MAKE) -C $(FWF)
+	$(MAKE) -C $(AM)
 endif
 
 ifeq ($(AM),)
 clean:
-	$(info To clean the algorithm folder, you need to specify a path to the makefile. Example: make AP=Algorithm1/algorithm.c)
+	$(info To clean the algorithm folder, you need to specify a path to the makefile. Example: make AM=Algorithm1/)
 	$(MAKE) clean -C $(FWF)
 	find . -name "*.csv" -type f -delete
 	find . -name $(TARGET) -type f -delete
 else
 clean:
-	$(MAKE) clean -C $(AM)
 	$(MAKE) clean -C $(FWF)
 	find . -name "*.csv" -type f -delete
 	find . -name $(TARGET) -type f -delete
+	$(MAKE) clean -C $(AM)
 endif
 
 help:	

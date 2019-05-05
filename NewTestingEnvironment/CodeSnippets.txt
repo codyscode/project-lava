@@ -1,19 +1,19 @@
 *** FAST RANDOM NUMBER GENERATOR ***
-- Min value offset + 0: Max value offset + 7:
+//min value: offset + 0
+//Max value: offset + 7:
 g_seed0 = (214013*g_seed0+2531011);   
-currFlow = ((g_seed0>>16)&0x0007) + offset; 
+currFlow = ((g_seed0>>16)&0x0007) + offset;
 
-- Min value 64: Max value 8191 + 64:
+//Min value: 64
+//Max value: MAX_PAYLOAD_SIZE (1500)
 g_seed1 = (214013*g_seed1+2531011); 
-length = ((g_seed1>>16)&0x1FFF) + MIN_PAYLOAD_SIZE;
-
-- To avoid modding we use and to get a max value of a power of 2
+currLength = (((g_seed1>>16)&0xFFFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
 
 *** ALGORITHM.C FILE SKELETON ***
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "singleWire"
+#define ALGNAME "sampleName"
 
 //Any additional threads not including input and output (Optional)
 //Keep in mind you only have 2 extra cores to work with.
@@ -39,15 +39,13 @@ void * input_thread(void * args){
     // *** REPIN CPU *** (Recommended)
     set_thread_props(inputArgs->coreNum, 2);
 
-    // *** DATA TO COPY TO DATA FIELD *** (Recommended)
-    // There are global variable versions of this as well
-    // Faster if local though
-    //char * dataToCopy[9000];
+    // *** DATA TO COPY TO DATA FIELD *** (Required)
+    char dataToCopy[9000];
 
     // *** START: SET UP CODE ***
     // Initialize variables
     // Generate values etc
-    // ** END: SET UP CODE ***
+    // *** END: SET UP CODE ***
 
     // *** READY FLAG SET *** (Required)
     input[threadNum].readyFlag = 1;
@@ -68,7 +66,7 @@ void * input_thread(void * args){
         // Assigned packet to spot in queue
         // *** NOTE ***
         // YOU MUST WRITE THE DATA FIELD BY MEMCOPY OR SOME METHOD WITH THE LENGTH MEMBER
-        // DATA FIELD IS THE char * data[9000]
+        // DATA FIELD IS THE char data[9000]
         // Set queue position to valid
         // *** END: PASS PACKET/PUSH PACKET TO QUEUE ***
     }
@@ -84,6 +82,9 @@ void * output_thread(void * args){
 
     // *** REPIN CPU *** (Recommended)
     set_thread_props(inputArgs->coreNum, 2);
+
+    // *** DATA TO WRITE TO FROM DATA FIELD *** (Required)
+    char dataToWriteTo[9000];
 
     // Initialize variables
     // Generate values etc
@@ -102,10 +103,14 @@ void * output_thread(void * args){
         // Set queue position to free
         // *** END: READ PACKET IN/PULL PACKET FROM INPUT SIDE ***
 
+        // *** NOTE ***
+        // YOU MUST READ THE DATA FIELD BY MEMCOPY OR SOME METHOD WITH THE LENGTH MEMBER
+        // DATA FIELD IS THE char data[9000]
+
         // *** START: PROCESS PACKET *** (Required)
         // Ensure its in the proper order
         // Increment number of packets passed
-        output[threadNum].count++
+        output[threadNum].count += packet.data[index].length
         // *** END: PROCESS PACKET ***
     }
 

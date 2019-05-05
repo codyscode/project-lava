@@ -1,5 +1,7 @@
 #Binary Files
 *.o
+
+#Executables
 queuecode
 algorithm
 framework
@@ -17,3 +19,6 @@ testenv.o
 
 #csv files
 *.csv
+
+#png files
+*.png

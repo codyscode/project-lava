@@ -50,13 +50,14 @@
 #include"global.h" 
 #include"wrapper.h"
 
-#define sizeIgnore 8
+#define sizeIgnore 9
 
 void check_if_ideal_conditions(){
     if(!SUPPORTED_PLATFORM){
         printf("Unsupported Platform.\nExiting...\n");
         exit(1);
     }
+
     //Used for parseing running processes
     char * word = NULL;
     char * line = NULL;
@@ -65,6 +66,7 @@ void check_if_ideal_conditions(){
     size_t len = 0;
     ssize_t read;
     FILE *fptr;
+    int status;
 
     //Get the parent process ID into a string
     //This is the sudo call for the framework
@@ -81,7 +83,7 @@ void check_if_ideal_conditions(){
     snprintf(pidString, pIDlength + 1, "%ld", pID);
     
     //If a process contains one of these, then it is ok to run in the background
-    char * toIgnore[sizeIgnore] = {"USER", "bash", "sh", "ps", "tty1", "vim", pidString, ppidString};
+    char * toIgnore[sizeIgnore] = {"USER", "bash", "sh", "ps", "tty1", "vim", "grep", pidString, ppidString};
 
     //Used for the command line argument
     char * fileName = "temp";
@@ -141,21 +143,22 @@ void check_if_ideal_conditions(){
                         int status = remove(fileName);
 
                         if (status != 0){
-                            printf("Unable to delete the file\n");
+                            printf("Unable to delete temporary file: temp\n");
                             perror("Following error occurred");
                         }  
+
                         exit(1);
                     }
                 }
                 else{
-                    printf("Exiting...\n");
                     //Delete the temporary file
-                    int status = remove(fileName);
-
-                    if (status != 0){
-                        printf("Unable to delete the file\n");
+                    if ((status = remove(fileName)) != 0){
+                        printf("Unable to delete temporary file: temp\n");
                         perror("Following error occurred");
                     }  
+
+                    //Indicate we are exiting
+                    printf("Exiting...\n");
                     exit(1);
                 }
                 
@@ -169,7 +172,7 @@ void check_if_ideal_conditions(){
         free(line);
 
         //Delete the temporary file
-        int status = remove(fileName);
+        status = remove(fileName);
 
         if (status != 0){
             printf("Unable to delete the file\n");
@@ -178,7 +181,7 @@ void check_if_ideal_conditions(){
     }
 }
 
-void init_built_in_sets(){
+void init_built_in_queues(){
     //initialize all values for built in input/output queues to 0
     for(int qIndex = 0; qIndex < inputThreadCount; qIndex++){
         for(int dataIndex = 0; dataIndex < BUFFERSIZE; dataIndex++){
@@ -198,11 +201,7 @@ void init_built_in_sets(){
         output[qIndex].queue.toRead = 0;
         output[qIndex].queue.toWrite = 0;
 
-        input[qIndex].overhead = 0;
-        input[qIndex].count = 0;
-
-        output[qIndex].overhead = 0;
-        output[qIndex].count = 0;
+        output[qIndex].byteCount = 0;
     }
 }
 
@@ -213,7 +212,7 @@ void spawn_input_threads(pthread_attr_t attrs, function input_thread){
     //Spawn the input threads and pass appropriate arguments
     for(int index = 0; index < inputThreadCount; index++){
         //Initialize Thread Arguments with first queue and number of queues
-        input[index].threadArgs.queue = &input[index].queue;
+        //input[index].threadArgs.queue = &input[index].queue;
         input[index].threadArgs.threadNum = index;
         input[index].threadArgs.coreNum = core;
         core++;
@@ -225,19 +224,18 @@ void spawn_input_threads(pthread_attr_t attrs, function input_thread){
         Pthread_detach(input[index].threadID);
     }
 
-    //Indicate to user that input queues have spawned
-    printf("\nSpawned %lu input queue(s)\n", inputThreadCount);
+    //Indicate to user that input threads have spawned
+    printf("\nSpawned %lu input thread(s)\n", inputThreadCount);
 }
 
 void spawn_output_threads(pthread_attr_t attrs, function processing_thread){
     //Core for each output thread to be assigned to
-    //Next available queue after cores have been assigned ot input queues
     int core = 11;
 
     //Spawn the output threads and pass appropriate arguments
     for(int index = 0; index < outputThreadCount; index++){
         //Initialize Thread Arguments with first queue and number of queues
-        output[index].threadArgs.queue = &output[index].queue;
+        //output[index].threadArgs.queue = &output[index].queue;
         output[index].threadArgs.threadNum = index;
         output[index].threadArgs.coreNum = core;
         core++;
@@ -249,8 +247,63 @@ void spawn_output_threads(pthread_attr_t attrs, function processing_thread){
         Pthread_detach(output[index].threadID);
     }
 
-    //Indicate to user that output queues have spawned
-    printf("Spawned %lu output queue(s)\n", outputThreadCount);
+    //Indicate to user that output threads have spawned
+    printf("Spawned %lu output thread(s)\n", outputThreadCount);
+}
+
+void check_threads(){
+    int tries;
+    //Ensure that every thread is ready before starting the timer
+    //This ensures the user sets the flag properly and acts as a barrier for timing
+    for(int i = 0; i < inputThreadCount; i++){
+        tries = 0;
+        while(input[i].readyFlag == 0){
+            usleep(1000000);
+            tries++;
+            if(tries == 10){
+                printf("\nAlgorithm fails to set ready flags for input threads in time.\nMake sure to set input[threadNum].readyFlag = 1 when your input thread is ready to start passing.\nExiting...\n");
+                exit(1);
+            }
+        }
+        printf("Input Thread %d:   Ready - Running on Core %lu\n", i, input[i].threadArgs.coreNum);
+    }
+    for(int i = 0; i < outputThreadCount; i++){
+        tries = 0;
+        while(output[i].readyFlag == 0){
+            usleep(1000000);
+            tries++;
+            if(tries == 10){
+                printf("\nAlgorithm fails to set ready flags for output threads in time.\nMake sure to set output[threadNum].readyFlag = 1 when your output thread is ready to start passing.\nExiting...\n");
+                exit(1);
+            }
+        }
+        printf("Output Thread %d:  Ready - Running on Core %lu\n", i, output[i].threadArgs.coreNum);
+    }
+}
+
+void monitor_threads(){
+    size_t prevCount = 0;
+    size_t count = 0;
+    int timer = RUNTIME;
+    while(endFlag == 0){
+        if(timer % 2 == 0){
+            for(int i = 0; i < outputThreadCount; i++){
+                count += output[i].byteCount;
+            }
+            printf("\x1b[A\rEstimated: \t %'lu bits per second          \n", ((count - prevCount) * 4));
+            printf("Time Remaining:  %d Seconds  ", timer);
+            fflush(NULL);
+            prevCount = count;
+            count = 0;
+            timer--;    
+        }   
+        else{
+            printf("\rTime Remaining:  %d Seconds  ", timer);
+            fflush(NULL);
+            timer--;  
+        }
+        usleep(1000000);
+    }
 }
 
 void output_data(){
@@ -268,7 +321,8 @@ void output_data(){
     snprintf(fileName, sizeof(fileName),"%s.csv", algName);
 
     //Output the data to the user
-    printf("\nAlgorithm %s passed %'lu packets per second on average.\n", algName, finalTotal/(RUNTIME - overheadTotal));
+    printf("\nAlgorithm %s passed %.3f Gbs on average.", algName, (double)((finalTotal/RUNTIME) * 8) / 1000000000);
+    printf("\nAlgorithm %s passed %'lu Packets Per Second on average.\n", algName, (finalTotal/RUNTIME) / (MAX_PACKET_SIZE / 2));
 
     //if the file alreadty exists, open it
     if(access(fileName, F_OK) != -1){
@@ -281,18 +335,16 @@ void output_data(){
     }	
 	
     //Output the data to the file
-    fprintf(fptr, "%s,%lu,%lu,%lu\n", algName, inputThreadCount, outputThreadCount, finalTotal/(RUNTIME - overheadTotal));
+    fprintf(fptr, "%s,%lu,%lu,%lu\n", algName, inputThreadCount, outputThreadCount, (finalTotal/RUNTIME) * 8);
     fclose(fptr);
 }
 
 int main(int argc, char**argv){
     //Error checking for proper command line arguments
     if (argc < 3){
-        printf("*Usage: Queues <# input queues>, <# output queues>\n");
+        printf("Usage: sudo ./framework <# input threads>, <# output threads>\n");
         exit(0);
     }
-
-    int tries;
 
     //Used for formatting numbers with commas
     setlocale(LC_NUMERIC, "");
@@ -320,17 +372,17 @@ int main(int argc, char**argv){
         input[i].readyFlag = 0;
     }
 
-    //Grab the number of input and output queues to use
+    //Grab the number of input and output threads to use
     inputThreadCount = atoi(argv[1]);
     outputThreadCount = atoi(argv[2]);
 
-    //Make sure that the number of input and output queues is valid
+    //Make sure that the number of input and output threads is valid
     assert(inputThreadCount <= MAX_NUM_INPUT_THREADS);
     assert(outputThreadCount <= MAX_NUM_OUTPUT_THREADS);
     assert(inputThreadCount >= MIN_INPUT_THREAD_COUNT && outputThreadCount >= MIN_OUTPUT_THREAD_COUNT);
 
     //Initialize the sets of queues to 0
-    init_built_in_sets();
+    init_built_in_queues();
 
     printf("Spawning Threads:\n");
 
@@ -351,80 +403,36 @@ int main(int argc, char**argv){
     alarm_init();
 
     //Indicate we are waiting for threads to be ready
-    printf("\n\nWaiting for Threads to be Ready:\n\n");
+    printf("\nWaiting for Threads to be Ready:\n\n");
 
-    //Ensure that every thread is ready before starting the timer
-    //This ensures the user sets the flag properly and acts as a barrier for timing
-    for(int i = 0; i < inputThreadCount; i++){
-        tries = 0;
-        while(input[i].readyFlag == 0){
-            usleep(1000000);
-            tries++;
-            if(tries == 10){
-                printf("\nAlgorithm fails to set ready flags for input threads in time.\nMake sure to set input[threadNum].readyFlag = 1 when your input thread is ready to start passing.\nExiting...\n");
-                exit(1);
-            }
-        }
-        printf("Input Thread %d:   Ready - Running on Core %lu\n", i, input[i].threadArgs.coreNum);
-    }
-    for(int i = 0; i < outputThreadCount; i++){
-        tries = 0;
-        while(output[i].readyFlag == 0){
-            usleep(1000000);
-            tries++;
-            if(tries == 10){
-                printf("\nAlgorithm fails to set ready flags for output threads in time.\nMake sure to set output[threadNum].readyFlag = 1 when your output thread is ready to start passing.\nExiting...\n");
-                exit(1);
-            }
-        }
-        printf("Output Thread %d:  Ready - Running on Core %lu\n", i, output[i].threadArgs.coreNum);
-    }
+    check_threads();
 
     printf("\nAll Threads Ready. *** Starting Passing ***\n\n\n");
     fflush(NULL);
 
     //Set all count variables to 0 to prevent "cheating"
     for(int i = 0; i < MAX_NUM_INPUT_THREADS; i++){
-        if(input[i].overhead > 0 || output[i].overhead > 0 || output[i].count > 0){
+        if(output[i].byteCount > 0){
             printf("Counting started before Timer, Results are not valid. Exiting...\n");
+            exit(1);
         }
     }
 
     //Reset final results
     finalTotal = 0;
-    overheadTotal = 0;
 
     //Start the alarm and set start flag to signal all threads to start
     alarm_start();
 
-    size_t prevCount = 0;
-    size_t count = 0;
-    int timer = RUNTIME;
-    while(endFlag == 0){
-        if(timer % 2 == 0){
-            for(int i = 0; i < outputThreadCount; i++){
-                count += output[i].count;
-            }
-            printf("\x1b[A\rEstimated: \t %'lu Packets per Second\n", (count - prevCount) / 2);
-            printf("Time Remaining:  %d Seconds  ", timer);
-            fflush(NULL);
-            prevCount = count;
-            count = 0;
-            timer--;    
-        }   
-        else{
-            printf("\rTime Remaining:  %d Seconds  ", timer);
-            fflush(NULL);
-            timer--;  
-        }
-        usleep(1000000);
-    }
+    //Wait for threads to finish and print out to the user estimates
+    //of how their algorithm is doing
+    monitor_threads();
 
     //Wait for any threads that were spawed in the run function to finish
     if(extraThreads != NULL){
         int size = sizeof(*extraThreads)/sizeof(pthread_t);
         for(int i = 0; i < size; i++){
-            pthread_join(extraThreads[i], NULL);
+            Pthread_join(extraThreads[i], NULL);
         }
     }
 

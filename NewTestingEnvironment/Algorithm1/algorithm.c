@@ -7,7 +7,7 @@
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "Lots O' Queues"
+#define ALGNAME "LotsO'Queues"
 
 queue_t mainQueues[MAX_NUM_INPUT_THREADS * MAX_NUM_OUTPUT_THREADS];
 
@@ -38,16 +38,16 @@ void * input_thread(void * args){
     set_thread_props(inputArgs->coreNum, 2);
 
     //Data to write to the packet
-    unsigned char packetData[9000];
+    unsigned char packetData[MAX_PAYLOAD_SIZE];
 
     //Queues that the input thread writes to
     size_t baseQueueIndex = threadNum * outputThreadCount;
     size_t maxQueueIndex = baseQueueIndex + outputThreadCount;
 
     //Each input buffer has 5 flows associated with it that it generates
-    size_t orderForFlow[FLOWS_PER_QUEUE] = {0};
+    size_t orderForFlow[FLOWS_PER_THREAD] = {0};
     size_t currFlow, currLength;
-    size_t offset = threadNum * FLOWS_PER_QUEUE;
+    size_t offset = threadNum * FLOWS_PER_THREAD;
 	
     //Continuously generate input numbers until the buffer fills up. 
     //Once it hits an entry that is not empty, it will wait until the input is grabbed.
@@ -63,12 +63,12 @@ void * input_thread(void * args){
     while(startFlag == 0);
 
     //Write packets to their corresponding queues
-    while(endFlag == 0){
+    while(1){
         // *** FASTEST PACKET GENERATOR ***
         g_seed0 = (214013*g_seed0+2531011);   
-        currFlow = ((g_seed0>>16)&0x0007) + offset;//Min value: offset || Max value: offset + 7:
-        g_seed1 = (214013*g_seed1+2531011); 
-        currLength = ((g_seed1>>16)&0x1FFF) + MIN_PAYLOAD_SIZE; //Min value: 64 || Max value: 8191 + 64:
+        currFlow = ((g_seed0>>16)&0x0007) + offset;//Min value: offset || Max value: offset + 7
+        g_seed1 = (214013*g_seed1 +2531011); 
+        currLength = (((g_seed1>>16)&0x1FFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; //Min value: 64 || Max value: 8191 + 64
 
         //Determine which queue to write the packet data to
         qIndex = (currFlow % (maxQueueIndex - baseQueueIndex)) + baseQueueIndex;
@@ -80,9 +80,10 @@ void * input_thread(void * args){
         }
 
         //Write the packet data to the queue
-        memcpy(&mainQueues[qIndex].data[dataIndex].packet.data, packetData, currLength);
+        memcpy(&mainQueues[qIndex].data[dataIndex].packet.payload, packetData, currLength);
         mainQueues[qIndex].data[dataIndex].packet.order = orderForFlow[currFlow - offset];
         mainQueues[qIndex].data[dataIndex].packet.flow = currFlow;
+        mainQueues[qIndex].data[dataIndex].packet.length = currLength;
 
         //Say that the spot is ready to be read
         mainQueues[qIndex].data[dataIndex].isOccupied = OCCUPIED;
@@ -92,7 +93,7 @@ void * input_thread(void * args){
 
         //Update the next spot to be written in the queue
         mainQueues[qIndex].toWrite++;
-        if(mainQueues[qIndex].toWrite >= BUFFERSIZE)
+        if(mainQueues[qIndex].toWrite >= BUFFERSIZE) 
             mainQueues[qIndex].toWrite = 0;
         //mainQueues[qIndex].toWrite = mainQueues[qIndex].toWrite % BUFFERSIZE;
     }
@@ -117,9 +118,12 @@ void * output_thread(void * args){
 
     //"Process" packets to confirm they are in the correct order before consuming more. 
     //Processing threads process until they get to a spot with no packets
-    size_t expected[MAX_NUM_INPUT_THREADS * FLOWS_PER_QUEUE] = {0}; 
+    size_t expected[MAX_NUM_INPUT_THREADS * FLOWS_PER_THREAD] = {0}; 
     size_t qIndex = baseQueueIndex;
     size_t dataIndex = 0;
+
+    //Packet data
+    unsigned char packetData[MAX_PAYLOAD_SIZE];
 
     //Say this thread is ready to process
     output[threadNum].readyFlag = 1;
@@ -128,7 +132,7 @@ void * output_thread(void * args){
     while(startFlag == 0);
 
     //Go through each space in the output queue until we reach an emtpy space in which case we swap to the other queue to process its packets
-    while(endFlag == 0){
+    while(1){
         dataIndex = mainQueues[qIndex].toRead;
 
         //If there is no packet move to the next queue it is managing and start reading
@@ -155,16 +159,21 @@ void * output_thread(void * args){
             //Print out the specific packet that caused the error to the user
             printf("\nError Packet: Flow %lu | Order %lu\n", mainQueues[qIndex].data[dataIndex].packet.flow,mainQueues[qIndex].data[dataIndex].packet.order);
             printf("Packet out of order in Output Queue %lu. Expected %lu | Got %lu\n", threadNum, expected[currFlow], mainQueues[qIndex].data[dataIndex].packet.order);
-            exit(0);
-        }       
-        //increment the number of packets passed
-        output[threadNum].count++;
+            exit(1);
+        }    
+        size_t currLength = mainQueues[qIndex].data[dataIndex].packet.length;
 
-        //Set what the next expected packet for the flow should be
-        expected[currFlow]++;
+        //Pull the data out of the packet
+        memcpy(packetData, &mainQueues[qIndex].data[dataIndex].packet.payload, currLength);
 
         //Set the position to free. Say it has already processed data
         mainQueues[qIndex].data[dataIndex].isOccupied = NOT_OCCUPIED;
+
+        //increment the number of packets passed
+        output[threadNum].byteCount += currLength + 24;
+
+        //Set what the next expected packet for the flow should be
+        expected[currFlow]++;
 
         //Move to the next spot in the outputQueue to process
         mainQueues[qIndex].toRead++;

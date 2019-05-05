@@ -11,7 +11,7 @@
 #if defined(__i386__)
 
 // Not actually used - most chips are x64 nowadays.
-static __inline__ tsc_t rdtsc(void)
+static inline tsc_t rdtsc(void)
 {
     register tsc_t x;
     __asm__ volatile (".byte 0x0f, 0x31" : "=A" (x));
@@ -20,7 +20,7 @@ static __inline__ tsc_t rdtsc(void)
 
 #elif defined(__x86_64__)
 
-static __inline__ tsc_t rdtsc(void)
+static inline tsc_t rdtsc(void)
 {
     register unsigned hi, lo;
     __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
@@ -60,18 +60,21 @@ void set_thread_props(int tgt_core, long sched){
 
 void sig_alrm(int signo){    
     endFlag = 1;
+
+    for(int i = 0; i < inputThreadCount; i++){
+        pthread_cancel(input[i].threadID);
+    }
+    for(int i = 0; i < outputThreadCount; i++){
+        pthread_cancel(output[i].threadID);
+    }
+
     printf("\rTime Remaining:  0 Seconds  ");
-    printf("\n\n\nFinished. Waiting for thread cleanup...\n\n");
+    printf("\n\nNote: Your Threads are canceled with pthred_cancel().\nTo modify your thread cleanup handler upon recieving a termination signal, see pthread_cleanup_push()\n\n");
+    printf("Finished. Waiting for thread cleanup...\n\n");
 
     //Take a snapshot of the count
     for(int i = 0; i < MAX_NUM_OUTPUT_THREADS; i++){
-        finalTotal += output[i].count;
-    }
-
-    //Take a snapshot of the overhead
-    for(int i = 0; i < MAX_NUM_OUTPUT_THREADS; i++){
-        overheadTotal += input[i].overhead;
-        overheadTotal += output[i].overhead;
+        finalTotal += output[i].byteCount;
     }
 }
 

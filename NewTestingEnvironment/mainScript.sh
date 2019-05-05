@@ -3,6 +3,7 @@
 OPTION_VAL=""
 #help menu to detail how the program works
 displayHelp() {
+<<<<<<< HEAD
 	echo "-h 	     Print help"
 	echo "-t	     Run tests on all algorithms"
 	echo "-q         runs quick test on all algorithms"
@@ -10,6 +11,14 @@ displayHelp() {
 	echo "-v         Turns CSV files into visualizations do not use with -r"
 	echo "-s al_name Will run test on a specific algorithm only"
 	echo "-r		 Will run all test on all algorithms 10 times and run visualizations each time"
+=======
+	echo "-h		Print help"
+	echo "-t		Run tests on all algorithms"
+	echo "-q		runs quick test on all algorithms"
+	echo "-w		Push benchmark results to wiki"	
+	echo "-v Data/	Turns CSV files in Data folder into visualizations"
+	echo "-s alg.c	Will run test on a specific algorithm only "
+>>>>>>> 466ba415be062b37048a20cd6a1a9a45025813d5
 }
 #Function that checks if the framework is already running on the server.
 check_isRunning(){
@@ -45,7 +54,7 @@ testSpecificAlgorithm(){
 }
 runVisualization()
 {
-	python ~/project-lava/NewTestingEnvironment/visualization.py
+	python ~/project-lava/NewTestingEnvironment/visualization.py "$1"
 }
 
 #runs all 64 iteration of each algorithm being made
@@ -113,7 +122,11 @@ repeatedRuns(){
 }
 
 #takes flags and runs the appropriate function
+<<<<<<< HEAD
 while getopts 'htqws:vrp' flag; do
+=======
+while getopts 'htqws:v:p' flag; do
+>>>>>>> 466ba415be062b37048a20cd6a1a9a45025813d5
 	case "${flag}" in
 		h) displayHelp ;;
 		t) testAllAlgorithms ;;
@@ -122,8 +135,12 @@ while getopts 'htqws:vrp' flag; do
 		s) OPTION_VAL=$OPTARG
 		   testSpecificAlgorithm 
 		   ;;
+<<<<<<< HEAD
 		v) runVisualization ;;
 		r) repeatedRuns ;;
+=======
+		v) runVisualization $OPTARG ;;
+>>>>>>> 466ba415be062b37048a20cd6a1a9a45025813d5
 		*) error "Unexpected option ${flag}" ;;
 	esac
 done
