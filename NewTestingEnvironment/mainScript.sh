@@ -105,6 +105,7 @@ repeatedRuns(){
 		quicktestAllAlgorithms
 		echo ">>>>>>>>>>>>>PRINT WORKING DIRECTORY<<<<<<<<<<<<"
 		pwd
+		cd ~/project-lava/NewTestingEnvironment/
 		runVisualization
 		pushWiki
 		cd ~/project-lava/NewTestingEnvironment/
