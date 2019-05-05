@@ -51,21 +51,23 @@
 |   |   |-- Makefile<br>
 |   |   |-- algorithm.c<br>
 |   |   |-- algorithm.o<br>
+|   |-- Algorithm3<br>
+|   |   |-- Makefile<br>
+|   |   |-- algorithm.c<br>
+|   |-- Algorithm4<br>
+|   |   |-- Makefile<br>
+|   |   |-- algorithm.c<br>
 |   |-- CodeSnippets.txt<br>
 |   |-- FrameworkSRC<br>
 |   |   |-- Makefile<br>
 |   |   |-- framework.c<br>
-|   |   |-- framework.o<br>
 |   |   |-- global.c<br>
 |   |   |-- global.h<br>
-|   |   |-- global.o<br>
 |   |   |-- wrapper.c<br>
 |   |   |-- wrapper.h<br>
-|   |   |-- wrapper.o<br>
 |   |-- Makefile<br>
 |   |-- README.md<br>
 |   |-- changelog.txt<br>
-|   |-- framework<br>
 |   |-- mainScript.sh<br>
 |   |-- testScript.sh<br>
 |   |-- visualization.py<br>
@@ -121,4 +123,4 @@
 |       |-- visualization.py<br>
 |-- file_structure.md<br>
 <br>
-31 directories, 90 files<br>
+33 directories, 90 files<br>
