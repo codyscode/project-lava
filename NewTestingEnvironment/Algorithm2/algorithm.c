@@ -1,6 +1,6 @@
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
-//#include "../FrameworkSRC/rte_memcpy.h"
+#include "../FrameworkSRC/rte_memcpy.h"
 
 #define ALGNAME "Bitwise Partition"
 
@@ -18,7 +18,7 @@ function get_output_thread(){
 
 #define BUFFERLEN 1536
 
-size_t partSize = 1024;
+size_t partSize;
 packet_t pktQueue[MAX_NUM_OUTPUT_THREADS][BUFFERLEN];
 
 int inFlag[MAX_NUM_INPUT_THREADS];
@@ -69,7 +69,8 @@ void * input_thread(void * args){
 	packet_t currPkt;
 	
     input[threadID].readyFlag = 1;
-
+	
+	int counter = 0;
     //Wait until everything else is ready
     while(startFlag == 0);
 
@@ -88,28 +89,33 @@ void * input_thread(void * args){
 		// ************
 		
 		// find which output queue to write to using flow and mask
-		//// use packet pointer instead???
 		if((outMask = currPkt.flow & mask) > outIndx)
 			outMask = 0;
 		
 		while(pktQueue[outMask][toWrite[outMask]].flow != 0); // wait for space in partition
  
-		memcpy(((char*)&pktQueue[outMask][toWrite[outMask]].payload), ((char *)&currPkt.payload), currPkt.length);
+		memcpy(pktQueue[outMask][toWrite[outMask]].payload, &currPkt.payload, currPkt.length);
+		//rte_memcpy(pktQueue[outMask][toWrite[outMask]].payload, &currPkt.payload, currPkt.length);
+		
+		/*
+		counter = 141;
+		while(counter){
+			rte_mov64((uint8_t *) pktQueue[outMask][toWrite[outMask]].payload, (uint8_t *) &currPkt.payload);
+			counter--;
+			
+		}
+		*/
 		
 		pktQueue[outMask][toWrite[outMask]].length = currPkt.length;
 		pktQueue[outMask][toWrite[outMask]].order = currPkt.order;
 		pktQueue[outMask][toWrite[outMask]].flow = currPkt.flow;
 		
+		//rte_mov32((uint8_t *) &pktQueue[outMask][toWrite[outMask]], (uint8_t *) &currPkt);
+		
 		toWrite[outMask]++;
 		
 		if(toWrite[outMask] > endPart)
 			toWrite[outMask] = startPart;
-		
-		//end = rdtsc();
-		
-		//inOverhead[threadID] += end - start;
-		//inPktCount[threadID]++;
-		//input[threadID].overhead++;
 	}
 	return NULL;
 }
@@ -138,8 +144,6 @@ void * output_thread(void * args){
 	for(int i = 0; i < inCount; i++){
 		startPart[i] = i*partSize;
 		endPart[i] = startPart[i] + partSize - 1;
-		printf("Startpart: %d\n", startPart[i]);
-		printf("Endpart: %d\n", endPart[i]);
 		toRead[i] = startPart[i];
 	}
 		
@@ -172,6 +176,7 @@ void * output_thread(void * args){
 		}
 		
 		memcpy(&currPkt, &pktQueue[outNum][toRead[readPart]], sizeof(packet_t));
+		//rte_memcpy(&currPkt, &pktQueue[outNum][toRead[readPart]], sizeof(packet_t));
 		
 		currFlow = currPkt.flow;
 		
@@ -224,63 +229,4 @@ pthread_t * run(void *argsv){
 		partSize = (1024/inCount) + (64 - ((1024/inCount) % 64));
 	
 	return NULL;
-	
-	/*
-	pthread_t tid;
-	int *threadNum;
-	
-	// spawn input threads
-	for(int i = 0; i < inCount; i++){
-		threadNum = malloc(sizeof(int));
-		*threadNum = i+2;
-		Pthread_create(&tid, &attrs, input_thread, (void *)threadNum);
-	}
-	
-	// spawn output threads
-	for(int i = 0; i < outCount; i++){
-		threadNum = malloc(sizeof(int));
-		*threadNum = i+6;
-		Pthread_create(&tid, &attrs, processing_thread, (void *)threadNum);
-	}
-	*/
-	/*
-	alarm_init();
-	
-	puts("Waiting for thread startup");
-	fflush(stdout);
-	
-	// wait for start up for input threads
-	for(int i = 0; i < inCount; i++)
-		while(!inFlag[i]);
-	
-	// wait for start up for output threads
-	for(int i = 0; i < outCount; i++)
-		while(!outFlag[i]);
-	
-	alarm_start();
-	
-	puts("Starting timer...");
-	while(!endFlag);
-	*/
-	//usleep(1000000);
-	//puts("Alarm recieved...");
-
-	/*
-	unsigned int totalPkts = 0;
-	
-	for(int i = 0; i < inCount; i++){
-		printf("Queue %d: %d packets generated\n", i, inPktCount[i]);
-		totalPkts += inPktCount[i];
-	}
-	printf("\nTotal packets generated for all queues for %d seconds: %d\n\n", RUNTIME, totalPkts);
-	
-	totalPkts = 0;
-	
-	for(int i = 0; i < outCount; i++){
-		printf("Queue %d: %d packets processed\n", i, pktCount[i]);
-		totalPkts += pktCount[i];
-	}
-	
-	printf("\nTotal packets processed for all queues for %d seconds: %d\n", RUNTIME, totalPkts);
-*/	
 }
