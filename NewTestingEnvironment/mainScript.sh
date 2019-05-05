@@ -3,12 +3,13 @@
 OPTION_VAL=""
 #help menu to detail how the program works
 displayHelp() {
-	echo "-h		Print help"
-	echo "-t		Run tests on all algorithms"
-	echo "-q		runs quick test on all algorithms"
-	echo "-w		Push benchmark results to wiki"	
-	echo "-v Data/	Turns CSV files in Data folder into visualizations"
-	echo "-s alg.c	Will run test on a specific algorithm only "
+	echo "-h 	     Print help"
+	echo "-t	     Run tests on all algorithms"
+	echo "-q         runs quick test on all algorithms"
+	echo "-w	     Push benchmark results to wiki"	
+	echo "-v         Turns CSV files into visualizations do not use with -r"
+	echo "-s al_name Will run test on a specific algorithm only"
+	echo "-r		 Will run all test on all algorithms 10 times and run visualizations each time"
 }
 #Function that checks if the framework is already running on the server.
 check_isRunning(){
@@ -39,12 +40,12 @@ testSpecificAlgorithm(){
 			./testScript.sh
 			make AM="$dir" clean
 		fi
-		cd ~/project-lava/NewTestingEnvironment/
+		sudo -u $NON_ROOT_USER cd ~/project-lava/NewTestingEnvironment/
 	done
 }
 runVisualization()
 {
-	python ~/project-lava/NewTestingEnvironment/visualization.py "$1"
+	sudo -u $NON_ROOT_USER python ~/project-lava/NewTestingEnvironment/visualization.py
 }
 
 #runs all 64 iteration of each algorithm being made
@@ -98,9 +99,21 @@ fileStructure_markdown(){
 	sed -i 's|[`\'']|\||g' file_structure.md
 	sed -i'' 's|$|<br>|' file_structure.md	
 }
+#Function to run the test script on each algorithm 10 times and run the visualization script each time.
+repeatedRuns(){
+	for i in 1 2 3 4 5 6 7 8 9 10; do
+		quicktestAllAlgorithms
+		echo ">>>>>>>>>>>>>PRINT WORKING DIRECTORY<<<<<<<<<<<<"
+		pwd
+		sudo -u $NON_ROOT_USER cd ~/project-lava/NewTestingEnvironment/
+		runVisualization
+		pushWiki
+		sudo -u $NON_ROOT_USER cd ~/project-lava/NewTestingEnvironment/
+	done
+}
 
 #takes flags and runs the appropriate function
-while getopts 'htqws:v:p' flag; do
+while getopts 'htqws:vrp' flag; do
 	case "${flag}" in
 		h) displayHelp ;;
 		t) testAllAlgorithms ;;
@@ -109,7 +122,8 @@ while getopts 'htqws:v:p' flag; do
 		s) OPTION_VAL=$OPTARG
 		   testSpecificAlgorithm 
 		   ;;
-		v) runVisualization $OPTARG ;;
+		v) runVisualization ;;
+		r) repeatedRuns ;;
 		*) error "Unexpected option ${flag}" ;;
 	esac
 done
