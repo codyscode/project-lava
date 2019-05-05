@@ -102,13 +102,9 @@ fileStructure_markdown(){
 #Function to run the test script on each algorithm 10 times and run the visualization script each time.
 repeatedRuns(){
 	for i in 1 2 3 4 5 6 7 8 9 10; do
-		echo ">>>>>>>> RUNNING FULL TEST <<<<<<<<"
-		for dir in Algorithm*/ ; do
-			make AP="$dir"algorithm.c
-			 ./testScript.sh -q
-			make AM="$dir" clean
-		done
-		echo ">>>>>>>> FULL TEST COMPLETED <<<<<<<<<"
+		quicktestAllAlgorithms
+		echo ">>>>>>>>>>>>>PRINT WORKING DIRECTORY<<<<<<<<<<<<"
+		pwd
 		runVisualization
 		pushWiki
 	done

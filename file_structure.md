@@ -51,7 +51,6 @@
 |   |   |-- Makefile<br>
 |   |   |-- algorithm.c<br>
 |   |   |-- algorithm.o<br>
-|   |-- Bitwise| Partition.csv<br>
 |   |-- CodeSnippets.txt<br>
 |   |-- FrameworkSRC<br>
 |   |   |-- Makefile<br>
@@ -122,4 +121,4 @@
 |       |-- visualization.py<br>
 |-- file_structure.md<br>
 <br>
-31 directories, 91 files<br>
+31 directories, 90 files<br>
