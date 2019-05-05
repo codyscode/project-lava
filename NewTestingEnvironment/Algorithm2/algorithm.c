@@ -1,6 +1,6 @@
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
-#include "../FrameworkSRC/rte_memcpy.h"
+//#include "../FrameworkSRC/rte_memcpy.h"
 
 #define ALGNAME "Bitwise Partition"
 
