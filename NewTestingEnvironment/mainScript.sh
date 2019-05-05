@@ -7,7 +7,7 @@ displayHelp() {
 	echo "-t	     Run tests on all algorithms"
 	echo "-q         runs quick test on all algorithms"
 	echo "-w	     Push benchmark results to wiki"	
-	echo "-v         Turns CSV files into visualizations"
+	echo "-v         Turns CSV files into visualizations do not use with -r"
 	echo "-s al_name Will run test on a specific algorithm only"
 	echo "-r		 Will run all test on all algorithms 10 times and run visualizations each time"
 }
@@ -107,6 +107,7 @@ repeatedRuns(){
 		pwd
 		runVisualization
 		pushWiki
+		cd ~/project-lava/NewTestingEnvironment/
 	done
 }
 
