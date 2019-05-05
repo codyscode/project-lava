@@ -21,7 +21,7 @@ FWF = FrameworkSRC/
 SRCS = framework.c wrapper.c global.c
 
 #Object files
-OBJS = $(addprefix $(FWF), $(SRCS:.c=.o)) $(AP:.c=.o)
+OBJS = $(addprefix $(FWF), $(SRCS:.c=.o)) $(AP)*.o
 
 #framework executable
 TARGET = framework
@@ -32,7 +32,8 @@ ifneq ("$(wildcard $(AP))","")
 all: $(TARGET)
 else
 all: 
-	$(info Need to specify path to algorithm. Example: make AP=Algorithm1/algorithm.c)
+	$(info Need to specify a path to your algorithm folder. 
+	$(info Example: make AP=Algorithm1/)
 	$(info For all arguments, run: make help)
 	$(error )
 endif
@@ -40,19 +41,14 @@ endif
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LIBS)
 
-ifeq ($(AM),)
-$(OBJS): $(addprefix $(FWF), $(SRCS)) $(AP) $(addprefix $(FWF), $(DEPS))
-	$(CC) $(CFLAGS) -c $(AP) -o $(AP:.c=.o) $(LIBS)
+$(OBJS): $(addprefix $(FWF), $(SRCS)) $(AP)*.c $(addprefix $(FWF), $(DEPS))
 	$(MAKE) -C $(FWF)
-else
-$(OBJS): $(addprefix $(FWF), $(SRCS)) $(AP) $(addprefix $(FWF), $(DEPS))
-	$(MAKE) -C $(FWF)
-	$(MAKE) -C $(AM)
-endif
+	$(MAKE) -C $(AP)
 
-ifeq ($(AM),)
+ifeq ($(AP),)
 clean:
-	$(info To clean the algorithm folder, you need to specify a path to the makefile. Example: make AM=Algorithm1/)
+	$(info To clean the algorithm folder, you need to specify a path to the)
+	$(info makefile. Example: make AM=Algorithm1/)
 	$(MAKE) clean -C $(FWF)
 	find . -name "*.csv" -type f -delete
 	find . -name $(TARGET) -type f -delete
@@ -61,7 +57,7 @@ clean:
 	$(MAKE) clean -C $(FWF)
 	find . -name "*.csv" -type f -delete
 	find . -name $(TARGET) -type f -delete
-	$(MAKE) clean -C $(AM)
+	$(MAKE) clean -C $(AP)
 endif
 
 help:	
@@ -69,22 +65,27 @@ help:
 	$(info -)
 	$(info - Options:)
 	$(info -)
-	$(info - (required) AP=relative/path/to/algorithm)
-	$(info -            Example: AP=Algorithm1/algorithm.c)
-	$(info -            Description: Path to the algorithm.c file which contains the proper code)
+	$(info - (required) AP=relative/path/to/algorithm/folder)
+	$(info -            Example: AP=Algorithm1/)
+	$(info -            Description: Path to the algorithm folder which)
+	$(info -            contains the .c file and makefile)
 	$(info -)
-	$(info - (optional) AM=relative/path/to/folder/with/makefile)
-	$(info -            Example: AM=Algorithm1/)
-	$(info -            Description: Path to the folder that contains the makefile to compile the algorithm and any other files.) 
-	$(info -            If this is not included, make will compile your algorithm.c file with the following code:)
-	$(info -            $(CC) $(CFLAGS) -c algorithm.c -o algorithm.o $(LIBS))
+	$(info - (optional) -NM)
+	$(info -            Example: -NM)
+	$(info -            Description: Tells the high level makefile that you)
+	$(info -            do not have a makefile for your algorithm If this is)
+	$(info -            not included, make will look for a makefile in the)
+	$(info -            folder you pass in)
 	$(info -)
 	$(info - make [options] clean)
 	$(info -)
 	$(info - Options:)
 	$(info -)
-	$(info - (required) AM=relative/path/to/algorithm)
-	$(info -            Example: AP=Algorithm1/algorithm.c)
+	$(info - (optional) AP=relative/path/to/algorithm)
+	$(info -            Example: AP=Algorithm1/)
+	$(info -            Description: Will call the clean target in your)
+	$(info -            makefile. If this is not included then the .o file)
+	$(info -            will not be removed)
 	$(info -)
 	$(info - Algorithm folder structure used in examples:)
 	$(info - Algorithm1/)
