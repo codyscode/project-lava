@@ -38,7 +38,7 @@
 
 //Maximum packet size
 #define MIN_PACKET_SIZE 24 + MIN_PAYLOAD_SIZE
-#define MAX_PACKET_SIZE 24 + MAX_PAYLOAD_SIZE
+#define MAX_PACKET_SIZE 24 + (MAX_PAYLOAD_SIZE - 1)
 
 //Number of unique flows that each input thread generates
 #define FLOWS_PER_THREAD 8
