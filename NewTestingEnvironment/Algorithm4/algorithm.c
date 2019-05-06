@@ -45,8 +45,7 @@ void * input_thread(void * args){
     size_t threadNum = inputArgs->threadNum;   
     queue_t * inputQueue = &input[inputArgs->threadNum].queue;
 
-    unsigned char dummyData[MAX_PAYLOAD_SIZE];
-
+    
     //Set the thread to its own core
     set_thread_props(inputArgs->coreNum, 2);
 
@@ -78,12 +77,18 @@ void * input_thread(void * args){
             ;//Do Nothing until a space is available to write
         }
 
+        packet_t packet;
+        packet.order = orderForFlow[currFlow - offset];
+        packet.length = currLength;
+        packet.flow = currFlow;
+/*
         //Create the new packet. Write the order and length first before flow as flow > 0 indicates theres a packet there
         (*inputQueue).data[index].packet.order = orderForFlow[currFlow - offset];
         (*inputQueue).data[index].packet.length = currLength;
         (*inputQueue).data[index].packet.flow = currFlow;
+*/        
         //memcpy simulates the packets data actually being written into the queue by the input thread
-        memcpy((*inputQueue).data[index].packet.payload, dummyData, currLength);
+        memcpy(&(*inputQueue).data[index].packet, &packet, currLength + 24);
 
         //Update the next flow number to assign
         orderForFlow[currFlow - offset]++;
@@ -128,12 +133,21 @@ void * output_thread(void * args){
     //Go through each space in the output queue until we reach an emtpy space in which case we swap to the other queue to process its packets
     while(1){
         index = (*outputQueue).toRead;
-
+/*
         //If there is no packet, continuously check until something shows up
         while((*outputQueue).data[index].isOccupied == NOT_OCCUPIED){
             ;//Do Nothing until there is a packet to read
         }
-
+*/
+        if ((*outputQueue).data[index].isOccupied == NOT_OCCUPIED) {
+            //Move to the next queue this output thread is responsible for
+            currentQueue = currentQueue + outputThreadCount;
+            if(currentQueue >= inputThreadCount) {
+                currentQueue = threadNum;
+            }
+            outputQueue = &(input[currentQueue].queue);
+            continue;
+        }
         //Get the current flow for the packet
         size_t currFlow = (*outputQueue).data[index].packet.flow;
 
@@ -167,20 +181,21 @@ void * output_thread(void * args){
             (*outputQueue).toRead = (*outputQueue).toRead % BUFFERSIZE;
 	 
             //memcpy simulates the packets data being processed by the output thread.
-	        memcpy(dummyDestination, (*outputQueue).data[index].packet.payload, (*outputQueue).data[index].packet.length);
+	    memcpy(dummyDestination, (*outputQueue).data[index].packet.payload, (*outputQueue).data[index].packet.length);
 
 
             //increment the number of bits passed
             output[threadNum].byteCount += (*outputQueue).data[index].packet.length + 24;
             //Set the position to free. Say it has already processed data
             (*outputQueue).data[index].isOccupied = NOT_OCCUPIED;
-
+/*
             //Move to the next queue this output thread is responsible for
             currentQueue = currentQueue + outputThreadCount;
             if(currentQueue >= inputThreadCount) {
                 currentQueue = threadNum;
             }
             outputQueue = &(input[currentQueue].queue);
+*/
         }
     }
     return NULL;
