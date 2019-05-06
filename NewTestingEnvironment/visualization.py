@@ -16,6 +16,7 @@ import shutil
 from pathlib import Path
 from mpl_toolkits.axes_grid1 import ImageGrid
 import numpy as np
+import time
 
 """
 Checks to see if "Plots" Folder exists, creates one if it doesnt
@@ -39,7 +40,7 @@ Takes in:
     directory: folder to move content into
 """
 def SwarmSubPlot( fd, input, baseName, directory):
-    sns.swarmplot(x="Output" , y= "Packet",hue ="Algorithm", dodge = True, data= fd[fd['Input']==input] )
+    sns.swarmplot(x="Output" , y= "Bits",hue ="Algorithm", dodge = True, data= fd[fd['Input']==input] )
     title = 'Plot ' + baseName +' Queue' + str(input)      
     plt.figure.set_title(title)
     filename = 'swarm_'+baseName+str(input)+".png"
@@ -59,8 +60,8 @@ Takes in:
 """
 def catSubPlot( fd, baseName, directory):
     plt.figure
-    cat = sns.catplot(x="Input" , y= "Packet",hue ="Output", dodge = True, data= fd)
-    cat.set(xlabel="Input Queue Count", ylabel="Packets Per Second")
+    cat = sns.catplot(x="Input" , y= "Bits",hue ="Output", dodge = True, data= fd)
+    cat.set(xlabel="Input Queue Count", ylabel="Gigabits Per Second")
     cat.fig.suptitle(baseName)
     filename = 'cat_'+ baseName+".png"
     cat.savefig(filename)
@@ -79,17 +80,59 @@ Takes in:
     Directory: folder to move content into
 """
 def barSubPlot( fd, input, fileCount,directory):
+
+    plt.ticklabel_format(style='plain', axis='y')
     figNum = input+ fileCount
     plt.figure(figNum, figsize=(10, 10))
     title = 'Input Queue Count: ' + str(input)  
-    sns.barplot(x="Output" , y= "Packet",hue ="Algorithm", dodge = True, data= fd[fd['Input']==input]).set_title(title)
+    sns.barplot(x="Output" , y= "Bits",hue ="Algorithm", dodge = True, data= fd[fd['Input']==input]).set_title(title)
     plt.xlabel("Output Queue Count")
-    plt.ylabel("Packets Per Second")
+    plt.ylabel("Bits Per Second")
     filename = 'bar_collection_'+str(input)+".png"
     plt.figure(figNum).savefig(filename)
     CWD = os.getcwd()
     shutil.copy(os.path.join(CWD,filename), directory)
     os.remove(os.path.join(CWD,filename))
+
+
+"""
+Creates Bar Graph for desired Input Queue
+Then moves plot images into "Plots" subdirectory
+Takes in:
+    fd: panda database
+    input: Desired Input Queue dataset
+    FileCount: Number inputed to differentiate figures to prevent overlapping figures
+    Directory: folder to move content into
+"""
+def posterPlot( big_frame, directory, fileCount):
+
+    posterColors =  ["#db4437", "#4285f4", "#0f9d58"]
+    plt.ticklabel_format(style='plain', axis='y')
+    qData = big_frame.query('((Input == "2") and (Output == "2")) or ((Input =="2") and (Output =="4")) or ((Input =="4") and (Output =="2"))').copy()
+    qData.loc[qData.Input < qData.Output, 'Condition'] = 0
+    qData.loc[qData.Input == qData.Output, 'Condition'] = 1
+    qData.loc[qData.Input > qData.Output, 'Condition'] = -1
+
+    print(qData)
+    figNum = fileCount
+
+    plt.figure(figNum, figsize=(10, 10))
+    title = 'Performance in Certain Test Cases'  
+    sns.barplot(x="Algorithm" , y= "Bits",hue ="Condition", dodge = True, data= qData, palette = posterColors).set_title(title)
+    plt.xlabel("Algorithms")
+    plt.ylabel("Gigabits Per Second (Gbs)")
+
+    lgd = plt.legend(title= "Performance Type" , loc='center left', bbox_to_anchor=(1, 0.5), labels=["4x4", "2x4","4x2"])
+    for i in range(0,3):
+        lgd.legendHandles[i].set_color(posterColors[i])
+    
+    filename = "Poster"+".png"
+    plt.figure(figNum).savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight')
+    CWD = os.getcwd()
+    shutil.copy(os.path.join(CWD,filename), directory)
+    os.remove(os.path.join(CWD,filename))
+
+
 
 
 
@@ -110,11 +153,9 @@ def lineSubPlot( fd, fileNum, baseName, directory):
     markerArray = ['1', "x", "*","o","d","^","s","8"]
     markColors = ['blue', 'orange', 'green','red','purple','brown','pink','grey']
     sns.set( rc={"lines.linewidth": 0.7})
-    cat = sns.pointplot(x="Input" , y= "Packet",hue ="Output",
-    ci = None, dodge = False, errwidth=None, data= fd,
-    markers="", scale = 1)
+    cat = sns.pointplot(x="Input" , y= "Bits",hue ="Output", ci = None, dodge = False, errwidth=None, data= fd, markers="", scale = 1)
     
-    cat = sns.pointplot(x="Input" , y= "Packet",hue ="Output",
+    cat = sns.pointplot(x="Input" , y= "Bits",hue ="Output",
     ci = None, dodge = False, linestyles = " ", errwidth=None, data= fd,
     markers=markerArray, scale = 1.8).set_title(baseName)
 
@@ -128,7 +169,7 @@ def lineSubPlot( fd, fileNum, baseName, directory):
     handles=[symbol[0], symbol[1], symbol[2],symbol[3],symbol[4],symbol[5],symbol[6],symbol[7]])
 
     plt.xlabel("Input Queue Count")
-    plt.ylabel("Packets Per Second")    
+    plt.ylabel("Bits Per Second")    
     filename = 'point_'+ baseName+".png"
     fig.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight')
     matplotlib.pyplot.close(fig)
@@ -205,7 +246,6 @@ def collectionRun(directoryPath, fileCount):
                 print(file)
                 folderPath = os.path.join(os.getcwd(),sys.argv[1])
                 filePath = os.path.join(folderPath,file)
-                print(filePath)
                 df = pd.read_csv(filePath)
                 csvlist.append(df)
 
@@ -215,12 +255,52 @@ def collectionRun(directoryPath, fileCount):
         barSubPlot(big_frame, i,fileCount, os.path.join(os.getcwd(), 'Plots'))
    
 
+def posterRun(directoryPath, fileCount):
+    csvlist = []
+    posterColors =  ["#db4437", "#4285f4", "#0f9d58"]
+
+    for root,dirs,files in os.walk(directoryPath):
+        for file in files:
+            if file.endswith(".csv"):
+                folderPath = os.path.join(os.getcwd(),sys.argv[1])
+                filePath = os.path.join(folderPath,file)
+                df = pd.read_csv(filePath)
+                csvlist.append(df)
+
+    big_frame = pd.concat(csvlist, axis = 0, ignore_index = True)
+    posterPlot(big_frame,directoryPath, fileCount)
+
+    
 """
-Obtains Full path of desired folder full of CSV file
-Then we check to see Plots/ exists, if it doesn't, folder is made
-Then CAT and BAR plots images of the data are put into sub-directory
+Efficiently Run's all the 3 functions together:
+    singleRun
+    CollectionRun
+    PosterRun
 """
+def efficientRun(directoryPath):
+    fileCount = 0
+    csvlist = []
+    outBar = [8]
+
+    for root,dirs,files in os.walk(directoryPath):
+        for file in files:
+            if file.endswith(".csv"):
+                folderPath = os.path.join(os.getcwd(),sys.argv[1])
+                filePath = os.path.join(folderPath,file)
+                print(os.path.splitext(filePath)[0])
+                runLine(filePath, fileCount)
+                fileCount +=1
+                df = pd.read_csv(filePath)
+                csvlist.append(df)
+
+    big_frame = pd.concat(csvlist, axis = 0, ignore_index = True)
+    image = np.arange(100).reshape((10,10))
+    for i in range(1, 9):
+        barSubPlot(big_frame, i,fileCount, os.path.join(os.getcwd(), 'Plots'))
+
+    posterPlot(big_frame,directoryPath, fileCount+9)
+                
+
 directory = os.path.join(os.getcwd(),sys.argv[1])          
 checkDirectory()
-num =singleRun(directory)
-collectionRun(directory, num)
+efficientRun(directory)
