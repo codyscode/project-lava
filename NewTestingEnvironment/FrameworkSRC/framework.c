@@ -331,7 +331,7 @@ void output_data(){
     //if the file does not exit, create one, then assign the appropriate head to the .csv file
     else{
         fptr = Fopen(fileName, "a");
-        fprintf(fptr, "Algorithm,Input,Output,Packet\n");
+        fprintf(fptr, "Algorithm,Input,Output,Bits\n");
     }	
 	
     //Output the data to the file
