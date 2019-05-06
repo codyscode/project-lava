@@ -29,12 +29,12 @@
 #define BUFFERSIZE 512
 
 //Defines how many ticks an algorithm should run for
-#define RUNTIME 30
+#define RUNTIME 10
 
 //Used to determine packet size
 //8000 Allows much faster packet generation
 #define MIN_PAYLOAD_SIZE 64
-#define MAX_PAYLOAD_SIZE 1500
+#define MAX_PAYLOAD_SIZE 65
 
 //Maximum packet size
 #define MIN_PACKET_SIZE 24 + MIN_PAYLOAD_SIZE
