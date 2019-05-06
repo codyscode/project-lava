@@ -106,7 +106,8 @@ fileStructure_markdown(){
 #Function to run the test script on each algorithm 10 times and run the visualization script each time.
 repeatedRuns(){
 	NON_ROOT_USER=$(who am i | awk '{print $1}');
-	for i in 1 2 3 4 5 6 7 8 9 10; do
+	for i in 1 2; do
+		echo ">>>>>>>>>>>>>>> START OF RUN $i <<<<<<<<<<<<<<<"
 		testAllAlgorithms
 		cd /home/$NON_ROOT_USER/project-lava/NewTestingEnvironment/
 		pushWiki
