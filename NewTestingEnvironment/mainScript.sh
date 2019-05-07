@@ -26,6 +26,9 @@ testSpecificAlgorithm(){
 	check_isRunning
 	NON_ROOT_USER=$(who am i | awk '{print $1}');
 	echo "running test on Algorithm: "$OPTION_VAL
+	for opt in $OPTION_VAL; do
+		echo "$opt"
+	done
 	for dir in Algorithm*/ ; do
 		cd $dir
 		temp=$(grep "#define ALGNAME *" algorithm.c | awk '{print $3}')
