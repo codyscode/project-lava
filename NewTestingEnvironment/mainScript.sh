@@ -94,7 +94,7 @@ testAllAlgorithms() {
 	echo ">>>>>>>> RUNNING FULL TEST <<<<<<<<"
 	for dir in Algorithm*/ ; do
 		make AP="$dir"
-		 ./testScript.sh
+		 ./testScript.sh -n
 		make AP="$dir" clean
 	done
 	echo ">>>>>>>> FULL TEST COMPLETED <<<<<<<<<"
