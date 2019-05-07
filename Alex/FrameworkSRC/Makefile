@@ -7,21 +7,29 @@ CFLAGS = -I. -g -Wall -std=c99 #-O3
 #The compiler: gcc for C program, define as g++ for C++
 CC = gcc
 
+#header file dependencies
+DEPS = global.h wrapper.h
+
 #-lm: 			Math 
 #-lpthread:		library and p
 LIBS = -lm -lpthread
 
-#.c source files
-SRC = algorithm.c
+#C soure files
+SRCS = framework.c wrapper.c global.c
 
-#File that should be created
-TARGET = algorithm.o
+#Object files
+OBJS = $(SRCS:.c=.o)
 
-#Move the algorithm to the framework folder then call make
-default: $(TARGET)
-	mv algorithm.o ../Framework/algorithm.o
-	cd ../Framework && $(MAKE)
+#framework executable
+TARGET = framework.o
 
-$(TARGET): $(SRC)
-	$(CC) $(CFLAGS) -c $(SRC) -o $@ $(LIBS)
-	
+.PHONY: clean
+
+all: $(OBJS)
+
+#Compile all .c files to .o files
+%.o: %.c $(DEPS)
+	$(CC) $(CFLAGS) -c -o $@ $< $(LIBS)
+
+clean:
+	find . -name "*.o" -type f -delete
