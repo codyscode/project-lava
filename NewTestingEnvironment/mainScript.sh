@@ -23,29 +23,62 @@ check_isRunning(){
 	fi
 }
 testSpecificAlgorithm(){
+	echo ">>>>>>>> RUNNING SPECIFIC TEST on $OPTION_VAL <<<<<<<<<<<<<<"
+	count=0
+	inputT=0
+	outputT=0
+	AlgorithmInput=""
 	check_isRunning
 	NON_ROOT_USER=$(who am i | awk '{print $1}');
 	echo "running test on Algorithm: "$OPTION_VAL
 	for opt in $OPTION_VAL; do
-		echo "$opt"
+		if [ "$count" -eq 0 ]
+		then 
+			AlgorithmInput="$opt"
+			count=$((count+1))
+		elif [ "$count" -eq 1 ]
+		then 
+			inputT="$opt"
+			count=$((count+1))
+		elif [ "$count" -eq 2 ]
+		then 
+			outputT="$opt"
+			count=$((count+1))
+		fi
 	done
 	for dir in Algorithm*/ ; do
+		pwd
 		cd $dir
 		temp=$(grep "#define ALGNAME *" algorithm.c | awk '{print $3}')
 		temp="${temp#\"}"
 		temp="${temp%\"}"
-		echo "Algorithm in current folder: $temp  Algorithm you are trying to run: $OPTION_VAL"
+		echo "Algorithm in current folder: $temp  Algorithm you are trying to run: $AlgorithmInput"
 
-		if [ "$temp" == "$OPTION_VAL" ]
+		if [ "$temp" == "$AlgorithmInput" ]
 		then
-			echo "in the if statement"
 			cd ..
 			make AP="$dir"
-			./testScript.sh
+			if [ "$inputT" -gt 0 ]
+			then 
+				./testScript.sh -s "$inputT $outputT"
+			else
+				./testScript.sh -n
+			fi
 			make AP="$dir" clean
+			break
 		fi
-		 cd /home/$NON_ROOT_USER/project-lava/NewTestingEnvironment/
+		cd ..
 	done
+	cd /home/$NON_ROOT_USER/project-lava/NewTestingEnvironment/
+	echo $PWD
+	if [[ "$PWD" = "/home/$NON_ROOT_USER/project-lava/NewTestingEnvironment"  &&  "$inputT" -gt 0 ]]; then
+    	echo "CLEARING CSV FILES" 
+		rm -f *.csv
+	else 
+		echo "FULL TEST WAS RUN ON SPECFIC ALGORITHM CSV NEEDS TO BE PUSHED"
+		pushWiki
+	fi
+	echo ">>>>>>>> SPECIFIC TEST on $OPTION_VAL COMPLETE <<<<<<<<<<<<<<"
 }
 runVisualization()
 {
@@ -90,13 +123,11 @@ pushWiki() {
                 echo $_file
                 mv  ./$now$_file /home/$NON_ROOT_USER/project-lava.wiki/Data/
         done
-	# cd ..
-    #     cd project-lava.wiki
-	sudo -u $NON_ROOT_USER cd /home/$NON_ROOT_USER/project-lava.wiki/
+
+	cd /home/$NON_ROOT_USER/project-lava.wiki/
 	fileStructure_markdown
-        echo $NON_ROOT_USER
         sudo -u $NON_ROOT_USER git pull
-        sudo -u $NON_ROOT_USER git add -A
+        sudo -u $NON_ROOT_USER git add --all .
         sudo -u $NON_ROOT_USER git commit -m "Adding run to the Database and updating file structure"
         sudo -u $NON_ROOT_USER git push	
 }
@@ -127,8 +158,7 @@ while getopts 'htqws:vrp' flag; do
 		q) quicktestAllAlgorithms ;;
 		w) pushWiki ;;
 		s) OPTION_VAL=$OPTARG
-		   testSpecificAlgorithm 
-		   ;;
+		   testSpecificAlgorithm ;;
 		v) runVisualization ;;
 		r) repeatedRuns ;;
 		*) error "Unexpected option ${flag}" ;;
