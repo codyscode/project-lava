@@ -9,8 +9,8 @@
 
 #define ALGNAME "2Vectors1Queue"
 
-#define VBUFFERSIZE 256
-#define NUM_SEGS 4
+#define VBUFFERSIZE 1024
+#define NUM_SEGS 2
 
 //isOccupied - Whether all the data there is ready to copy or not
 //data (packet_t array) - Space for packets in the queue
@@ -70,8 +70,8 @@ void * input_thread(void * args){
 	
     //Continuously generate input numbers until the buffer fills up. 
     //Once it hits an entry that is not empty, it will wait until the input is grabbed.
-    register unsigned int seed0 = (unsigned int)time(NULL);
-    register unsigned int seed1 = (unsigned int)time(NULL);
+    unsigned int seed0 = (unsigned int)time(NULL);
+    unsigned int seed1 = (unsigned int)time(NULL);
 
     //Say this thread is ready to generate and pass
     input[threadNum].readyFlag = 1;
@@ -89,11 +89,15 @@ void * input_thread(void * args){
 
         //Write the entire queue block
         for(dataIndex = 0; dataIndex < VBUFFERSIZE; dataIndex++){
-            // *** FAST RANDOM NUMBER GENERATOR ***
-            seed0 = (214013*seed0+2531011);   
-            currFlow = ((seed0>>16)&0x0007) + offset;//Min value: offset || Max value: offset + 7
-            seed1 = (214013*seed1 +2531011); 
-            currLength = (((seed1>>16)&0xFFFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; //Min value: 64 || Max value: 8191 + 64
+            // *** START PACKET GENERATOR ***
+            //Min value: offset || Max value: offset + 7
+            seed0 = (214013 * seed0 + 2531011);   
+            currFlow = ((seed0 >> 16) & 0x0007) + offset;
+
+            //Min value: 64 || Max value: 8191 + 64
+            seed1 = (214013 * seed1 + 2531011); 
+            currLength = (((seed1 >> 16) & 0xFFFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
+            // *** END PACKET GENERATOR  ***
 
             //Write the packet data to the queue
             memcpy(&mainQueues[qIndex].segments[segIndex].data[dataIndex].payload, packetData, currLength);

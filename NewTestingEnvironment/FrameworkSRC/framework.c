@@ -322,7 +322,7 @@ void output_data(){
 
     //Output the data to the user
     printf("\nAlgorithm %s passed %.3f Gbs on average.", algName, (double)((finalTotal/RUNTIME) * 8) / 1000000000);
-    printf("\nAlgorithm %s passed %'lu Packets Per Second on average.\n", algName, (finalTotal/RUNTIME) / (MAX_PACKET_SIZE / 2));
+    printf("\nAlgorithm %s passed %'lu Packets Per Second on average.\n", algName, (finalTotal/RUNTIME) / ((MAX_PACKET_SIZE + MIN_PACKET_SIZE) / 2));
 
     //if the file alreadty exists, open it
     if(access(fileName, F_OK) != -1){

@@ -26,22 +26,22 @@
 #define MIN_OUTPUT_THREAD_COUNT 1
 
 //Buffersize for default queues
-#define BUFFERSIZE 1024
+#define BUFFERSIZE 512
 
 //Defines how many ticks an algorithm should run for
-#define RUNTIME 30
+#define RUNTIME 10
 
 //Used to determine packet size
 //8000 Allows much faster packet generation
 #define MIN_PAYLOAD_SIZE 64
-#define MAX_PAYLOAD_SIZE 8000
+#define MAX_PAYLOAD_SIZE 65
 
 //Maximum packet size
-#define MIN_PACKET_SIZE 192 + MIN_PAYLOAD_SIZE
-#define MAX_PACKET_SIZE 192 + MAX_PAYLOAD_SIZE
+#define MIN_PACKET_SIZE 24 + MIN_PAYLOAD_SIZE
+#define MAX_PACKET_SIZE 24 + (MAX_PAYLOAD_SIZE - 1)
 
-//Number of unique flows that each input queue generates
-#define FLOWS_PER_QUEUE 8
+//Number of unique flows that each input thread generates
+#define FLOWS_PER_THREAD 8
 
 //Indicates whether a packet is there or not
 #define NOT_OCCUPIED 0
@@ -73,15 +73,15 @@ typedef unsigned long long tsc_t;
 //flow (size_t) - The flow of the packet
 //order (size_t) - The order of the packet within its flow
 //data (unsigned char array) - Payload of the packet
-typedef struct packet{ 
+typedef struct Packet{
+    size_t flow; 
     size_t length;
-    size_t flow;
     size_t order;
-    unsigned char data[MAX_PAYLOAD_SIZE];
+    unsigned char payload[MAX_PAYLOAD_SIZE];
 }packet_t;
 
 //Data field for the queue
-typedef struct data{
+typedef struct Data{
     size_t isOccupied;
     packet_t packet;
 }data_t;
@@ -94,7 +94,6 @@ typedef struct data{
 typedef struct Queue {
     size_t toRead;
     size_t toWrite;
-    size_t count;
     data_t data[BUFFERSIZE];
 }queue_t;
 
@@ -102,9 +101,6 @@ typedef struct Queue {
 //queue (*queue_t) - pointer to the first queue for the thread to write to/process
 //coreNum (size_t) - used to define which core the processing queue should be assigned to
 //threadNum (size_t) - The queue number relative to other queues in its set
-//count (size_t) - The number of packets passed
-//overhead (size_t) - The overhead to be incremented for generating a packet
-
 typedef struct threadArgs{
     queue_t *queue;
     size_t coreNum;
@@ -115,20 +111,20 @@ typedef struct threadArgs{
 //threadArgs (threadArgs_t) - Arguments to be passed to input/output threads
 //queue (queue_t) - built in queues for passing
 //readyFlag (size_t) - Flag signaling thead is ready
+//count (size_t) - amount of data passed
 typedef struct io{
     threadArgs_t threadArgs;
     pthread_t threadID;
     queue_t queue;
     size_t readyFlag;
-    volatile size_t overhead;
-    volatile size_t count;
+    size_t byteCount;
 }io_t;
 
 //initialize array of input and ouput threads
 io_t input[MAX_NUM_INPUT_THREADS];
 io_t output[MAX_NUM_OUTPUT_THREADS];
 
-//Used for number of input and output queues
+//Used for number of input and output threads
 size_t inputThreadCount;
 size_t outputThreadCount;
 
@@ -148,7 +144,6 @@ void set_thread_props(int tgt_core, long sched);
 void sig_alrm(int signo);
 void alarm_init();
 void alarm_start();
-
 
 void * input_thread(void * args);
 void * output_thread(void * args);
