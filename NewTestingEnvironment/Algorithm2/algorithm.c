@@ -79,7 +79,7 @@ void * input_thread(void * args){
 		// *** FAST PACKET GENERATOR ***
 		g_seed1 = (214013*g_seed1+2531011);
 		//length = ((g_seed1>>16)&0x1FFF) + 64; //Min value 64: Max value 8191 + 64:
-		currPkt.length = (((g_seed1>>16)&0x1FFF) + 64)/8; //Min value 64: Max value 8191 + 64:
+		currPkt.length = (((g_seed1 >> 16) & 0xFFFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
 		
 		g_seed0 = (214013*g_seed0+2531011);
 		//currFlow = ((g_seed0>>16)&0x0007) + offset + 1;//Min value offset + 1: Max value offset + 9:
