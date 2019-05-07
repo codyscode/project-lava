@@ -47,8 +47,9 @@ testSpecificAlgorithm(){
 runVisualization()
 {
 	NON_ROOT_USER=$(who am i | awk '{print $1}');
-	cd home/$NON_ROOT_USER/project-lava.wiki/Data/
-	python /home/$NON_ROOT_USER/project-lava/NewTestingEnvironment/visualization.py
+	cd /home/$NON_ROOT_USER/project-lava.wiki/
+	pwd
+	python /home/$NON_ROOT_USER/project-lava/NewTestingEnvironment/visualization.py /home/$NON_ROOT_USER/project-lava.wiki/Data/
 }
 
 #runs all 64 iteration of each algorithm being made
