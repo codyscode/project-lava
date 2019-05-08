@@ -9,9 +9,9 @@
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "2Vectors1Queue"
+#define ALGNAME "2Vectors1QueuePadded"
 
-#define VBUFFERSIZE 1024
+#define VBUFFERSIZE 512
 #define NUM_SEGS 2
 
 //isOccupied - Whether all the data there is ready to copy or not
@@ -72,8 +72,8 @@ void * input_thread(void * args){
 	
     //Continuously generate input numbers until the buffer fills up. 
     //Once it hits an entry that is not empty, it will wait until the input is grabbed.
-    unsigned int seed0 = (unsigned int)time(NULL);
-    unsigned int seed1 = (unsigned int)time(NULL);
+    register unsigned int seed0 = (unsigned int)time(NULL);
+    register unsigned int seed1 = (unsigned int)time(NULL);
 
     //Say this thread is ready to generate and pass
     input[threadNum].readyFlag = 1;
