@@ -1,7 +1,9 @@
 /*
--This algorithm creates a single "wire".
--The wire works by grabbing the same amount of packets from each input queues then empties them into the appropriate output queue and it repeats this indefinitely
--The algorithm uses 3 sets of queues, One input, One wire, and One Output queue
+- This algorithm subdivides the problem into multiple smaller problems to allow faster queue writes than having all input threads communicated with all output threads
+- It additionally uses vectors to pass packets.
+    - Queues are made up of 2 vectors and each vector has 1024 packets. Initially the output thread is waiting while the input thread writes to the first vector in the queue.
+    - After the input thread fills up the first vector it marks it as ready and the input thread moves onto write to the next vector while the output thread reads from the first vector
+    - This process alternates back and forth allowing both input and output threads to be doing work on a single queue at once.
 */
 
 #include "../FrameworkSRC/global.h"
@@ -76,7 +78,7 @@ void * input_thread(void * args){
     //Say this thread is ready to generate and pass
     input[threadNum].readyFlag = 1;
 
-    //Wait until everything else is ready
+    //Wait until the start flag is given by the framework
     while(startFlag == 0);
 
     //Write packets to their corresponding queues

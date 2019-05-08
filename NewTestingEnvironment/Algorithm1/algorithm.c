@@ -1,7 +1,6 @@
 /*
--This algorithm creates a single "wire".
--The wire works by grabbing the same amount of packets from each input queues then empties them into the appropriate output queue and it repeats this indefinitely
--The algorithm uses 3 sets of queues, One input, One wire, and One Output queue
+- This algorithm makes M x N physical queues to write to allow all input threads to communicate with all output threads.
+- It uses one set of queues that the input threads write to directly and the output threads read from
 */
 
 #include "../FrameworkSRC/global.h"

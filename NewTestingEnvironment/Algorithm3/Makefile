@@ -2,7 +2,7 @@
 #-g: 		Addds debugging information
 #-Wall: 	Turns on most compiler warnings
 #-std=c99:	Tells which standard we want to use
-CFLAGS = -I. -g -Wall -std=c99 #-O3
+CFLAGS = -I. -g -Wall -std=c99
 
 #The compiler: gcc for C program, define as g++ for C++
 CC = gcc
