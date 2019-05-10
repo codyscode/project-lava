@@ -27,9 +27,9 @@
       <ul><li>          - Pushes the results to the project-lava.wiki repo which should exist along side the project-lava repo</li></ul>
 	<li>    -v       Turns CSV files into visualizations</li>
       <ul><li>          - Should be done after a successful test run, do not use with -r   </li></ul>           
-	<li>    -s  "al_name"    Will run test on a specific algorithm only</li>
+	<li>    -s  "Algorithm#/"    Will run test on a specific algorithm only</li>
       <ul><li>          - A search will be done in all the Algorithm*/ folders for an algorithm.c file with the name Defined in it. The CSV file will be pushed to the wiki.</li></ul>
-      <li>    -s  "al_name m n"    Will run test on a specific algorithm and only on the iteration m n</li>
+      <li>    -s  "Algorithm#/ m n"    Will run test on a specific algorithm and only on the iteration m n</li>
       <ul><li>          - A search will be done in all the Algorithm*/ folders for an algorithm.c file with the name Defined in it. The CSV file will be removed.</li></ul>
     <li>    -r		 Will run all test on all algorithms 10 times and run visualizations each time</li>
       <ul><li>          - This test runs -t version 10 times, it also takes care of moving files to the project-lava.wiki and calling the visualization script.</li></ul>
