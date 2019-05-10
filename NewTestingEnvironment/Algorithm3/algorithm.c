@@ -9,7 +9,7 @@
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "2Vectors1QueuePadded"
+#define ALGNAME "2Vectors1Queue"
 
 #define VBUFFERSIZE 512
 #define NUM_SEGS 2
@@ -72,8 +72,8 @@ void * input_thread(void * args){
 	
     //Continuously generate input numbers until the buffer fills up. 
     //Once it hits an entry that is not empty, it will wait until the input is grabbed.
-    register unsigned int seed0 = (unsigned int)time(NULL);
-    register unsigned int seed1 = (unsigned int)time(NULL);
+    register size_t seed0 = (size_t)time(NULL);
+    register size_t seed1 = (size_t)time(NULL);
 
     //Say this thread is ready to generate and pass
     input[threadNum].readyFlag = 1;
@@ -98,7 +98,7 @@ void * input_thread(void * args){
 
             //Min value: 64 || Max value: 8191 + 64
             seed1 = (214013 * seed1 + 2531011); 
-            currLength = (((seed1 >> 16) & 0xFFFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
+            currLength = 64;//((seed1 >> 16) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
             // *** END PACKET GENERATOR  ***
 
             //Write the packet data to the queue

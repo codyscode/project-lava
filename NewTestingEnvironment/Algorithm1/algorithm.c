@@ -6,7 +6,7 @@
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "LotsO'Queues"
+#define ALGNAME "LotsOfQueues"
 
 queue_t mainQueues[MAX_NUM_INPUT_THREADS * MAX_NUM_OUTPUT_THREADS];
 

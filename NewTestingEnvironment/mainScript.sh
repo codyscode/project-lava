@@ -3,13 +3,13 @@
 OPTION_VAL=""
 #help menu to detail how the program works
 displayHelp() {
-	echo "-h 	     Print help"
-	echo "-t	     Run tests on all algorithms"
-	echo "-q         runs quick test on all algorithms"
-	echo "-w	     Push benchmark results to wiki"	
-	echo "-v         Turns CSV files into visualizations do not use with -r"
-	echo "-s al_name Will run test on a specific algorithm only"
-	echo "-r		 Will run all test on all algorithms 10 times and run visualizations each time"
+	echo "-h            Print help"
+	echo "-t            Run tests on all algorithms"
+	echo "-q            runs quick test on all algorithms"
+	echo "-w            Push benchmark results to wiki"	
+	echo "-v            Turns CSV files into visualizations do not use with -r"
+	echo "-s [al_name]  Will run test on a specific algorithm only"
+	echo "-r            Will run all test on all algorithms 10 times and run visualizations each time"
 }
 #Function that checks if the framework is already running on the server.
 check_isRunning(){
@@ -47,10 +47,19 @@ testSpecificAlgorithm(){
 		fi
 	done
 	for dir in Algorithm*/ ; do
+<<<<<<< HEAD
 		temp=""
 		pwd
 		cd $dir
 		#temp=$(grep "#define ALGNAME *" algorithm.c | awk '{print $3}' | sed 's/^"\(.*\)"$/\1/')
+=======
+		cd $dir
+		pwd
+		temp=$(grep "#define ALGNAME *" algorithm.c | awk '{print $3}')
+		temp="${temp#\"}"
+		temp="${temp%\"}"
+		echo "Algorithm in current folder: $temp  Algorithm you are trying to run: $AlgorithmInput"
+>>>>>>> 2c7f0af9d79165f62ac2767059ff091793fb5a73
 
 		echo "Algorithm in current folder: $dir"
 		echo "Algorithm you are trying to run: $AlgorithmInput"
