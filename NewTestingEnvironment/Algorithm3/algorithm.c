@@ -94,11 +94,11 @@ void * input_thread(void * args){
             // *** START PACKET GENERATOR ***
             //Min value: offset || Max value: offset + 7
             seed0 = (214013 * seed0 + 2531011);   
-            currFlow = ((seed0 >> 16) & 0x0007) + offset;
+            currFlow = ((seed0 >> 16) & FLOWS_PER_THREAD_MOD) + offset;
 
             //Min value: 64 || Max value: 8191 + 64
             seed1 = (214013 * seed1 + 2531011); 
-            currLength = 64;//((seed1 >> 16) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
+            currLength = ((seed1 >> 16) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
             // *** END PACKET GENERATOR  ***
 
             //Write the packet data to the queue

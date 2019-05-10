@@ -57,8 +57,9 @@ void * input_thread(void * args){
     //Continuously generate input numbers until the buffer fills up. 
     //Once it hits an entry that is not empty, it will wait until the input is grabbed.
     size_t index = 0;
-    register unsigned int g_seed0 = (unsigned int)time(NULL);
-    register unsigned int g_seed1 = (unsigned int)time(NULL);
+    
+    register unsigned int seed0 = (unsigned int)time(NULL);
+    register unsigned int seed1 = (unsigned int)time(NULL);
 
     input[threadNum].readyFlag = 1;
 
@@ -67,11 +68,16 @@ void * input_thread(void * args){
 
     //After having the base queue fill up, maintain all the packets in the queue by just overwriting their order number
     while(1){
-        // *** FASTEST PACKET GENERATOR ***
-        g_seed0 = (214013*g_seed0+2531011);   
-        currFlow = ((g_seed0>>16)&0x0007) + offset;//Min value offset + 1: Max value offset + 9:
-        g_seed1 = (214013*g_seed1+2531011); 
-        currLength = ((g_seed1>>16)&0XFFFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;
+        // *** START PACKET GENERATOR ***
+        //Min value: offset || Max value: offset + 7
+        seed0 = (214013 * seed0 + 2531011);   
+        currFlow = ((seed0 >> 16) & FLOWS_PER_THREAD_MOD) + offset;
+
+        //Min value: 64 || Max value: 8191 + 64
+        seed1 = (214013 * seed1 + 2531011); 
+        currLength = ((seed1 >> 16) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
+        // *** END PACKET GENERATOR  ***
+
         //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
         while((*inputQueue).data[index].isOccupied == OCCUPIED){
             ;//Do Nothing until a space is available to write

@@ -37,11 +37,13 @@
 #define MAX_PAYLOAD_SIZE 65
 
 //Maximum packet size
-#define MIN_PACKET_SIZE 24 + MIN_PAYLOAD_SIZE
-#define MAX_PACKET_SIZE 24 + (MAX_PAYLOAD_SIZE - 1)
+#define MIN_PACKET_SIZE (24 + MIN_PAYLOAD_SIZE)
+#define MAX_PACKET_SIZE (24 + (MAX_PAYLOAD_SIZE - 1))
 
 //Number of unique flows that each input thread generates
-#define FLOWS_PER_THREAD 8
+//The flows per thread is a power of 2 to allow efficient packet generation
+#define FLOWS_PER_THREAD 8U
+#define FLOWS_PER_THREAD_MOD (FLOWS_PER_THREAD - 1U)
 
 //Indicates whether a packet is there or not
 #define NOT_OCCUPIED 0
@@ -49,7 +51,7 @@
 
 //Major indices in the buffer
 #define FIRST_INDEX 0
-#define LAST_INDEX BUFFERSIZE - 1
+#define LAST_INDEX (BUFFERSIZE - 1)
 
 //Define a memory fence that tells the compiler to not reorder instructions
 //In order to make sure writes are in order

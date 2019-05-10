@@ -6,7 +6,7 @@
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "LotsOfQueues"
+#define ALGNAME "MxNQueues"
 
 queue_t mainQueues[MAX_NUM_INPUT_THREADS * MAX_NUM_OUTPUT_THREADS];
 
@@ -52,8 +52,8 @@ void * input_thread(void * args){
     //Once it hits an entry that is not empty, it will wait until the input is grabbed.
     size_t dataIndex = 0;
     size_t qIndex = 0;
-    register unsigned int g_seed0 = (unsigned int)time(NULL);
-    register unsigned int g_seed1 = (unsigned int)time(NULL);
+    register unsigned int seed0 = (unsigned int)time(NULL);
+    register unsigned int seed1 = (unsigned int)time(NULL);
 
     //Say this thread is ready to generate and pass
     input[threadNum].readyFlag = 1;
@@ -63,11 +63,15 @@ void * input_thread(void * args){
 
     //Write packets to their corresponding queues
     while(1){
-        // *** FASTEST PACKET GENERATOR ***
-        g_seed0 = (214013*g_seed0+2531011);   
-        currFlow = ((g_seed0>>16)&0x0007) + offset;//Min value: offset || Max value: offset + 7
-        g_seed1 = (214013*g_seed1 +2531011); 
-        currLength = (((g_seed1>>16)&0x1FFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; //Min value: 64 || Max value: 8191 + 64
+        // *** START PACKET GENERATOR ***
+        //Min value: offset || Max value: offset + 7
+        seed0 = (214013 * seed0 + 2531011);   
+        currFlow = ((seed0 >> 16) & FLOWS_PER_THREAD_MOD) + offset;
+
+        //Min value: 64 || Max value: 8191 + 64
+        seed1 = (214013 * seed1 + 2531011); 
+        currLength = ((seed1 >> 16) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
+        // *** END PACKET GENERATOR  ***
 
         //Determine which queue to write the packet data to
         qIndex = (currFlow % (maxQueueIndex - baseQueueIndex)) + baseQueueIndex;
