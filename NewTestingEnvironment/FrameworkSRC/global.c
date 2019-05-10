@@ -69,7 +69,7 @@ void sig_alrm(int signo){
     }
 
     printf("\rTime Remaining:  0 Seconds  ");
-    printf("\n\nNote: Your Threads are canceled with pthred_cancel().\nTo modify your thread cleanup handler upon recieving a termination signal, see pthread_cleanup_push()\n\n");
+    printf("\n\nNote: Your Threads are canceled with pthread_cancel().\nTo modify your thread cleanup handler upon recieving a termination signal, see pthread_cleanup_push()\n\n");
     printf("Finished. Waiting for thread cleanup...\n\n");
 
     //Take a snapshot of the count

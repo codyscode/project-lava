@@ -29,7 +29,7 @@ specificTest(){
 			count=$((count+1))
 		fi
 	done
-	echo ">>>>>>>>>>INPUT: $inputT AND OUTPUT: $outputT <<<<<<<<<<<<"
+	printf "\n>>>>>>>>>> INPUT: $inputT AND OUTPUT: $outputT <<<<<<<<<<<<\n"
 	./framework "$inputT" "$outputT" i
 }
 while getopts 'qns:' flag; do

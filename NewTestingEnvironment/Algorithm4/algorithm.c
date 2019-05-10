@@ -11,15 +11,6 @@ pidgeon-holed into output threads rather than individual flows being pidgeon-hol
 
 #define ALGNAME "singleSetPigeon"
 
-typedef struct WorkerThreadArgs{
-    int toGrabCount;
-    queue_t * mainQueue;
-}workerThreadArgs_t;
-
-//Oversee-er thread
-pthread_t workers[1];
-workerThreadArgs_t wThreadArgs;
-
 char* get_name(){
     return ALGNAME;
 }

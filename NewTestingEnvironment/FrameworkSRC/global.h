@@ -31,10 +31,9 @@
 //Defines how many ticks an algorithm should run for
 #define RUNTIME 10
 
-//Used to determine packet size
-//8000 Allows much faster packet generation
+//Used to determine payload size
 #define MIN_PAYLOAD_SIZE 64
-#define MAX_PAYLOAD_SIZE 65
+#define MAX_PAYLOAD_SIZE 64 + 1
 
 //Maximum packet size
 #define MIN_PACKET_SIZE (24 + MIN_PAYLOAD_SIZE)

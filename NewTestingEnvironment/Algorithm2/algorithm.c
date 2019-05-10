@@ -25,8 +25,6 @@ int inFlag[MAX_NUM_INPUT_THREADS];
 int outFlag[MAX_NUM_OUTPUT_THREADS];
 
 void * input_thread(void * args){
-	pthread_detach(pthread_self());
-	
 	threadArgs_t *threadArgs = (threadArgs_t*) args;
 	int core = threadArgs->coreNum;
 	int threadID = threadArgs->threadNum;
@@ -121,12 +119,10 @@ void * input_thread(void * args){
 }
 
 void * output_thread(void * args){
-	pthread_detach(pthread_self());
-	
 	threadArgs_t *threadArgs = (threadArgs_t*) args;
 	int core = threadArgs->coreNum;
 	int threadID = threadArgs->threadNum;
-	int outNum = core - 11; // since thread creations starts at core 6
+	int outNum = threadID;
 	
 	int inCount = inputThreadCount;
 	int outCount = outputThreadCount;

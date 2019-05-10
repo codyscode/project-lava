@@ -116,8 +116,8 @@ void * output_thread(void * args){
     set_thread_props(outputArgs->coreNum, 2);
         
     //Decide which queues this output thread should manage
-    size_t baseQueueIndex = threadNum * inputThreadCount;
-    size_t maxQueueIndex = baseQueueIndex + inputThreadCount;
+    size_t baseQueueIndex = threadNum;
+    size_t maxQueues = inputThreadCount * outputThreadCount;
 
     //"Process" packets to confirm they are in the correct order before consuming more. 
     //Processing threads process until they get to a spot with no packets
@@ -140,8 +140,8 @@ void * output_thread(void * args){
 
         //If there is no packet move to the next queue it is managing and start reading
         if(mainQueues[qIndex].data[dataIndex].isOccupied == NOT_OCCUPIED){
-            qIndex++;
-            if(qIndex >= maxQueueIndex) 
+            qIndex += outputThreadCount;
+            if(qIndex >= maxQueues) 
                 qIndex = baseQueueIndex;
             continue;
         }
@@ -180,9 +180,8 @@ void * output_thread(void * args){
 
         //Move to the next spot in the outputQueue to process
         mainQueues[qIndex].toRead++;
-        if(mainQueues[qIndex].toRead >= BUFFERSIZE)
+        if(mainQueues[qIndex].toRead >= BUFFERSIZE) 
             mainQueues[qIndex].toRead = 0;
-        //mainQueues[qIndex].toRead = mainQueues[qIndex].toRead % BUFFERSIZE;
     }
 
     return NULL;
