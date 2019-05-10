@@ -20,6 +20,9 @@ FWF = FrameworkSRC/
 #C soure files
 SRCS = framework.c wrapper.c global.c
 
+#Default path
+AP=Algorithm/
+
 #Object files
 OBJS = $(addprefix $(FWF), $(SRCS:.c=.o)) $(AP)*.o
 
@@ -27,16 +30,6 @@ OBJS = $(addprefix $(FWF), $(SRCS:.c=.o)) $(AP)*.o
 TARGET = framework
 
 .PHONY: clean help
-
-ifneq ("$(wildcard $(AP))","")
-all: clean $(TARGET)
-else
-all: 
-	$(info Need to specify a path to your algorithm folder.)
-	$(info Example: make AP=Algorithm1/)
-	$(info For all arguments, run: make help)
-	$(error )
-endif
 
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LIBS)

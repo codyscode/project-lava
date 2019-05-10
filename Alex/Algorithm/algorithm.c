@@ -15,11 +15,11 @@ queue_t mainQueues[MAX_NUM_INPUT_THREADS];
 
 //Base queue to write to and the max queue to write to for the input side
 size_t inputBaseQueues[MAX_NUM_INPUT_THREADS];
-size_t inputLimitQueues[MAX_NUM_INPUT_THREADS];
+size_t inputNumQueues[MAX_NUM_INPUT_THREADS];
 
 //Base queue to read from and the max queue to read from for the output side
 size_t outputBaseQueues[MAX_NUM_OUTPUT_THREADS];
-size_t outputLimitQueues[MAX_NUM_OUTPUT_THREADS];
+size_t outputNumQueues[MAX_NUM_OUTPUT_THREADS];
 
 char* get_name(){
     return ALGNAME;
@@ -51,11 +51,10 @@ void * input_thread(void * args){
     unsigned char packetData[MAX_PAYLOAD_SIZE];
 
     //The base and limit queues that the thread should write to
-    size_t baseQueueIndex = inputBaseQueue[threadNum];
-    size_t maxQueueIndex = inputLimitQueue[threadNum];
+    size_t baseQueueIndex = inputBaseQueues[threadNum];
 
     //The number of queues that this input thread is writing to
-    size_t numQueuesMan = maxQueueIndex - baseQueueIndex;
+    size_t numQueuesMan = inputNumQueues[threadNum];
 
     //Each input buffer has a certain number flows associated with it that it generates
     size_t orderForFlow[FLOWS_PER_THREAD] = {0};
@@ -92,33 +91,36 @@ void * input_thread(void * args){
 
         //Min value: 64 || Max value: 8191 + 64
         seed1 = (214013 * seed1 + 2531011); 
-        currLength = (((seed1 >> 16) & 0xFFFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
+        currLength = ((seed1 >> 16) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
         // *** END PACKET GENERATOR  ***
 
         //Get which queue the flow should go to
         qIndex = currFlow % numQueuesMan;
 
+        //get the next available index to write the packet to
+        dataIndex = mainQueues[qIndex].toWrite;
+
         //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
-        while(mainQueues[qIndex].data[dataIndexIndex].isOccupied == OCCUPIED){
+        while(mainQueues[qIndex].data[dataIndex].isOccupied == OCCUPIED){
             ;//Do Nothing until the queue is free to write to
         }
 
         //Write the packet data to the queue
-        memcpy(&mainQueues[qIndex].segments[segIndex].data[dataIndex].payload, packetData, currLength);
-        mainQueues[qIndex].segments[segIndex].data[dataIndex].order = orderForFlow[currFlow - offset];
-        mainQueues[qIndex].segments[segIndex].data[dataIndex].flow = currFlow;
-        mainQueues[qIndex].segments[segIndex].data[dataIndex].length = currLength;
+        memcpy(&mainQueues[qIndex].data[dataIndex].packet.payload, packetData, currLength);
+        mainQueues[qIndex].data[dataIndex].packet.order = orderForFlow[currFlow - offset];
+        mainQueues[qIndex].data[dataIndex].packet.flow = currFlow;
+        mainQueues[qIndex].data[dataIndex].packet.length = currLength;
 
         //Update the next flow number to assign
         orderForFlow[currFlow - offset]++;
 
         //Say that the segment is ready to be read and move onto the next queue it is managing
-        mainQueues[qIndex].segments[segIndex].isOccupied = OCCUPIED;
+        mainQueues[qIndex].data[dataIndex].isOccupied = OCCUPIED;
 
-        //Move to the next segment in the queue
-        segIndex++;
-        if(segIndex >= NUM_SEGS) 
-            segIndex = 0;
+        //Move to the next data index in the queue
+        mainQueues[qIndex].toWrite++;
+        if(mainQueues[qIndex].toWrite >= BUFFERSIZE)
+            mainQueues[qIndex].toWrite = 0;
     }
 
     return NULL;
@@ -126,7 +128,7 @@ void * input_thread(void * args){
 
 //This is the old output processing thread from the framework
 //The job of the processing threads is to ensure that the packets are being delivered in proper order by going through
-//output queues and reading the order
+//output queues and reading the order and making sure its correct
 void * output_thread(void * args){
     //Get arguments and any other functions for input threads
     threadArgs_t *outputArgs = (threadArgs_t *)args;
@@ -138,11 +140,20 @@ void * output_thread(void * args){
     //"Process" packets to confirm they are in the correct order before consuming more. 
     //Processing threads process until they get to a spot with no packets
     size_t expected[MAX_NUM_INPUT_THREADS * FLOWS_PER_THREAD] = {0}; 
-    size_t qIndex;
-    size_t baseQIndex = outputBaseQueues[threadNum];
-    size_t maxQIndex = baseQIndex + outputNumQueues[threadNum];
-    size_t segIndex = 0;
-    size_t dataIndex = 0;
+
+    //The number of queues that this input thread is writing to
+    size_t numQueuesMan = outputNumQueues[threadNum];
+
+    //The base and limit queues that the thread should write to
+    size_t baseQueueIndex = outputBaseQueues[threadNum];
+    size_t limitQueueIndex = baseQueueIndex + numQueuesMan;
+
+    //Used to index into queue structs
+    size_t qIndex = baseQueueIndex;
+    size_t dataIndex;
+
+    //Used to allow superscalar operations
+    size_t currFlow, currLength;
 
     //Packet data
     unsigned char packetData[MAX_PAYLOAD_SIZE];
@@ -155,48 +166,38 @@ void * output_thread(void * args){
 
     //Go through an entire output queue and consume all packets
     while(1){
-        //Cycle through all the queues its managing
-        for(qIndex = baseQIndex; qIndex < maxQIndex; qIndex++){
-            //Wait till the queue is ready to be read from
-            while(mainQueues[qIndex].segments[segIndex].isOccupied == NOT_OCCUPIED){
-                ; //Wait
-            }
+        //Wait till the queue is ready to be read from
+        while(mainQueues[qIndex].data[dataIndex].isOccupied == NOT_OCCUPIED){
+            ; //Wait
+        }
 
-            //Go through the entire queue as we know its full and take the packets out
-            for(dataIndex = 0; dataIndex < VBUFFERSIZE; dataIndex++){
-                //Get the current flow for the packet
-                size_t currFlow = mainQueues[qIndex].segments[segIndex].data[dataIndex].flow;
-                
-                //Packets order must be equal to the expected order.
-                //Implementing less than currflow causes race conditions with writing
-                //Any line that starts with a * is ignored by python script
-                if(expected[currFlow] != mainQueues[qIndex].segments[segIndex].data[dataIndex].order){
-                    //Print out the specific packet that caused the error to the user
-                    printf("\nError Packet: Flow %lu | Order %lu\n", mainQueues[qIndex].segments[segIndex].data[dataIndex].flow,mainQueues[qIndex].segments[segIndex].data[dataIndex].order);
-                    printf("Packet out of order in Output Queue %lu. Expected %lu | Got %lu\n", qIndex, expected[currFlow], mainQueues[qIndex].segments[segIndex].data[dataIndex].order);
-                    exit(1);
-                }    
-                //Get the length
-                size_t currLength = mainQueues[qIndex].segments[segIndex].data[dataIndex].length;
+        //Get the current flow for the packet
+        currFlow = mainQueues[qIndex].data[dataIndex].packet.flow;
 
-                //Pull the data out of the packet
-                memcpy(packetData, mainQueues[qIndex].segments[segIndex].data[dataIndex].payload, currLength);
+        //Get the length of the payload of the packet
+        currLength = mainQueues[qIndex].data[dataIndex].packet.length;
+        
+        //Packets order must be equal to the expected order.
+        //Implementing less than currflow causes race conditions with writing
+        //Any line that starts with a * is ignored by python script
+        if(expected[currFlow] != mainQueues[qIndex].data[dataIndex].order){
+            //Print out the specific packet that caused the error to the user
+            printf("\nError Packet: Flow %lu | Order %lu\n", mainQueues[qIndex].data[dataIndex].packet.flow,mainQueues[qIndex].data[dataIndex].packet.order);
+            printf("Packet out of order in Output Queue %lu. Expected %lu | Got %lu\n", qIndex, expected[currFlow], mainQueues[qIndex].data[dataIndex].packet.order);
+            exit(1);
+        }    
 
-                //increment the number of bits passed
-                output[threadNum].byteCount += currLength + 24;
+        //Pull the data out of the packet
+        memcpy(packetData, mainQueues[qIndex].data[dataIndex].packet.payload, currLength);
 
-                //Set what the next expected packet for the flow should be
-                expected[currFlow]++;
-            }
+        //increment the number of bits passed
+        output[threadNum].byteCount += currLength + 24;
 
-            //Say that the queue is ready to be written to again
-            mainQueues[qIndex].segments[segIndex].isOccupied = NOT_OCCUPIED;
-        } 
+        //Set what the next expected packet for the flow should be
+        expected[currFlow]++;
 
-        //Move to the next segment in the queues it is managing
-        segIndex++;
-        if(segIndex >= NUM_SEGS) 
-            segIndex = 0;
+        //Say that the queue is ready to be written to again
+        mainQueues[qIndex].data[dataIndex].isOccupied = NOT_OCCUPIED;
     }
 
     return NULL;
@@ -205,13 +206,11 @@ void * output_thread(void * args){
 void init_queues(){
     //initialize all values for built in input/output queues to 0
     for(int qIndex = 0; qIndex < MAX_NUM_INPUT_THREADS; qIndex++){
-        for(int segIndex = 0; segIndex < NUM_SEGS; segIndex++){
-            for(int dataIndex = 0; dataIndex < VBUFFERSIZE; dataIndex++){
-                mainQueues[qIndex].segments[segIndex].data[dataIndex].flow = 0;
-                mainQueues[qIndex].segments[segIndex].data[dataIndex].order = 0;
-                mainQueues[qIndex].segments[segIndex].data[dataIndex].length = 0;
-                mainQueues[qIndex].segments[segIndex].isOccupied = NOT_OCCUPIED;
-            }
+        for(int dataIndex = 0; dataIndex < BUFFERSIZE; dataIndex++){
+            mainQueues[qIndex].data[dataIndex].packet.flow = 0;
+            mainQueues[qIndex].data[dataIndex].packet.order = 0;
+            mainQueues[qIndex].data[dataIndex].packet.length = 0;
+            mainQueues[qIndex].data[dataIndex].isOccupied = NOT_OCCUPIED;
         }
     }
 
@@ -221,13 +220,13 @@ void init_queues(){
     }
 }
 
-void assign_queues(size_t numQueuesToAssign[], size_t baseQueuesToAssign[], size_t passerQueueCount, size_t queueCountTracker){
-    size_t passerQueueCountTracker = passerQueueCount;
-    size_t queueIndex = 0;
-    size_t queueToPassRatio;
+void assignQueues(size_t numQueuesToAssign[], size_t baseQueuesToAssign[], int passerQueueCount, int queueCountTracker){
+    int passerQueueCountTracker = passerQueueCount;
+    int queueIndex = 0;
+    int queueToPassRatio;
     for(int i = 0; i < passerQueueCount; i++){
         //Get the ratio of remaining in/out to remaining passer queues
-        queueToPassRatio = (size_t)ceil((double)queueCountTracker / passerQueueCountTracker);
+        queueToPassRatio = (int)ceil((double)queueCountTracker / passerQueueCountTracker);
 
         //This is the number of in/out queues that the current passer queue should handle
         numQueuesToAssign[i] = queueToPassRatio;
@@ -248,18 +247,24 @@ void assign_queues(size_t numQueuesToAssign[], size_t baseQueuesToAssign[], size
 pthread_t * run(void *argsv){
     //Get the correct number of intermediary queues
     //This number is equivalent to min(inputThreadCount, outputThreadCount)
-    if(inputQueueCount <= outputQueueCount){
-        passerQueueCount = inputQueueCount;
-        passerQueueCountTracker = inputQueueCount;
+    int passerQueueCount;
+
+    if(inputThreadCount <= outputThreadCount){
+        passerQueueCount = inputThreadCount;
     }
     else{
-        passerQueueCount = outputQueueCount;
-        passerQueueCountTracker = outputQueueCount;
+        passerQueueCount = outputThreadCount;
     }
 
     init_queues();
-    if(inputThreadCount > outputThreadCount){
-        assign_queues(outputNumQueues, outputBaseQueues, outputThreadCount, inputThreadCount);
-    }
+
+    //Determine which input queues go with which passing thread
+    assignQueues(inputNumQueues, inputBaseQueues, passerQueueCount, inputThreadCount);
+
+    //Determine which output queues go with which passing thread
+    assignQueues(outputNumQueues, outputBaseQueues, passerQueueCount, outputThreadCount);
+
+    exit(1);
+
     return NULL;
 }
