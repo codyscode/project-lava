@@ -47,19 +47,10 @@ testSpecificAlgorithm(){
 		fi
 	done
 	for dir in Algorithm*/ ; do
-<<<<<<< HEAD
 		temp=""
 		pwd
 		cd $dir
-		#temp=$(grep "#define ALGNAME *" algorithm.c | awk '{print $3}' | sed 's/^"\(.*\)"$/\1/')
-=======
-		cd $dir
-		pwd
-		temp=$(grep "#define ALGNAME *" algorithm.c | awk '{print $3}')
-		temp="${temp#\"}"
-		temp="${temp%\"}"
-		echo "Algorithm in current folder: $temp  Algorithm you are trying to run: $AlgorithmInput"
->>>>>>> 2c7f0af9d79165f62ac2767059ff091793fb5a73
+
 
 		echo "Algorithm in current folder: $dir"
 		echo "Algorithm you are trying to run: $AlgorithmInput"
