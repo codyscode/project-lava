@@ -32,7 +32,7 @@ ifneq ("$(wildcard $(AP))","")
 all: clean $(TARGET)
 else
 all: 
-	$(info Need to specify a path to your algorithm folder. 
+	$(info Need to specify a path to your algorithm folder.)
 	$(info Example: make AP=Algorithm1/)
 	$(info For all arguments, run: make help)
 	$(error )
