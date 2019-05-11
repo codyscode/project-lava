@@ -94,7 +94,7 @@ void * input_thread(void * args){
         local.ptr += 8;
         memcpy(local.ptr, currFlow, 8);
         local.ptr += 8;
-        memcpy(local.ptr, currFlow, 8);
+        memcpy(local.ptr, data, currLength);
 
         //Update local.ptr to the next address we'll write a packet
         local.ptr += (currLength + 24);
