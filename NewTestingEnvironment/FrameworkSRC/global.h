@@ -124,6 +124,7 @@ typedef struct io{
     queue_t queue;
     size_t readyFlag;
     size_t byteCount;
+    size_t padding[8];
 }io_t;
 
 //initialize array of input and ouput threads
