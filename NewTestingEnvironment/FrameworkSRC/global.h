@@ -33,11 +33,12 @@
 
 //Used to determine payload size
 #define MIN_PAYLOAD_SIZE 64
-#define MAX_PAYLOAD_SIZE 64 + 1
+#define MAX_PAYLOAD_SIZE 64
+#define MAX_PAYLOAD_SIZE_MOD (MAX_PAYLOAD_SIZE + 1)
 
 //Maximum packet size
 #define MIN_PACKET_SIZE (24 + MIN_PAYLOAD_SIZE)
-#define MAX_PACKET_SIZE (24 + (MAX_PAYLOAD_SIZE - 1))
+#define MAX_PACKET_SIZE (24 + MAX_PAYLOAD_SIZE)
 
 //Number of unique flows that each input thread generates
 //The flows per thread is a power of 2 to allow efficient packet generation

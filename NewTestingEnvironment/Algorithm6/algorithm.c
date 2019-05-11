@@ -73,7 +73,7 @@ void * input_thread(void * args){
         g_seed0 = (214013*g_seed0+2531011);   
         currFlow = ((g_seed0>>16)&0x0007) + offset;//Min value offset + 1: Max value offset + 9:
         g_seed1 = (214013*g_seed1+2531011); 
-        currLength = ((g_seed1>>16)&0XFFFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;
+        currLength = ((g_seed1>>16)&0XFFFF) % (MAX_PAYLOAD_SIZE_MOD - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;
 
         //Generate a packet and write it to the local buffer
         packet_t packet;

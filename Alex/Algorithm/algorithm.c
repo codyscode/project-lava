@@ -1,30 +1,25 @@
 /*
-- This algorithm makes M x N physical queues to write to allow all input threads to communicate with all output threads.
-- It uses one set of queues that the input threads write to directly and the output threads read from
+In this algorithm, each input thread writes packets contiguously to a local 
+buffer creating a vector. The full vector is memcpyd to shared memory. An output
+thread then memcpys the vector to its local buffer where it's processed. Even 
+though each byte gets memcpyd twice as many times, it's significantly faster.
+Presumably because caches aren't thrashing.
 */
 
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "MxNQueuesVectors"
+#define ALGNAME "ContiguousVectorsTest"
 
-#define VBUFFERSIZE 512
-#define NUM_SEGS 2
+//This buffer size had the best throughput but if latency is considered it could be 
+//adjusted. For example, buffers half this size were only 1 Gbps slower for 8 to 8.
+#define BUFFSIZEBYTES 65536
 
-//isOccupied - Whether all the data there is ready to copy or not
-//data (packet_t array) - Space for packets in the queue
-typedef struct VSegment {
-    size_t isOccupied;
-    packet_t data[VBUFFERSIZE];
-}vseg_t;
-
-//2 segments, this allows when one segment is being read, for the other to be writeen to
-typedef struct VQueue {
-    size_t segIndex;
-    vseg_t segments[NUM_SEGS];
-}vqueue_t;
-
-vqueue_t mainQueues[MAX_NUM_INPUT_THREADS * MAX_NUM_OUTPUT_THREADS];
+typedef struct custom_queue_t{
+    unsigned char buffer[BUFFSIZEBYTES];
+    unsigned char *ptr;
+} custom_queue_t;
+custom_queue_t queues[MAX_NUM_INPUT_THREADS];
 
 char* get_name(){
     return ALGNAME;
@@ -38,188 +33,199 @@ function get_output_thread(){
     return output_thread;
 }
 
-//The job of the input threads is to make packets to populate the buffers. As of now the packets are stored in a buffer.
-//Attributes:
-// -Each input queue generates a packet and writes it to its correesponding queue
-// -Input queue stops writing when the buffer is full and continues when it is empty
-// -Each input queue generates 5 flows (i.e input 1: 1, 2, 3, 4, 5; input 2: 6, 7, 8, 9, 10)
-// -The flows can be scrambled coming from a single input (i.e stream: 1, 2, 1, 3, 4, 4, 3, 3, 5)
+void initializeCustomQueues(){
+    for (int i = 0; i < MAX_NUM_INPUT_THREADS; i++){
+        queues[i].ptr = queues[i].buffer;
+    }
+}
+
 void * input_thread(void * args){
-//Get arguments and any other functions for input threads
+    //Get arguments for input threads
     threadArgs_t *inputArgs = (threadArgs_t *)args;
 
     //Set the thread to its own core
-    size_t threadNum = inputArgs->threadNum;   
     set_thread_props(inputArgs->coreNum, 2);
 
-    //Data to write to the packet
-    unsigned char packetData[MAX_PAYLOAD_SIZE];
+    //Each input thread is assigned a single shared queue
+    custom_queue_t* shared = &queues[inputArgs->threadNum];
 
-    //Queues that the input thread writes to
-    size_t baseQueueIndex = threadNum * outputThreadCount;
-    size_t maxQueueIndex = baseQueueIndex + outputThreadCount;
+    //Initialize a local queue
+    custom_queue_t local;
+    local.ptr = local.buffer;
 
-    //Each input buffer has 5 flows associated with it that it generates
+    //Dummy data to copy
+    unsigned char data[MAX_PAYLOAD_SIZE];
+
+    //Keep track of next order number for a given flow
     size_t orderForFlow[FLOWS_PER_THREAD] = {0};
-    size_t currFlow, currLength;
-    size_t offset = threadNum * FLOWS_PER_THREAD;
+    size_t * currFlow
+    size_t * currLength;
+    size_t offset = inputArgs->threadNum * FLOWS_PER_THREAD;
 	
-    //Continuously generate input numbers until the buffer fills up. 
-    //Once it hits an entry that is not empty, it will wait until the input is grabbed.
-    size_t dataIndex = 0;
-    size_t qIndex = 0;
-    register unsigned int seed0 = (unsigned int)time(NULL);
-    register unsigned int seed1 = (unsigned int)time(NULL);
+    register unsigned int g_seed0 = (unsigned int)time(NULL);
+    register unsigned int g_seed1 = (unsigned int)time(NULL);
 
-    //Say this thread is ready to generate and pass
-    input[threadNum].readyFlag = 1;
+    input[inputArgs->threadNum].readyFlag = 1;
 
     //Wait until everything else is ready
     while(startFlag == 0);
 
-    //Write packets to their corresponding queues
+    //Each iteration writes a packet to the local buffer, when the local buffer
+    //is full the entire vector is copied to the shared buffer.
     while(1){
-        // *** START PACKET GENERATOR ***
-        //Min value: offset || Max value: offset + 7
-        seed0 = (214013 * seed0 + 2531011);   
-        currFlow = ((seed0 >> 16) & FLOWS_PER_THREAD_MOD) + offset;
+        // *** FASTEST PACKET GENERATOR ***
+        g_seed0 = (214013*g_seed0+2531011);   
+        *currFlow = ((g_seed0>>16)&0x0007) + offset;//Min value offset + 1: Max value offset + 9:
+        g_seed1 = (214013*g_seed1+2531011); 
+        *currLength = ((g_seed1>>16)&0XFFFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;
 
-        //Min value: 64 || Max value: 8191 + 64
-        seed1 = (214013 * seed1 + 2531011); 
-        currLength = ((seed1 >> 16) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
-        // *** END PACKET GENERATOR  ***
+        //Generate a packet and write it to the local buffer
+        packet_t packet;
+        packet.order = orderForFlow[currFlow - offset];
+        packet.length = currLength;
+        packet.flow = currFlow;
+        memcpy(local.ptr, &packet, currLength + 24);
 
-        //Determine which queue to write the packet data to
-        qIndex = (currFlow % (maxQueueIndex - baseQueueIndex)) + baseQueueIndex;
-        dataIndex = mainQueues[qIndex].toWrite;
 
-        //If the queue spot is filled then that means the input buffer is full so continuously check until it becomes open
-        while(mainQueues[qIndex].segment[segIndex].isOccupied == OCCUPIED){
-            ;//Do Nothing until a space is available to write
-        }
 
-        //Write the packet data to the queue
-        memcpy(&mainQueues[qIndex].segment[segIndex].data[dataIndex].payload, packetData, currLength);
-        mainQueues[qIndex].segment[segIndex].data[dataIndex].order = orderForFlow[currFlow - offset];
-        mainQueues[qIndex].segment[segIndex].data[dataIndex].flow = currFlow;
-        mainQueues[qIndex].segment[segIndex].data[dataIndex].length = currLength;
+        memcpy(local.ptr, orderForFlow[currFlow - offset], 8);
+        local.ptr += 8;
+        memcpy(local.ptr, currLength, 8);
+        local.ptr += 8;
+        memcpy(local.ptr, currFlow, 8);
+        local.ptr += 8;
+        memcpy(local.ptr, currFlow, 8);
+
+        //Update local.ptr to the next address we'll write a packet
+        local.ptr += (currLength + 24);
 
         //Update the next flow number to assign
         orderForFlow[currFlow - offset]++;
-
-        //Update the next spot to be written in the queue
-        mainQueues[qIndex].toWrite++;
-        if(mainQueues[qIndex].toWrite >= BUFFERSIZE){
-            //Say that the vector is ready to be read
-            mainQueues[qIndex].segment[segIndex].isOccupied = OCCUPIED; 
-            mainQueues[qIndex].segIndex++; 
-            mainQueues[qIndex].segIndexsegIndex %= NUM_SEGS;
-            segIndex = mainQueues[qIndex].segIndex;
-            mainQueues[qIndex].toWrite = 0;
+        
+        //If we don't have room in the local buffer for another packet it's time to memcpy to shared memory.
+        //A timeout could be added for real-world situations where few packets are coming in and local buffers
+        //take a long time to fill.
+        if ((local.ptr - local.buffer + MAX_PACKET_SIZE) >= BUFFSIZEBYTES) {
+            //If there's still data in the shared buffer, wait
+            while (shared->ptr > shared->buffer) {
+                ;
+            }
+            //Copy the entire vector to shared memory
+            memcpy(shared->buffer, local.buffer, (local.ptr - local.buffer));
+            //Signal to output_thread there's more data in shared memory and how much
+            shared->ptr = shared->buffer + (local.ptr - local.buffer);
+            //Reset the local queue
+            local.ptr = local.buffer;
         }
     }
-
     return NULL;
 }
 
-//This is the old output processing thread from the framework
-//The job of the processing threads is to ensure that the packets are being delivered in proper order by going through
-//output queues and reading the order
 void * output_thread(void * args){
-    //Get arguments and any other functions for input threads
+    //Get arguments for input threads
     threadArgs_t *outputArgs = (threadArgs_t *)args;
 
     //Set the thread to its own core
-    size_t threadNum = outputArgs->threadNum;   
     set_thread_props(outputArgs->coreNum, 2);
-        
-    //Decide which queues this output thread should manage
-    size_t baseQueueIndex = threadNum;
-    size_t maxQueues = inputThreadCount * outputThreadCount;
 
-    //"Process" packets to confirm they are in the correct order before consuming more. 
-    //Processing threads process until they get to a spot with no packets
+    //Start on the first shared queue this output thread is reponsible for
+    size_t currentQueueNum = outputArgs->threadNum;  
+    custom_queue_t*  shared = &queues[currentQueueNum];
+
+    //Initialize local queue;
+    custom_queue_t local;
+    local.ptr = local.buffer;
+
+    //Used to verify order for a given flow
     size_t expected[MAX_NUM_INPUT_THREADS * FLOWS_PER_THREAD] = {0}; 
-    size_t qIndex = baseQueueIndex;
-    size_t dataIndex = 0;
 
-    //Packet data
-    unsigned char packetData[MAX_PAYLOAD_SIZE];
-
-    //Say this thread is ready to process
-    output[threadNum].readyFlag = 1;
+    output[currentQueueNum].readyFlag = 1;
 
     //Wait until everything else is ready
     while(startFlag == 0);
 
-    //Go through each space in the output queue until we reach an emtpy space in which case we swap to the other queue to process its packets
+    //Each iteration copies a full vector from shared memory and processes it.
     while(1){
-        dataIndex = mainQueues[qIndex].toRead;
-
-        //If there is no packet move to the next queue it is managing and start reading
-        if(mainQueues[qIndex].segment[segIndex].isOccupied == NOT_OCCUPIED){
-            qIndex += outputThreadCount;
-            if(qIndex >= maxQueues) 
-                qIndex = baseQueueIndex;
-            continue;
+        
+        //Wait until more data has been written to shared memory
+        while (shared->ptr == shared->buffer) {
+            ;
         }
+        //Copy the entire vector from shared to local memory
+        memcpy(local.buffer, shared->buffer, (shared->ptr - shared->buffer));
+        //local.ptr marks where data in the local buffer ends
+        local.ptr = local.buffer + (shared->ptr - shared->buffer);
+        //Signal to input_thread that shared memory can be written to again
+        shared->ptr = shared->buffer;
 
-        //Get the current flow for the packet
-        size_t currFlow = mainQueues[qIndex].data[dataIndex].packet.flow;
-		
-        //Packets order must be equal to the expected order.
-        //Implementing less than currflow causes race conditions with writing
-        //Any line that starts with a * is ignored by python script
-        if(expected[currFlow] != mainQueues[qIndex].data[dataIndex].packet.order){
-            /*Print out the contents of the processing queue that caused an error
-            for(int i = 0; i < BUFFERSIZE; i++){
-                printf("Position: %d, Flow: %ld, Order: %ld\n", i, mainQueues[qIndex].data[i].packet.flow, mainQueues[qIndex].data[i].packet.order);
+        //readPtr points to the current packet in the local buffer
+        unsigned char *readPtr = local.buffer;
+        //Process all packets in the local buffer.
+        while (readPtr < local.ptr) {
+
+            packet_t packet;
+            //This second memcpy arguably isn't needed since all the packet data is local to this
+            //thread at this point but I didn't want there to be any confusion over whether this
+            //accurately models individual packets being parsed and found that adding it doesn't
+            //affect the speed.  
+            memcpy(&packet, readPtr, ((packet_t*) readPtr)->length + 24);
+  
+/* Ask Alex why this was needed
+            // set expected order for given flow to the first packet it sees
+            if(expected[packet.flow] == 0){
+                expected[packet.flow] = packet.order;
             }
-            */
-            
-            //Print out the specific packet that caused the error to the user
-            printf("\nError Packet: Flow %lu | Order %lu\n", mainQueues[qIndex].data[dataIndex].packet.flow,mainQueues[qIndex].data[dataIndex].packet.order);
-            printf("Packet out of order in Output Queue %lu. Expected %lu | Got %lu\n", threadNum, expected[currFlow], mainQueues[qIndex].data[dataIndex].packet.order);
-            exit(1);
-        }    
-        size_t currLength = mainQueues[qIndex].data[dataIndex].packet.length;
+ */           
 
-        //Pull the data out of the packet
-        memcpy(packetData, &mainQueues[qIndex].data[dataIndex].packet.payload, currLength);
+            //Packets order must be equal to the expected order.
+            if(expected[packet.flow] != packet.order){
+                //Print out the contents of the local buffer that caused an error
+                int index = 0;
+                unsigned char* indexPtr = local.buffer;
+                while (indexPtr < local.ptr) {
+                    packet_t * errPacket = (packet_t*) indexPtr;
+                    printf("Position: %d, Flow: %ld, Order: %ld\n", index, errPacket->flow, errPacket->order);
+                    index++;
+                    indexPtr += (errPacket->length + 24);
+                }
+                //Print out the specific packet that caused the error to the user
+                printf("Error Packet: Flow %lu | Order %lu\n", packet.flow, packet.order);
+                printf("Packet out of order in thread: %lu. Expected %lu | Got %lu\n", outputArgs->threadNum, expected[packet.flow], packet.order);
+                exit(0);
+            }
+            else{              
+                //Set what the next expected packet for the flow should be
+                expected[packet.flow]++;
+                //Move readPtr to address of next packet
+                readPtr += (packet.length + 24);
 
-        //Set the position to free. Say it has already processed data
-        mainQueues[qIndex].data[dataIndex].isOccupied = NOT_OCCUPIED;
+            }
+        }
+        //At the end of this loop all packets in the local buffer have been processed and we update byteCount
+        output[outputArgs->threadNum].byteCount += (readPtr - local.buffer);
 
-        //increment the number of packets passed
-        output[threadNum].byteCount += currLength + 24;
-
-        //Set what the next expected packet for the flow should be
-        expected[currFlow]++;
-
-        //Move to the next spot in the outputQueue to process
-        mainQueues[qIndex].toRead++;
-        if(mainQueues[qIndex].toRead >= BUFFERSIZE) 
-            mainQueues[qIndex].toRead = 0;
+        //Move to the next shared queue this output thread is responsible for
+        currentQueueNum = currentQueueNum + outputThreadCount;
+        if(currentQueueNum >= inputThreadCount) {
+            currentQueueNum = outputArgs->threadNum;
+        }
+        shared = &queues[currentQueueNum];
     }
-
     return NULL;
 }
 
-void init_queues(){
-    //initialize all values for built in input/output queues to 0
-    for(int qIndex = 0; qIndex < MAX_NUM_INPUT_THREADS * MAX_NUM_OUTPUT_THREADS; qIndex++){
-        for(int dataIndex = 0; dataIndex < BUFFERSIZE; dataIndex++){
-            mainQueues[qIndex].data[dataIndex].packet.flow = 0;
-            mainQueues[qIndex].data[dataIndex].packet.order = 0;
-            mainQueues[qIndex].data[dataIndex].packet.length = 0;
-            mainQueues[qIndex].data[dataIndex].isOccupied = NOT_OCCUPIED;
-        }
-        mainQueues[qIndex].toRead = 0;
-        mainQueues[qIndex].toWrite = 0;
-    }
-}
 
 pthread_t * run(void *argsv){
-    init_queues();
+
+    initializeCustomQueues();
+
+    //Initialize thread attributes
+    pthread_attr_t attrs;
+    pthread_attr_init(&attrs);
+
+    //Tell the system we are setting the schedule for the thread, instead of inheriting
+    if(pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED)) {
+        perror("pthread_attr_setinheritsched");
+    }
     return NULL;
 }

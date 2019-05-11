@@ -70,7 +70,7 @@ void * input_thread(void * args){
 
         //Min value: 64 || Max value: 8191 + 64
         seed1 = (214013 * seed1 + 2531011); 
-        currLength = ((seed1 >> 16) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
+        currLength = ((seed1 >> 16) % (MAX_PAYLOAD_SIZE_MOD - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
         // *** END PACKET GENERATOR  ***
 
         //Determine which queue to write the packet data to
