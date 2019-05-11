@@ -160,8 +160,7 @@ void check_if_ideal_conditions(){
                     //Indicate we are exiting
                     printf("Exiting...\n");
                     exit(1);
-                }
-                
+                }   
             }
         }
 

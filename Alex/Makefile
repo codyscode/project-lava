@@ -38,18 +38,11 @@ $(OBJS): $(addprefix $(FWF), $(SRCS)) $(AP)*.c $(addprefix $(FWF), $(DEPS))
 	$(MAKE) -C $(FWF)
 	$(MAKE) -C $(AP)
 
-ifeq ($(AP),)
-clean:
-	$(info To clean the algorithm folder, you need to specify a path to the)
-	$(info makefile. Example: make AM=Algorithm1/)
-	$(MAKE) clean -C $(FWF)
-	find . -name $(TARGET) -type f -delete
-else
 clean:
 	$(MAKE) clean -C $(FWF)
 	find . -name $(TARGET) -type f -delete
 	$(MAKE) clean -C $(AP)
-endif
+	find . -name "*.csv" -type f -delete
 
 help:	
 	$(info - make [options])

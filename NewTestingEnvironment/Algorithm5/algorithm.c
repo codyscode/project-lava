@@ -98,9 +98,6 @@ void * input_thread(void * args){
         currLength = ((seed1 >> 16) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
         // *** END PACKET GENERATOR  ***
 
-        //Get which queue the flow should go to
-        //qIndex = (currFlow - offset) / maxDivisor;
-
         //get the next available index to write the packet to
         dataIndex = mainQueues[qIndex].toWrite;
 

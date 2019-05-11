@@ -52,6 +52,10 @@
 #define FIRST_INDEX 0
 #define LAST_INDEX (BUFFERSIZE - 1)
 
+//Base suggested core repinning assignments
+#define INPUT_BASE_CORE 2 
+#define OUTPUT_BASE_CORE 11 
+
 //Define a memory fence that tells the compiler to not reorder instructions
 //In order to make sure writes are in order
 #define FENCE() \

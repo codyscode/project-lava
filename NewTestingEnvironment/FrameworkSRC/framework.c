@@ -10,7 +10,6 @@
 //
 
 
-
 // *** TIMING ***
 // Algorithm speed is measured in packets per second:
 
@@ -120,7 +119,6 @@ void check_if_ideal_conditions(){
                         break;
                     }
                 }
-
                 //move onto the next word in the line
                 word = strtok(NULL, " -\n");
             }
@@ -141,12 +139,10 @@ void check_if_ideal_conditions(){
                         printf("Exiting...\n");
                         //Delete the temporary file
                         int status = remove(fileName);
-
                         if (status != 0){
                             printf("Unable to delete temporary file: temp\n");
                             perror("Following error occurred");
                         }  
-
                         exit(1);
                     }
                 }
@@ -156,24 +152,17 @@ void check_if_ideal_conditions(){
                         printf("Unable to delete temporary file: temp\n");
                         perror("Following error occurred");
                     }  
-
                     //Indicate we are exiting
                     printf("Exiting...\n");
                     exit(1);
-                }
-                
+                }     
             }
         }
 
-        //Close the file
+        //Clean up temp variables
         fclose(fptr);
-
-        //Free the line variable
         free(line);
-
-        //Delete the temporary file
         status = remove(fileName);
-
         if (status != 0){
             printf("Unable to delete the file\n");
             perror("Following error occurred");
@@ -207,7 +196,7 @@ void init_built_in_queues(){
 
 void spawn_input_threads(pthread_attr_t attrs, function input_thread){
     //Core for each input thread to be assigned to
-    int core = 2;
+    int core = INPUT_BASE_CORE;
 
     //Spawn the input threads and pass appropriate arguments
     for(int index = 0; index < inputThreadCount; index++){
@@ -230,7 +219,7 @@ void spawn_input_threads(pthread_attr_t attrs, function input_thread){
 
 void spawn_output_threads(pthread_attr_t attrs, function processing_thread){
     //Core for each output thread to be assigned to
-    int core = 11;
+    int core = OUTPUT_BASE_CORE;
 
     //Spawn the output threads and pass appropriate arguments
     for(int index = 0; index < outputThreadCount; index++){
