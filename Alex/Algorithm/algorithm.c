@@ -58,12 +58,12 @@ void * input_thread(void * args){
 
     //Keep track of next order number for a given flow
     size_t orderForFlow[FLOWS_PER_THREAD] = {0};
-    size_t * currFlow
-    size_t * currLength;
+    size_t currFlow;
+    size_t currLength;
     size_t offset = inputArgs->threadNum * FLOWS_PER_THREAD;
 	
-    register unsigned int g_seed0 = (unsigned int)time(NULL);
-    register unsigned int g_seed1 = (unsigned int)time(NULL);
+    register unsigned int seed0 = (unsigned int)time(NULL);
+    register unsigned int seed1 = (unsigned int)time(NULL);
 
     input[inputArgs->threadNum].readyFlag = 1;
 
@@ -73,12 +73,27 @@ void * input_thread(void * args){
     //Each iteration writes a packet to the local buffer, when the local buffer
     //is full the entire vector is copied to the shared buffer.
     while(1){
-        // *** FASTEST PACKET GENERATOR ***
-        g_seed0 = (214013*g_seed0+2531011);   
-        *currFlow = ((g_seed0>>16)&0x0007) + offset;//Min value offset + 1: Max value offset + 9:
-        g_seed1 = (214013*g_seed1+2531011); 
-        *currLength = ((g_seed1>>16)&0XFFFF) % (MAX_PAYLOAD_SIZE - MIN_PAYLOAD_SIZE) + MIN_PAYLOAD_SIZE;
+        // *** START PACKET GENERATOR ***
+        //Min value: offset || Max value: offset + 7
+        seed0 = (214013 * seed0 + 2531011);   
+        currFlow = ((seed0 >> 16) & FLOWS_PER_THREAD_MOD) + offset;
 
+        //Min value: 64 || Max value: 8191 + 64
+        seed1 = (214013 * seed1 + 2531011); 
+        currLength = ((seed1 >> 16) % (MAX_PAYLOAD_SIZE_MOD - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
+        // *** END PACKET GENERATOR  ***
+
+
+        memcpy(local.ptr, &currFlow, 8);
+        local.ptr += 8;
+        memcpy(local.ptr, &currLength, 8);
+        local.ptr += 8;
+        memcpy(local.ptr, &orderForFlow[currFlow - offset], 8);
+        local.ptr += 8;
+        memcpy(local.ptr, data, currLength);
+        local.ptr += currLength;
+
+        /*
         //Generate a packet and write it to the local buffer
         packet_t packet;
         packet.order = orderForFlow[currFlow - offset];
@@ -86,18 +101,10 @@ void * input_thread(void * args){
         packet.flow = currFlow;
         memcpy(local.ptr, &packet, currLength + 24);
 
-
-
-        memcpy(local.ptr, orderForFlow[currFlow - offset], 8);
-        local.ptr += 8;
-        memcpy(local.ptr, currLength, 8);
-        local.ptr += 8;
-        memcpy(local.ptr, currFlow, 8);
-        local.ptr += 8;
-        memcpy(local.ptr, data, currLength);
-
         //Update local.ptr to the next address we'll write a packet
         local.ptr += (currLength + 24);
+        */
+        
 
         //Update the next flow number to assign
         orderForFlow[currFlow - offset]++;

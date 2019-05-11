@@ -33,15 +33,16 @@
 
 //Used to determine payload size
 #define MIN_PAYLOAD_SIZE 64
-#define MAX_PAYLOAD_SIZE 64 + 1
+#define MAX_PAYLOAD_SIZE 64
+#define MAX_PAYLOAD_SIZE_MOD (MAX_PAYLOAD_SIZE + 1)
 
 //Maximum packet size
 #define MIN_PACKET_SIZE (24 + MIN_PAYLOAD_SIZE)
-#define MAX_PACKET_SIZE (24 + (MAX_PAYLOAD_SIZE - 1))
+#define MAX_PACKET_SIZE (24 + MAX_PAYLOAD_SIZE)
 
 //Number of unique flows that each input thread generates
 //The flows per thread is a power of 2 to allow efficient packet generation
-#define FLOWS_PER_THREAD 16U
+#define FLOWS_PER_THREAD 8U
 #define FLOWS_PER_THREAD_MOD (FLOWS_PER_THREAD - 1U)
 
 //Indicates whether a packet is there or not
@@ -51,6 +52,10 @@
 //Major indices in the buffer
 #define FIRST_INDEX 0
 #define LAST_INDEX (BUFFERSIZE - 1)
+
+//Base suggested core repinning assignments
+#define INPUT_BASE_CORE 2 
+#define OUTPUT_BASE_CORE 11 
 
 //Define a memory fence that tells the compiler to not reorder instructions
 //In order to make sure writes are in order
