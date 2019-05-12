@@ -3,7 +3,9 @@ In this algorithm, each input thread writes packets contiguously to a local
 buffer creating a vector. The full vector is memcpyd to shared memory. An output
 thread then memcpys the vector to its local buffer where it's processed. Even 
 though each byte gets memcpyd twice as many times, it's significantly faster.
-Presumably because caches aren't thrashing.
+Local writes stay in the input thread's cache until it's full, making them very
+fast. Memcpys through shared memory are amortized. Local reads in the output
+threads also have a full cache.
 */
 
 #include "../FrameworkSRC/global.h"
@@ -19,6 +21,7 @@ typedef struct custom_queue_t{
     unsigned char buffer[BUFFSIZEBYTES];
     unsigned char *ptr;
 } custom_queue_t;
+
 custom_queue_t queues[MAX_NUM_INPUT_THREADS];
 
 char* get_name(){
@@ -53,9 +56,13 @@ void * input_thread(void * args){
     custom_queue_t local;
     local.ptr = local.buffer;
 
+    //Used to write packets to local buffer
+    packet_t packet;
+
     //Keep track of next order number for a given flow
     size_t orderForFlow[FLOWS_PER_THREAD] = {0};
-    size_t currFlow, currLength;
+    size_t currFlow; 
+    size_t currLength;
     size_t offset = inputArgs->threadNum * FLOWS_PER_THREAD;
 	
     register unsigned int seed0 = (unsigned int)time(NULL);
@@ -80,7 +87,6 @@ void * input_thread(void * args){
         // *** END PACKET GENERATOR  ***
 
         //Generate a packet and write it to the local buffer
-        packet_t packet;
         packet.order = orderForFlow[currFlow - offset];
         packet.length = currLength;
         packet.flow = currFlow;
@@ -96,7 +102,7 @@ void * input_thread(void * args){
         //A timeout could be added for real-world situations where few packets are coming in and local buffers
         //take a long time to fill.
         if ((local.ptr - local.buffer + MAX_PACKET_SIZE) >= BUFFSIZEBYTES) {
-            //If there's still data in the shared buffer, wait
+            //Wait while there's still data in the shared buffer
             while (shared->ptr > shared->buffer) {
                 ;
             }
@@ -119,24 +125,33 @@ void * output_thread(void * args){
     set_thread_props(outputArgs->coreNum, 2);
 
     //Start on the first shared queue this output thread is reponsible for
-    size_t currentQueueNum = outputArgs->threadNum;  
-    custom_queue_t*  shared = &queues[currentQueueNum];
+    size_t qIndex = outputArgs->threadNum;
+
+    //Points to the current shared queue this output_thread is handling
+    custom_queue_t *shared;
 
     //Initialize local queue;
     custom_queue_t local;
     local.ptr = local.buffer;
 
+    //Used to read packets from local buffer
+    packet_t packet;
+
+    //Points to the current packet in the local buffer
+    unsigned char *readPtr;
+
     //Used to verify order for a given flow
     size_t expected[MAX_NUM_INPUT_THREADS * FLOWS_PER_THREAD] = {0}; 
 
-    output[currentQueueNum].readyFlag = 1;
+    output[outputArgs->threadNum].readyFlag = 1;
 
     //Wait until everything else is ready
     while(startFlag == 0);
 
     //Each iteration copies a full vector from shared memory and processes it.
     while(1){
-        
+        //Output threads may have to handle more than one shared queue
+        shared = &queues[qIndex];
         //Wait until more data has been written to shared memory
         while (shared->ptr == shared->buffer) {
             ;
@@ -147,26 +162,17 @@ void * output_thread(void * args){
         local.ptr = local.buffer + (shared->ptr - shared->buffer);
         //Signal to input_thread that shared memory can be written to again
         shared->ptr = shared->buffer;
-
         //readPtr points to the current packet in the local buffer
-        unsigned char *readPtr = local.buffer;
+        readPtr = local.buffer;
+
         //Process all packets in the local buffer.
         while (readPtr < local.ptr) {
-
-            packet_t packet;
             //This second memcpy arguably isn't needed since all the packet data is local to this
             //thread at this point but I didn't want there to be any confusion over whether this
             //accurately models individual packets being parsed and found that adding it doesn't
-            //affect the speed.  
+            //affect the speed.
             memcpy(&packet, readPtr, ((packet_t*) readPtr)->length + 24);
-  
-/* Ask Alex why this was needed
-            // set expected order for given flow to the first packet it sees
-            if(expected[packet.flow] == 0){
-                expected[packet.flow] = packet.order;
-            }
- */           
-
+        
             //Packets order must be equal to the expected order.
             if(expected[packet.flow] != packet.order){
                 //Print out the contents of the local buffer that caused an error
@@ -186,6 +192,7 @@ void * output_thread(void * args){
             else{              
                 //Set what the next expected packet for the flow should be
                 expected[packet.flow]++;
+
                 //Move readPtr to address of next packet
                 readPtr += (packet.length + 24);
 
@@ -195,11 +202,10 @@ void * output_thread(void * args){
         output[outputArgs->threadNum].byteCount += (readPtr - local.buffer);
 
         //Move to the next shared queue this output thread is responsible for
-        currentQueueNum = currentQueueNum + outputThreadCount;
-        if(currentQueueNum >= inputThreadCount) {
-            currentQueueNum = outputArgs->threadNum;
+        qIndex = qIndex + outputThreadCount;
+        if(qIndex >= inputThreadCount) {
+            qIndex = outputArgs->threadNum;
         }
-        shared = &queues[currentQueueNum];
     }
     return NULL;
 }
@@ -209,13 +215,5 @@ pthread_t * run(void *argsv){
 
     initializeCustomQueues();
 
-    //Initialize thread attributes
-    pthread_attr_t attrs;
-    pthread_attr_init(&attrs);
-
-    //Tell the system we are setting the schedule for the thread, instead of inheriting
-    if(pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED)) {
-        perror("pthread_attr_setinheritsched");
-    }
     return NULL;
 }
