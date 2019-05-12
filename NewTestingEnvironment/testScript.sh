@@ -17,8 +17,6 @@ normalTest(){
 specificTest(){
 	count=0
 	for opt in $OPTION_VAL; do
-		echo "OPT: $opt"
-		echo "COUNT: $count"
 		if [ "$count" -eq 0 ]
 		then 
 			inputT="$opt"
