@@ -4,8 +4,8 @@ buffer creating a vector. The full vector is memcpyd to shared memory. An output
 thread then memcpys the vector to its local buffer where it's processed. Even 
 though each byte gets memcpyd twice as many times, it's significantly faster.
 Local writes stay in the input thread's cache until it's full, making them very
-fast. Memcpys through shared memory are amortized. Local reads in the output
-threads also have a full cache.
+fast. There are fewer but larger memcpys through shared memory. Local reads in 
+the output threads also have a full cache.
 */
 
 #include "../FrameworkSRC/global.h"
