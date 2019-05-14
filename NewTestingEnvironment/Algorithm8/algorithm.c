@@ -112,58 +112,55 @@ void * input_thread(void * args){
     //Each iteration writes a packet to the local buffer, when the local buffer
     //is full the entire vector is copied to the shared buffer.
     while(1){
-        while(1){
-            // *** START PACKET GENERATOR ***
-            //Min value: offset || Max value: offset + 7
-            seed0 = (214013 * seed0 + 2531011);   
-            currFlow = ((seed0 >> 16) & FLOWS_PER_THREAD_MOD) + offset;
+        // *** START PACKET GENERATOR ***
+        //Min value: offset || Max value: offset + 7
+        seed0 = (214013 * seed0 + 2531011);   
+        currFlow = ((seed0 >> 16) & FLOWS_PER_THREAD_MOD) + offset;
 
-            //Min value: 64 || Max value: 8191 + 64
-            seed1 = (214013 * seed1 + 2531011); 
-            currLength = ((seed1 >> 16) % (MAX_PAYLOAD_SIZE_MOD - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
-            // *** END PACKET GENERATOR  ***
+        //Min value: 64 || Max value: 8191 + 64
+        seed1 = (214013 * seed1 + 2531011); 
+        currLength = ((seed1 >> 16) % (MAX_PAYLOAD_SIZE_MOD - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
+        // *** END PACKET GENERATOR  ***
 
-            qIndex = (currFlow & mask);
-            if(qIndex > maxIndex)
-                qIndex = qIndex >> 1;
+        qIndex = (currFlow & mask);
+        if(qIndex > maxIndex)
+            qIndex = qIndex >> 1;
 
-            memcpy(local[qIndex].ptr, &currFlow, 8);
-            local[qIndex].ptr += 8;
-            memcpy(local[qIndex].ptr, &currLength, 8);
-            local[qIndex].ptr += 8;
-            memcpy(local[qIndex].ptr, &orderForFlow[currFlow - offset], 8);
-            local[qIndex].ptr += 8;
-            memcpy(local[qIndex].ptr, data, currLength);
-            local[qIndex].ptr += currLength;
+        memcpy(local[qIndex].ptr, &currFlow, 8);
+        local[qIndex].ptr += 8;
+        memcpy(local[qIndex].ptr, &currLength, 8);
+        local[qIndex].ptr += 8;
+        memcpy(local[qIndex].ptr, &orderForFlow[currFlow - offset], 8);
+        local[qIndex].ptr += 8;
+        memcpy(local[qIndex].ptr, data, currLength);
+        local[qIndex].ptr += currLength;
 
-            //Update the next flow number to assign
-            orderForFlow[currFlow - offset]++;
-            
-            //If we don't have room in the local buffer for another packet it's time to memcpy to shared memory.
-            //A timeout could be added for real-world situations where few packets are coming in and local buffers
-            //take a long time to fill.
-            //For as fast as possible, this will almost always skip the while loop
-            if ((local[qIndex].ptr - local[qIndex].buffer + MAX_PACKET_SIZE) >= BUFFSIZEBYTES) {
-                shared1 = &queues[qIndex][threadIndex].seg[segIndex[qIndex]];
+        //Update the next flow number to assign
+        orderForFlow[currFlow - offset]++;
+        
+        //If we don't have room in the local buffer for another packet it's time to memcpy to shared memory.
+        //A timeout could be added for real-world situations where few packets are coming in and local buffers
+        //take a long time to fill.
+        //For as fast as possible, this will almost always skip the while loop
+        if ((local[qIndex].ptr - local[qIndex].buffer + MAX_PACKET_SIZE) >= BUFFSIZEBYTES) {
+            shared1 = &queues[qIndex][threadIndex].seg[segIndex[qIndex]];
 
-                //If there's still data in the shared buffer, wait
-                while (shared1->ptr > shared1->buffer) {
-                    ;
-                }
-
-                //Copy the entire vector to shared memory
-                memcpy(shared1->buffer, local[qIndex].buffer, (local[qIndex].ptr - local[qIndex].buffer));
-
-                //Signal to output_thread there's more data in shared memory and how much
-                shared1->ptr =shared1->buffer + (local[qIndex].ptr - local[qIndex].buffer);
-
-                //Reset the local queue
-                local[qIndex].ptr = local[qIndex].buffer;
-
-                //Cycle between which segment we are writing to
-                segIndex[qIndex] ^= 1;
-                break;
+            //If there's still data in the shared buffer, wait
+            while (shared1->ptr > shared1->buffer) {
+                ;
             }
+
+            //Copy the entire vector to shared memory
+            memcpy(shared1->buffer, local[qIndex].buffer, (local[qIndex].ptr - local[qIndex].buffer));
+
+            //Signal to output_thread there's more data in shared memory and how much
+            shared1->ptr =shared1->buffer + (local[qIndex].ptr - local[qIndex].buffer);
+
+            //Reset the local queue
+            local[qIndex].ptr = local[qIndex].buffer;
+
+            //Cycle between which segment we are writing to
+            segIndex[qIndex] ^= 1;
         }
     }
     return NULL;
