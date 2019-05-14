@@ -102,6 +102,7 @@ void * input_thread(void * args){
                 currLength = ((seed1 >> 16) % (MAX_PAYLOAD_SIZE_MOD - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
                 // *** END PACKET GENERATOR  ***
 
+                //Write the packet data to the local buffer
                 memcpy(local.ptr, &currFlow, 8);
                 local.ptr += 8;
                 memcpy(local.ptr, &currLength, 8);
@@ -124,8 +125,10 @@ void * input_thread(void * args){
                     }
                     //Copy the entire vector to shared memory
                     memcpy(shared1->buffer, local.buffer, (local.ptr - local.buffer));
+
                     //Signal to output_thread there's more data in shared memory and how much
                     shared1->ptr = shared1->buffer + (local.ptr - local.buffer);
+
                     //Reset the local queue
                     local.ptr = local.buffer;
                     break;
@@ -173,8 +176,9 @@ void * output_thread(void * args){
     //Each iteration copies a full vector from shared memory and processes it.
     while(1){
         for(size_t i = 0; i < NUM_SEGS; i++){
+            //Get a local variable for readability
             shared1 = &queues[qIndex].segment[i];
-            // >>>>>>>>>>>>>>>>>>>>> SEGMENT 1 <<<<<<<<<<<<<<<<<<<<
+
             //Wait until more data has been written to shared memory
             while (shared1->ptr == shared1->buffer) {
                 ;
