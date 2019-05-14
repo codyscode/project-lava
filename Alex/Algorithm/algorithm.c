@@ -17,21 +17,16 @@ this to allow testing of the optimal number of segments
 
 //This buffer size had the best throughput but if latency is considered it could be 
 //adjusted. For example, buffers half this size were only 1 Gbps slower for 8 to 8.
-#define BUFFSIZEBYTES 65536
-
-//Number of segments for the queue
-#define NUM_SEGS 2
-
-typedef struct VBSegment{
-    unsigned char buffer[BUFFSIZEBYTES];
-    unsigned char *ptr;
-} vbseg_t;
+#define BUFFSIZEBYTES 8192
 
 typedef struct VBQueue{
-    vbseg_t segment[NUM_SEGS];
+    size_t paddingF[8];
+    unsigned char buffer[BUFFSIZEBYTES];
+    unsigned char *ptr;
+    size_t paddingR[8];
 } vbqueue_t;
 
-vbqueue_t queues[MAX_NUM_INPUT_THREADS];
+vbqueue_t queues[MAX_NUM_OUTPUT_THREADS][MAX_NUM_INPUT_THREADS];
 
 char* get_name(){
     return ALGNAME;
@@ -46,9 +41,9 @@ function get_output_thread(){
 }
 
 void initializeCustomQueues(){
-    for (int i = 0; i < MAX_NUM_INPUT_THREADS; i++){
-        for(int j = 0; j < NUM_SEGS; j++){
-            queues[i].segment[j].ptr = queues[i].segment[j].buffer;
+    for (int i = 0; i < MAX_NUM_OUTPUT_THREADS; i++){
+        for (int j = 0; j < MAX_NUM_INPUT_THREADS; j++){
+            queues[i][j].ptr = queues[i][j].buffer;
         }
     }
 }
@@ -56,18 +51,32 @@ void initializeCustomQueues(){
 void * input_thread(void * args){
     //Get arguments for input threads
     threadArgs_t *inputArgs = (threadArgs_t *)args;
+    size_t threadIndex = inputArgs->threadNum;
 
     //Set the thread to its own core
     set_thread_props(inputArgs->coreNum, 2);
 
-    size_t threadIndex = inputArgs->threadNum;
+    //Initialize all local queues
+    vbqueue_t * local = (vbqueue_t *)Malloc(sizeof(vbqueue_t) * outputThreadCount);
+    for(size_t i = 0; i < outputThreadCount; i++){
+        local[i].ptr = local[i].buffer;
+    }
 
-    //Each input thread is assigned a single shared queue
-    vbseg_t* shared1;
+    //Compute the correct bit mask for flows based on the number of output queues
+    //This finds the next largest power of two - 1. (i.e 5 -> (8 - 1), 11 -> (16 - 1));
+    //Works for only 64 bit numbers
+    size_t mask = outputThreadCount;
+    mask--;
+    mask |= mask >> 1;
+    mask |= mask >> 2;
+    mask |= mask >> 4;
+    mask |= mask >> 8;
+    mask |= mask >> 16;
+    mask |= mask >> 32;
 
-    //Initialize a local queue
-    vbseg_t local;
-    local.ptr = local.buffer;
+    //The corresponding output thread's shared queue to write to
+    size_t bIndex;
+    size_t maxIndex = outputThreadCount - 1;
 
     //Dummy data to copy
     unsigned char data[MAX_PAYLOAD_SIZE];
@@ -78,9 +87,11 @@ void * input_thread(void * args){
     size_t currLength;
     size_t offset = inputArgs->threadNum * FLOWS_PER_THREAD;
 	
+    //Used for generating random numbers
     register unsigned int seed0 = (unsigned int)time(NULL);
     register unsigned int seed1 = (unsigned int)time(NULL);
 
+    //Signal that this thread is ready
     input[inputArgs->threadNum].readyFlag = 1;
 
     //Wait until everything else is ready
@@ -89,47 +100,52 @@ void * input_thread(void * args){
     //Each iteration writes a packet to the local buffer, when the local buffer
     //is full the entire vector is copied to the shared buffer.
     while(1){
-        for(size_t i = 0; i < NUM_SEGS; i++){
-            shared1 = &queues[threadIndex].segment[i];
-            while(1){
-                // *** START PACKET GENERATOR ***
-                //Min value: offset || Max value: offset + 7
-                seed0 = (214013 * seed0 + 2531011);   
-                currFlow = ((seed0 >> 16) & FLOWS_PER_THREAD_MOD) + offset;
+        while(1){
+            // *** START PACKET GENERATOR ***
+            //Min value: offset || Max value: offset + 7
+            seed0 = (214013 * seed0 + 2531011);   
+            currFlow = ((seed0 >> 16) & FLOWS_PER_THREAD_MOD) + offset;
 
-                //Min value: 64 || Max value: 8191 + 64
-                seed1 = (214013 * seed1 + 2531011); 
-                currLength = ((seed1 >> 16) % (MAX_PAYLOAD_SIZE_MOD - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
-                // *** END PACKET GENERATOR  ***
+            //Min value: 64 || Max value: 8191 + 64
+            seed1 = (214013 * seed1 + 2531011); 
+            currLength = ((seed1 >> 16) % (MAX_PAYLOAD_SIZE_MOD - MIN_PAYLOAD_SIZE)) + MIN_PAYLOAD_SIZE; 
+            // *** END PACKET GENERATOR  ***
 
-                memcpy(local.ptr, &currFlow, 8);
-                local.ptr += 8;
-                memcpy(local.ptr, &currLength, 8);
-                local.ptr += 8;
-                memcpy(local.ptr, &orderForFlow[currFlow - offset], 8);
-                local.ptr += 8;
-                memcpy(local.ptr, data, currLength);
-                local.ptr += currLength;
+            bIndex = (currFlow & mask);
+            if(bIndex > maxIndex)
+                bIndex = 0;
 
-                //Update the next flow number to assign
-                orderForFlow[currFlow - offset]++;
-                
-                //If we don't have room in the local buffer for another packet it's time to memcpy to shared memory.
-                //A timeout could be added for real-world situations where few packets are coming in and local buffers
-                //take a long time to fill.
-                if ((local.ptr - local.buffer + MAX_PACKET_SIZE) >= BUFFSIZEBYTES) {
-                    //If there's still data in the shared buffer, wait
-                    while (shared1->ptr > shared1->buffer) {
-                        ;
-                    }
-                    //Copy the entire vector to shared memory
-                    memcpy(shared1->buffer, local.buffer, (local.ptr - local.buffer));
-                    //Signal to output_thread there's more data in shared memory and how much
-                    shared1->ptr = shared1->buffer + (local.ptr - local.buffer);
-                    //Reset the local queue
-                    local.ptr = local.buffer;
-                    break;
+            memcpy(local[bIndex].ptr, &currFlow, 8);
+            local[bIndex].ptr += 8;
+            memcpy(local[bIndex].ptr, &currLength, 8);
+            local[bIndex].ptr += 8;
+            memcpy(local[bIndex].ptr, &orderForFlow[currFlow - offset], 8);
+            local[bIndex].ptr += 8;
+            memcpy(local[bIndex].ptr, data, currLength);
+            local[bIndex].ptr += currLength;
+
+            //Update the next flow number to assign
+            orderForFlow[currFlow - offset]++;
+            
+            //If we don't have room in the local buffer for another packet it's time to memcpy to shared memory.
+            //A timeout could be added for real-world situations where few packets are coming in and local buffers
+            //take a long time to fill.
+            //For as fast as possible, this will almost always skip the while loop
+            if ((local[bIndex].ptr - local[bIndex].buffer + MAX_PACKET_SIZE) >= BUFFSIZEBYTES) {
+                //If there's still data in the shared buffer, wait
+                while (queues[bIndex][threadIndex].ptr > queues[bIndex][threadIndex].buffer) {
+                    ;
                 }
+
+                //Copy the entire vector to shared memory
+                memcpy(queues[bIndex][threadIndex].buffer, local[bIndex].buffer, (local[bIndex].ptr - local[bIndex].buffer));
+
+                //Signal to output_thread there's more data in shared memory and how much
+                queues[bIndex][threadIndex].ptr = queues[bIndex][threadIndex].buffer + (local[bIndex].ptr - local[bIndex].buffer);
+
+                //Reset the local queue
+                local[bIndex].ptr = local[bIndex].buffer;
+                break;
             }
         }
     }
@@ -145,15 +161,11 @@ void * output_thread(void * args){
 
     size_t qIndex = outputArgs->threadNum;
 
-    //Start on the first shared queue this output thread is reponsible for
-    vbseg_t* shared1;
-
-    //Local variable version of the global variables
-    size_t numOutput = outputThreadCount;
-    size_t numInput = inputThreadCount;
+    //Pointer to the output threads shared buffer that it pulls packets from
+    vbqueue_t* shared1;
 
     //Initialize local queue;
-    vbseg_t local;
+    vbqueue_t local;
     local.ptr = local.buffer;
 
     //Used to convert into a packet struct
@@ -172,13 +184,16 @@ void * output_thread(void * args){
 
     //Each iteration copies a full vector from shared memory and processes it.
     while(1){
-        for(size_t i = 0; i < NUM_SEGS; i++){
-            shared1 = &queues[qIndex].segment[i];
-            // >>>>>>>>>>>>>>>>>>>>> SEGMENT 1 <<<<<<<<<<<<<<<<<<<<
+        //Go through each block in its corresponding queue.
+        //The number of blocks is equal to the number of input threads
+        for(size_t i = 0; i < inputThreadCount; i++){
+            shared1 = &queues[qIndex][i];
+
             //Wait until more data has been written to shared memory
-            while (shared1->ptr == shared1->buffer) {
-                ;
+            if (shared1->ptr == shared1->buffer) {
+                continue;
             }
+
             //Copy the entire vector from shared to local memory
             memcpy(local.buffer, shared1->buffer, (shared1->ptr - shared1->buffer));
 
@@ -227,12 +242,6 @@ void * output_thread(void * args){
 
             //At the end of this loop all packets in the local buffer have been processed and we update byteCount
             output[outputArgs->threadNum].byteCount += (readPtr - local.buffer);
-        }
-
-        //Move to the next shared queue this output thread is responsible for
-        qIndex = qIndex + numOutput;
-        if(qIndex >= numInput) {
-            qIndex = outputArgs->threadNum;
         }
     }
 
