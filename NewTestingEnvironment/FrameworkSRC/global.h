@@ -42,6 +42,7 @@
 
 //Number of unique flows that each input thread generates
 //The flows per thread is a power of 2 to allow efficient packet generation
+//NOTE: It must be a power of 2 for packet generation
 #define FLOWS_PER_THREAD 8U
 #define FLOWS_PER_THREAD_MOD (FLOWS_PER_THREAD - 1U)
 
