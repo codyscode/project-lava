@@ -55,7 +55,7 @@
 
 //Base suggested core repinning assignments
 #define INPUT_BASE_CORE 2 
-#define OUTPUT_BASE_CORE 11 
+#define OUTPUT_BASE_CORE 11
 
 //Define a memory fence that tells the compiler to not reorder instructions
 //In order to make sure writes are in order
@@ -83,7 +83,7 @@ typedef struct Packet{
     size_t flow; 
     size_t length;
     size_t order;
-    unsigned char payload[MAX_PAYLOAD_SIZE];
+    unsigned char payload[1500];
 }packet_t;
 
 //Data field for the queue

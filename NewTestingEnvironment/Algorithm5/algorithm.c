@@ -8,7 +8,7 @@
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "FullMultWire"
+#define ALGNAME "FullMultiWire"
 
 //The middle man queues with a maximum of max(# input threads, # output threads)
 queue_t mainQueues[MAX_NUM_INPUT_THREADS];
@@ -55,7 +55,6 @@ void * input_thread(void * args){
 
     //The base and limit queues that the thread should write to
     size_t baseQueueIndex = inputBaseQueues[threadNum];
-    size_t limitQueueIndex = baseQueueIndex + numQueuesMan;
 
     //Each input buffer has a certain number flows associated with it that it generates
     size_t orderForFlow[FLOWS_PER_THREAD] = {0};

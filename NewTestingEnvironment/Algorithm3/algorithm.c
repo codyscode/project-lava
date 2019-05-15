@@ -9,7 +9,7 @@
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "2Vectors1Queue"
+#define ALGNAME "DBVectors"
 
 #define VBUFFERSIZE 512
 #define NUM_SEGS 2

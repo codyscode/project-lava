@@ -13,7 +13,7 @@ this to allow testing of the optimal number of segments
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "BitmaskDBContiguousVectors"
+#define ALGNAME "LBDBBMContiguousVectors"
 
 //This buffer size had the best throughput but if latency is considered it could be 
 //adjusted. For example, buffers half this size were only 1 Gbps slower for 8 to 8.

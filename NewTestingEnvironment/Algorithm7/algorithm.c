@@ -1,8 +1,8 @@
 /*
 In this algorithm, each input thread writes packets contiguously to a local 
-buffer creating a vector. The full vector is memcpyd to shared memory. An output
-thread then memcpys the vector to its local buffer where it's processed. Even 
-though each byte gets memcpyd twice as many times, it's significantly faster.
+buffer creating a vector. The full vector is memcopyd to shared memory. An output
+thread then memcopys the vector to its local buffer where it's processed. Even 
+though each byte gets memcopyd twice as many times, it's significantly faster.
 Presumably because caches aren't thrashing.
 
 This builds off of algorithm 6 and segments the buffer into 2 separate buffers
@@ -13,7 +13,7 @@ this to allow testing of the optimal number of segments
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "2ContiguousVectors1Queue"
+#define ALGNAME "LBDBContiguousVectors"
 
 //This buffer size had the best throughput but if latency is considered it could be 
 //adjusted. For example, buffers half this size were only 1 Gbps slower for 8 to 8.
@@ -115,7 +115,7 @@ void * input_thread(void * args){
                 //Update the next flow number to assign
                 orderForFlow[currFlow - offset]++;
                 
-                //If we don't have room in the local buffer for another packet it's time to memcpy to shared memory.
+                //If we don't have room in the local buffer for another packet it's time to memcopy to shared memory.
                 //A timeout could be added for real-world situations where few packets are coming in and local buffers
                 //take a long time to fill.
                 if ((local.ptr - local.buffer + MAX_PACKET_SIZE) >= BUFFSIZEBYTES) {

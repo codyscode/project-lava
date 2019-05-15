@@ -68,7 +68,6 @@ void * input_thread(void * args){
 	
     input[threadID].readyFlag = 1;
 	
-	int counter = 0;
     //Wait until everything else is ready
     while(startFlag == 0);
 
