@@ -13,7 +13,7 @@ this to allow testing of the optimal number of segments
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "LBDBBMContiguousVectors"
+#define ALGNAME "Algorithm8"
 
 //This buffer size had the best throughput but if latency is considered it could be 
 //adjusted. For example, buffers half this size were only 1 Gbps slower for 8 to 8.

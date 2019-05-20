@@ -9,7 +9,7 @@ pidgeon-holed into output threads rather than individual flows being pidgeon-hol
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "singleSetPigeon"
+#define ALGNAME "Algorithm4"
 
 char* get_name(){
     return ALGNAME;

@@ -9,7 +9,7 @@
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "DBVectors"
+#define ALGNAME "Algorithm3"
 
 #define VBUFFERSIZE 512
 #define NUM_SEGS 2

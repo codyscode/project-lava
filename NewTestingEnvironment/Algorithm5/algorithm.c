@@ -8,7 +8,7 @@
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "FullMultiWire"
+#define ALGNAME "Algorithm5"
 
 //The middle man queues with a maximum of max(# input threads, # output threads)
 queue_t mainQueues[MAX_NUM_INPUT_THREADS];

@@ -11,7 +11,7 @@ the output threads also have a full cache.
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "ContiguousVectors"
+#define ALGNAME "Algorithm6"
 
 //This buffer size had the best throughput but if latency is considered it could be 
 //adjusted. For example, buffers half this size were only 1 Gbps slower for 8 to 8.

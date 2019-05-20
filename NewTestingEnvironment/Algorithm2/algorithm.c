@@ -2,7 +2,7 @@
 #include "../FrameworkSRC/wrapper.h"
 //#include "../FrameworkSRC/rte_memcpy.h"
 
-#define ALGNAME "Bitwise Partition"
+#define ALGNAME "Algorithm2"
 
 char* get_name(){
     return ALGNAME;

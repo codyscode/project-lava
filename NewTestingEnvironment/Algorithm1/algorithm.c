@@ -6,7 +6,7 @@
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
 
-#define ALGNAME "MxNQueues"
+#define ALGNAME "Algorithm1"
 
 queue_t mainQueues[MAX_NUM_INPUT_THREADS * MAX_NUM_OUTPUT_THREADS];
 
