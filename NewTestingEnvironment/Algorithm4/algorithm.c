@@ -85,7 +85,7 @@ void * input_thread(void * args){
         (*inputQueue).data[index].packet.flow = currFlow;
 */        
         //memcpy simulates the packets data actually being written into the queue by the input thread
-        memcpy(&(*inputQueue).data[index].packet, &packet, currLength + 24);
+        memcpy(&(*inputQueue).data[index].packet, &packet, currLength + PACKET_HEADER_SIZE);
 
         //Update the next flow number to assign
         orderForFlow[currFlow - offset]++;
@@ -182,7 +182,7 @@ void * output_thread(void * args){
 
 
             //increment the number of bits passed
-            output[threadNum].byteCount += (*outputQueue).data[index].packet.length + 24;
+            output[threadNum].byteCount += (*outputQueue).data[index].packet.length + PACKET_HEADER_SIZE;
             //Set the position to free. Say it has already processed data
             (*outputQueue).data[index].isOccupied = NOT_OCCUPIED;
 /*

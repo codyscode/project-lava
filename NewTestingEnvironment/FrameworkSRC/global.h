@@ -36,9 +36,12 @@
 #define MAX_PAYLOAD_SIZE 64
 #define MAX_PAYLOAD_SIZE_MOD (MAX_PAYLOAD_SIZE + 1)
 
+//Size of the packet header without payload
+#define PACKET_HEADER_SIZE 24
+
 //Maximum packet size
-#define MIN_PACKET_SIZE (24 + MIN_PAYLOAD_SIZE)
-#define MAX_PACKET_SIZE (24 + MAX_PAYLOAD_SIZE)
+#define MIN_PACKET_SIZE (PACKET_HEADER_SIZE + MIN_PAYLOAD_SIZE)
+#define MAX_PACKET_SIZE (PACKET_HEADER_SIZE + MAX_PAYLOAD_SIZE)
 
 //Number of unique flows that each input thread generates
 //The flows per thread is a power of 2 to allow efficient packet generation

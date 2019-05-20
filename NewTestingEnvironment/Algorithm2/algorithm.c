@@ -186,7 +186,7 @@ void * output_thread(void * args){
 		pktQueue[outNum][toRead[readPart]].flow = 0;
 		
 		//pktCount[outNum]++;
-		output[threadID].byteCount += currPkt.length + 24;
+		output[threadID].byteCount += currPkt.length + PACKET_HEADER_SIZE;
 		expected[currFlow]++;
 		
 		toRead[readPart]++;

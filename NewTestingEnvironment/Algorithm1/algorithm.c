@@ -173,7 +173,7 @@ void * output_thread(void * args){
         mainQueues[qIndex].data[dataIndex].isOccupied = NOT_OCCUPIED;
 
         //increment the number of packets passed
-        output[threadNum].byteCount += currLength + 24;
+        output[threadNum].byteCount += currLength + PACKET_HEADER_SIZE;
 
         //Set what the next expected packet for the flow should be
         expected[currFlow]++;

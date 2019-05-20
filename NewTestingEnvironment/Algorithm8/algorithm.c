@@ -233,7 +233,7 @@ void * output_thread(void * args){
                 //thread at this point but I didn't want there to be any confusion over whether this
                 //accurately models individual packets being parsed and found that adding it doesn't
                 //affect the speed.  
-                memcpy(&packet, readPtr, ((packet_t*) readPtr)->length + 24);
+                memcpy(&packet, readPtr, ((packet_t*) readPtr)->length + PACKET_HEADER_SIZE);
 
                 //Packets order must be equal to the expected order.
                 if(expected[packet.flow] != packet.order){
@@ -244,7 +244,7 @@ void * output_thread(void * args){
                         packet_t * errPacket = (packet_t*) indexPtr;
                         printf("\nPosition: %d, Flow: %ld, Order: %ld", index, errPacket->flow, errPacket->order);
                         index++;
-                        indexPtr += (errPacket->length + 24);
+                        indexPtr += (errPacket->length + PACKET_HEADER_SIZE);
                     }
 
                     //Print out the specific packet that caused the error to the user
@@ -257,7 +257,7 @@ void * output_thread(void * args){
                     expected[packet.flow]++;
 
                     //Move readPtr to address of next packet
-                    readPtr += (packet.length + 24);
+                    readPtr += (packet.length + PACKET_HEADER_SIZE);
                 }
             }
 

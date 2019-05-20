@@ -197,7 +197,7 @@ void * output_thread(void * args){
         memcpy(packetData, mainQueues[qIndex].data[dataIndex].packet.payload, mainQueues[qIndex].data[dataIndex].packet.length);
 
         //increment the number of bits passed
-        output[threadNum].byteCount += mainQueues[qIndex].data[dataIndex].packet.length + 24;
+        output[threadNum].byteCount += mainQueues[qIndex].data[dataIndex].packet.length + PACKET_HEADER_SIZE;
 
         //Set what the next expected packet for the flow should be
         expected[currFlow]++;

@@ -90,10 +90,10 @@ void * input_thread(void * args){
         packet.order = orderForFlow[currFlow - offset];
         packet.length = currLength;
         packet.flow = currFlow;
-        memcpy(local.ptr, &packet, currLength + 24);
+        memcpy(local.ptr, &packet, currLength + PACKET_HEADER_SIZE);
 
         //Update local.ptr to the next address we'll write a packet
-        local.ptr += (currLength + 24);
+        local.ptr += (currLength + PACKET_HEADER_SIZE);
 
         //Update the next flow number to assign
         orderForFlow[currFlow - offset]++;
@@ -171,7 +171,7 @@ void * output_thread(void * args){
             //thread at this point but I didn't want there to be any confusion over whether this
             //accurately models individual packets being parsed and found that adding it doesn't
             //affect the speed.
-            memcpy(&packet, readPtr, ((packet_t*) readPtr)->length + 24);
+            memcpy(&packet, readPtr, ((packet_t*) readPtr)->length + PACKET_HEADER_SIZE);
         
             //Packets order must be equal to the expected order.
             if(expected[packet.flow] != packet.order){
@@ -182,7 +182,7 @@ void * output_thread(void * args){
                     packet_t * errPacket = (packet_t*) indexPtr;
                     printf("Position: %d, Flow: %ld, Order: %ld\n", index, errPacket->flow, errPacket->order);
                     index++;
-                    indexPtr += (errPacket->length + 24);
+                    indexPtr += (errPacket->length + PACKET_HEADER_SIZE);
                 }
                 //Print out the specific packet that caused the error to the user
                 printf("Error Packet: Flow %lu | Order %lu\n", packet.flow, packet.order);
@@ -194,7 +194,7 @@ void * output_thread(void * args){
                 expected[packet.flow]++;
 
                 //Move readPtr to address of next packet
-                readPtr += (packet.length + 24);
+                readPtr += (packet.length + PACKET_HEADER_SIZE);
 
             }
         }
