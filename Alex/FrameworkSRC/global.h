@@ -31,6 +31,9 @@
 //Defines how many ticks an algorithm should run for
 #define RUNTIME 10
 
+//Size of the packet header without payload
+#define PACKET_HEADER_SIZE 24
+
 //Used to determine payload size
 #define MIN_PAYLOAD_SIZE 64
 #define MAX_PAYLOAD_SIZE 64
