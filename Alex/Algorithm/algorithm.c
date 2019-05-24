@@ -14,27 +14,36 @@ the output threads also have a full cache.
 #define ALGNAME "Algorithm9"
 
 #define BUFFSIZEBYTES 4096
-#define INIT_NUM_FREE 10
+#define INIT_NUM_BUFFERS 10
 #define FREE 0
-#define NOT_FREE 0
+#define NOT_FREE 1
+
+#define DEQUEUE_HEAD(listHead) listHead; listHead = listHead->next
+#define ENQUEUE_TAIL(listTail, item) listTail->next = item; listTail = item; item->next = NULL
 
 typedef struct VQueue vqueue_t;
 
+//The buffer struct that is used by the threads to communicate
+//buffer (unsigned char array) - Allows contiguous blocks of packets
+//ptr (unsigned char *) - Points to where we are currently in the buffer
+//next (vqueue_t **) - points to the next address that points to the next queue
+//                     this is a double pointer to allow spin locks to work
+//                     can be a single pointer in the case where the output
+//                     thread sleeps instead of spinnign
 struct VQueue{
     unsigned char buffer[BUFFSIZEBYTES];
     unsigned char *ptr;
-    vqueue_t ** next;
+    vqueue_t * next;
 };
 
-//The head of the shared queues
-vqueue_t queues[MAX_NUM_INPUT_THREADS];
+//The head of the shared queues that each input thread appends to
+vqueue_t * sharedHeads[MAX_NUM_INPUT_THREADS];
 
-/* ---------------- FREE LIST --------------
-//The heads of the free buffers for each input queue
-//Free buffers are appended to this list when the output
-//queue is done with them
-vqueue_t * freeBuffers[MAX_NUM_INPUT_THREADS];
-*/
+//The head of the free list of buffers that the input thread can choose to fill
+vqueue_t * freeHeads[MAX_NUM_INPUT_THREADS];
+
+//The tails of the free list of buffers to allow the output threads to append to when they are done
+vqueue_t * freeTails[MAX_NUM_INPUT_THREADS];
 
 char* get_name(){
     return ALGNAME;
@@ -48,10 +57,31 @@ function get_output_thread(){
     return output_thread;
 }
 
-void initializeCustomQueues(){
-    for (int i = 0; i < MAX_NUM_INPUT_THREADS; i++){
-        vqueue_t * nextptr = NULL;
-        queues[i].next = &nextptr;
+//Generate the buffers to be used and add them all to the free list initially
+void generate_buffers(){
+    vqueue_t * buffer;
+    vqueue_t * curr;
+
+    //Generate the initial number of buffers and pin the head and tail to the appropriate locations
+    //for each input thread
+    for (int i = 0; i < inputThreadCount; i++){
+        //Assign the head to the first buffer
+        buffer = (vqueue_t *)Malloc(sizeof(vqueue_t));
+        curr = buffer;
+        freeHeads[i] = buffer;
+
+        //Generate the middle buffers
+        for(int j = 0; j < INIT_NUM_BUFFERS - 2; j++){
+            buffer = (vqueue_t *)Malloc(sizeof(vqueue_t));
+            curr->next = buffer;
+            curr = curr->next;
+        }
+
+        //Assign the tail to the last buffer
+        buffer = (vqueue_t *)Malloc(sizeof(vqueue_t));
+        curr->next = buffer;
+        freeTails[i] = buffer;
+        buffer->next = NULL;
     }
 }
 
@@ -63,51 +93,37 @@ void * input_thread(void * args){
     set_thread_props(inputArgs->coreNum, 2);
 
     //Each input thread is assigned a single shared queue to append buffers to
-    vqueue_t shared = queues[inputArgs->threadNum];
+    vqueue_t * sharedList = sharedHeads[inputArgs->threadNum];
+    vqueue_t * freeListHead = freeHeads[inputArgs->threadNum];
 
-    /* ---------------- FREE LIST --------------
-    //initialize the buffer free list for this thread
-    vqueue_t * curr = freeBuffers[inputArgs->threadNum];
-    for (int i = 0; i < MAX_NUM_INPUT_THREADS; i++){
-        //Create a buffer
-        vqueue_t * buffer = (vqueue_t *)Malloc(sizeof(vqueue_t));
+    //Create a pointer to the current buffer we are working on
+    vqueue_t * local = DEQUEUE_HEAD(freeListHead);
 
-        //Add the queue to the free list
-        curr->next = buffer;
-
-        //Move to the next queue
-        curr = curr->next;
-    }
-
-    vqueue_t * toAppend = freeBuffers[inputArgs->threadNum];
-    */
-
-    //Initialize a local queue
-    vqueue_t local;
-    local.ptr = local.buffer;
+    //Set the ptr to the beginning of the buffer to begin writing
+    local->ptr = local->buffer;
 
     //Used to write packets to local buffer
     packet_t packet;
-
-    //A shared buffer to append to the shared list
-    vqueue_t * toAppend;
 
     //Keep track of next order number for a given flow
     size_t orderForFlow[FLOWS_PER_THREAD] = {0};
     size_t currFlow; 
     size_t currLength;
+
+    //Used for generating unique flows between threads for validation purposes
     size_t offset = inputArgs->threadNum * FLOWS_PER_THREAD;
 	
     register unsigned int seed0 = (unsigned int)time(NULL);
     register unsigned int seed1 = (unsigned int)time(NULL);
 
+    //Signal that the thread is ready to begin writing
     input[inputArgs->threadNum].readyFlag = 1;
 
     //Wait until everything else is ready
     while(startFlag == 0);
 
     //Each iteration writes a packet to the local buffer, when the local buffer
-    //is full the entire vector is copied to the shared buffer.
+    //is full the entire vector is appended to the shared list
     while(1){
         // *** START PACKET GENERATOR ***
         //Min value: offset || Max value: offset + 7
@@ -123,33 +139,37 @@ void * input_thread(void * args){
         packet.order = orderForFlow[currFlow - offset];
         packet.length = currLength;
         packet.flow = currFlow;
-        memcpy(local.ptr, &packet, currLength + PACKET_HEADER_SIZE);
+        memcpy(local->ptr, &packet, currLength + PACKET_HEADER_SIZE);
 
-        //Update local.ptr to the next address we'll write a packet
-        local.ptr += (currLength + PACKET_HEADER_SIZE);
+        //Update local ptr to the next address we'll write a packet
+        local->ptr += (currLength + PACKET_HEADER_SIZE);
 
         //Update the next flow number to assign
         orderForFlow[currFlow - offset]++;
         
         //If we don't have room in the local buffer for another packet it's time to memcpy to shared memory.
-        //A timeout could be added for real-world situations where few packets are coming in and local buffers
-        //take a long time to fill.
-        if ((local.ptr - local.buffer + MAX_PACKET_SIZE) >= BUFFSIZEBYTES) {
-            //Choose an available shared buffer to write the packets to the queue
-            toAppend = (vqueue_t *)Malloc(sizeof(vqueue_t));
+        //Because we are appending to a linked list, we dont need to use any locking here as the output thread
+        //ensures proper access
+        if ((local->ptr - local->buffer + MAX_PACKET_SIZE) >= BUFFSIZEBYTES) {
+            //Append the buffer to the shared list to increase the list the output thread has to process
+            sharedList->next = local;
 
-            //Copy the entire vector to free shared memory location
-            memcpy(toAppend->buffer, local.buffer, (local.ptr - local.buffer));
-            toAppend->ptr = toAppend->buffer + (local.ptr - local.buffer);
+            //Find the next free buffer from the free list to fill up.
+            //if the free list is empty, then malloc a buffer.
+            //else use the next available buffer
+            //*** IMPORTANT ***
+            //The idea behind this is to avoid locking on the input side. However, this assumes the output side is
+            //faster than the input side. If it were not the cae, there will be a memory leak to the order of magnitude equiavalent
+            //to how must faster the input side is compared to the output side.
+            if(freeListHead == NULL){
+                local = (vqueue_t *)Malloc(sizeof(vqueue_t));
+            }
+            else{
+                local = DEQUEUE_HEAD(freeListHead);
+            }
 
-            //Make the current buffer's next pointer point to this buffer
-            //Signal to output_thread there's more data in shared memory and how much
-            *(shared.next) = toAppend;
-
-            shared = toAppend;
-
-            //Reset the local queue
-            local.ptr = local.buffer;
+            //Reset the local queue to start working on it again
+            local->ptr = local->buffer;
         }
     }
     return NULL;
@@ -162,21 +182,18 @@ void * output_thread(void * args){
     //Set the thread to its own core
     set_thread_props(outputArgs->coreNum, 2);
 
-    //Start on the first shared queue this output thread is reponsible for
+    //Start on the first shared list of buffers this output thread is reponsible for
     size_t qIndex = outputArgs->threadNum;
 
+    //Each output thread is assigned up to 8 shared lists, that input queues append to, to manage
     //Set the pointers for each shared queue this output thread manages
-    vqueue_t ** shared[MAX_NUM_INPUT_THREADS];
-    for(int i = qIndex; i < inputThreadCount; i += outputThreadCount){
-        shared[i] = queues[qIndex].next;
-    }
+    vqueue_t * shared = sharedHeads[qIndex];
+    vqueue_t * freeListTail = freeTails[qIndex];
 
-    //Initialize local queue;
+    //Initialize local queue that we will use to process locally away from the free queue to allow
+    //the free buffers to be freed faster
     vqueue_t local;
     local.ptr = local.buffer;
-
-    //Used for referencing a buffer to free
-    vqueue_t * toFree;
 
     //Used to read packets from local buffer
     packet_t packet;
@@ -187,6 +204,7 @@ void * output_thread(void * args){
     //Used to verify order for a given flow
     size_t expected[MAX_NUM_INPUT_THREADS * FLOWS_PER_THREAD] = {0}; 
 
+    //Signal that this output thread is ready to begin
     output[outputArgs->threadNum].readyFlag = 1;
 
     //Wait until everything else is ready
@@ -194,20 +212,23 @@ void * output_thread(void * args){
 
     //Each iteration copies a full vector from shared memory and processes it.
     while(1){
+        //This allows the output thread to manage multiple input thread lists and cycle through them without
+        //processing one that another output thread is processing
         for(size_t sharedIndex = qIndex; sharedIndex < inputThreadCount; sharedIndex += outputThreadCount){
-            //Wait until there is another buffer to process
-            while (*shared[sharedIndex] == NULL){
-                ;
+            //Wait until there is another buffer to process on the list
+            while (shared == NULL){
+                shared = sharedHeads[sharedIndex];
             }
+            sharedHeads[sharedIndex] = sharedHeads[sharedIndex]->next;
 
             //Copy the entire vector from shared to local memory
-            memcpy(local.buffer, (**shared[sharedIndex]).buffer, ((**shared[sharedIndex]).ptr - (**shared[sharedIndex]).buffer));
+            memcpy(local.buffer, shared->buffer, (shared->ptr - shared->buffer));
 
-            //local.ptr marks where data in the local buffer ends
-            local.ptr = local.buffer + ((**shared[sharedIndex]).ptr - (**shared[sharedIndex]).buffer);
+            //local.ptr marks where data ends in the buffer
+            local.ptr = local.buffer + (shared->ptr - shared->buffer);
 
-            //Signal to input_thread that shared memory can be written to again
-            (**shared[sharedIndex]).ptr = (**shared[sharedIndex]).buffer;
+            //Put the shared buffer back on the free list as we are done with it and it can be written to again
+            ENQUEUE_TAIL(freeListTail, shared);
 
             //readPtr points to the current packet in the local buffer
             readPtr = local.buffer;
@@ -246,15 +267,6 @@ void * output_thread(void * args){
             }
             //At the end of this loop all packets in the local buffer have been processed and we update byteCount
             output[outputArgs->threadNum].byteCount += (readPtr - local.buffer);
-
-            //set a reference to this buffer to free it later
-            toFree = *shared[sharedIndex];
-
-            //Move to the next buffer in the queue for the input thread
-            shared[sharedIndex] = (*shared[sharedIndex])->next;
-
-            //Free this shared buffer
-            free(toFree);
         }
     }
     return NULL;
@@ -262,7 +274,7 @@ void * output_thread(void * args){
 
 
 pthread_t * run(void *argsv){
-    initializeCustomQueues();
+    generate_buffers();
 
     return NULL;
 }
