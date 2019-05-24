@@ -375,18 +375,18 @@ int main(int argc, char**argv){
 
     printf("Spawning Threads:\n");
 
+    //Call the users run method which handles:
+    // - Spawn any additional threads their algorithm may need
+    // - Return the array of the spawned threads
+    pthread_t *extraThreads;
+    extraThreads = run(NULL);
+
     spawn_input_threads(attrs, get_input_thread());
 
     spawn_output_threads(attrs, get_output_thread());
 
     //Indicate to the user that the tests are starting
     printf("\nStarting Metric for Algorithm: %s\n", get_name());
-
-    //Call the users run method which handles:
-    // - Spawn any additional threads their algorithm may need
-    // - Return the array of the spawned threads
-    pthread_t *extraThreads;
-    extraThreads = run(NULL);
 
     //Setup the alarm
     alarm_init();
