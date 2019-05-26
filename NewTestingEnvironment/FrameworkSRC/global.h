@@ -28,7 +28,7 @@
 //Buffersize for default queues
 #define BUFFERSIZE 512
 
-//Defines how many ticks an algorithm should run for
+//Defines how many seconds an algorithm should run for
 #define RUNTIME 10
 
 //Used to determine payload size

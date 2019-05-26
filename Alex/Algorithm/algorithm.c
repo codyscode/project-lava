@@ -34,13 +34,13 @@ struct VQueue{
 };
 
 //The head of the shared queues that each input thread appends to
-vqueue_t * sharedHeads[MAX_NUM_INPUT_THREADS];
+vqueue_t ** sharedHeads[MAX_NUM_INPUT_THREADS];
 
 //The head of the free list of buffers that the input thread can choose to fill
-vqueue_t * freeHeads[MAX_NUM_INPUT_THREADS];
+vqueue_t ** freeHeads[MAX_NUM_INPUT_THREADS];
 
 //The tails of the free list of buffers to allow the output threads to append to when they are done
-vqueue_t * freeTails[MAX_NUM_INPUT_THREADS];
+vqueue_t ** freeTails[MAX_NUM_INPUT_THREADS];
 
 char* get_name(){
     return ALGNAME;
@@ -56,41 +56,36 @@ function get_output_thread(){
 
 //Generate the buffers to be used and add them all to the free list initially
 void generate_buffers(){
-    vqueue_t * buffer;
-    vqueue_t * curr;
+    vqueue_t ** curr;
     vqueue_t * end = NULL;
 
     //Generate the initial number of buffers and pin the head and tail to the appropriate locations
     //for each input thread
     for (int i = 0; i < inputThreadCount; i++){
         //Assign the head to the first buffer
-        curr = (vqueue_t *)Malloc(sizeof(vqueue_t));
+        curr = (vqueue_t **)Malloc(sizeof(vqueue_t *));
+        *curr = (vqueue_t *)Malloc(sizeof(vqueue_t));
         freeHeads[i] = curr;
 
         //Generate the middle buffers
-        for(int j = 0; j < INIT_NUM_BUFFERS - 2; j++){
-            buffer = (vqueue_t *)Malloc(sizeof(vqueue_t));
-            curr->next = &buffer;
-            curr = *(curr->next);
+        for(int j = 0; j < INIT_NUM_BUFFERS - 1; j++){
+            (**curr).next = (vqueue_t **)Malloc(sizeof(vqueue_t *));
+            *((**curr).next) = (vqueue_t *)Malloc(sizeof(vqueue_t));
+            curr = (**curr).next;
         }
-
         //Assign the tail to the last buffer
-        buffer = (vqueue_t *)Malloc(sizeof(vqueue_t));
-        curr->next = &buffer;
-        freeTails[i] = buffer;
-        buffer->next = &end;
+        freeTails[i] = curr;
+        (**curr).next = &end;
     }
+
+    return;
 }
 
 //Generate the buffers to be used and add them all to the free list initially
 void init_shared(){
-    vqueue_t * start;
-
     //Have the initial heads point to empty buffers
     for (int i = 0; i < inputThreadCount; i++){
-        //Assign the head to the first buffer
-        start = (vqueue_t *)Malloc(sizeof(vqueue_t));
-        sharedHeads[i] = start;
+        sharedHeads[i] = (vqueue_t **)Malloc(sizeof(vqueue_t *));
     }
 }
 
@@ -102,12 +97,11 @@ void * input_thread(void * args){
     set_thread_props(inputArgs->coreNum, 2);
 
     //Each input thread is assigned a single shared queue to append buffers to
-    vqueue_t * sharedList = sharedHeads[inputArgs->threadNum];
-    vqueue_t * freeListHead = freeHeads[inputArgs->threadNum];
+    vqueue_t * sharedList = *sharedHeads[inputArgs->threadNum];
+    vqueue_t ** freeListHead = freeHeads[inputArgs->threadNum];
 
     //Create a pointer to the first buffer we start with
-    vqueue_t * local = freeListHead;
-    freeListHead = *(freeListHead->next);
+    vqueue_t * local = *(freeListHead);
 
     //Set the ptr to the beginning of the buffer to begin writing
     local->ptr = local->buffer;
@@ -163,7 +157,7 @@ void * input_thread(void * args){
         //ensures proper access
         if ((local->ptr - local->buffer + MAX_PACKET_SIZE) >= BUFFSIZEBYTES) {
             //Append the buffer to the shared list to increase the list the output thread has to process
-            sharedList->next = &local;
+            sharedList = local;
             sharedList = *(sharedList->next);
 
             //Find the next free buffer from the free list to fill up.
@@ -173,12 +167,13 @@ void * input_thread(void * args){
             //The idea behind this is to avoid locking on the input side. However, this assumes the output side is
             //faster than the input side. If it were not the cae, there will be a memory leak to the order of magnitude equiavalent
             //to how must faster the input side is compared to the output side.
-            if(freeListHead == NULL){
+            if(*freeListHead == NULL){
                 local = (vqueue_t *)Malloc(sizeof(vqueue_t));
+                local->next = (vqueue_t **)Malloc(sizeof(vqueue_t *));
             }
             else{
-                local = freeListHead;
-                freeListHead = *(freeListHead->next);
+                local = *freeListHead;
+                freeListHead = (**freeListHead).next;
             }
 
             //Reset the local queue to start working on it again
@@ -199,20 +194,21 @@ void * output_thread(void * args){
     //Start on the first shared list of buffers this output thread is reponsible for
     size_t qIndex = outputArgs->threadNum;
 
+    vqueue_t ** shared[MAX_NUM_INPUT_THREADS];
+    vqueue_t * freeList[MAX_NUM_INPUT_THREADS];
+
     //Each output thread is assigned up to 8 shared lists, that input queues append to, to manage
     //Set the pointers for each shared queue this output thread manages
-    vqueue_t * shared[MAX_NUM_INPUT_THREADS];
     size_t sIndex = 0;
-    for(;qIndex < inputThreadCount; qIndex += outputThreadCount){
+    for(; qIndex < inputThreadCount; qIndex += outputThreadCount){
         shared[sIndex] = sharedHeads[qIndex];
         sIndex++;
     }
 
     //After an output thread is finished with copying its buffer it puts it back on the free list
-    vqueue_t * freeListTail[MAX_NUM_INPUT_THREADS];
     size_t fIndex = 0;
-    for(;qIndex < inputThreadCount; qIndex += outputThreadCount){
-        freeListTail[fIndex] = freeTails[qIndex];
+    for(; qIndex < inputThreadCount; qIndex += outputThreadCount){
+        freeList[fIndex] = *freeTails[qIndex];
         fIndex++;
     }
 
@@ -242,21 +238,23 @@ void * output_thread(void * args){
         //processing one that another output thread is processing
         for(size_t sharedIndex = qIndex; sharedIndex < inputThreadCount; sharedIndex += outputThreadCount){
             //Wait until there is another buffer to process on the list
-            while (*(shared[sharedIndex]->next) == NULL){
+            while (*shared[sharedIndex] == NULL){
                 ;
             }
-            shared[sharedIndex] = *(shared[sharedIndex]->next);
 
             //Copy the entire vector from shared to local memory
-            memcpy(local.buffer, shared[sharedIndex]->buffer, (shared[sharedIndex]->ptr - shared[sharedIndex]->buffer));
+            memcpy(local.buffer, (*shared[sharedIndex])->buffer, ((*shared[sharedIndex])->ptr - (*shared[sharedIndex])->buffer));
 
-            //local.ptr marks where data ends in the buffer
-            local.ptr = local.buffer + (shared[sharedIndex]->ptr - shared[sharedIndex]->buffer);
+            //Move to the next pointer pointing to the next buffer
+            shared[sharedIndex] = (*shared[sharedIndex])->next;
 
             //Put the shared buffer back on the free list as we are done with it and it can be written to again
-            freeListTail[sharedIndex]->next = &shared[sharedIndex];
-            freeListTail[sharedIndex] = shared[sharedIndex];
-            *(shared[sharedIndex]->next) = NULL;
+            freeList[sharedIndex]->next = shared[sharedIndex];
+            freeList[sharedIndex] = *(freeList[sharedIndex]->next);
+            *(freeList[sharedIndex]->next) = NULL;
+
+            //local.ptr marks where data ends in the buffer
+            local.ptr = local.buffer + ((*shared[sharedIndex])->ptr - (*shared[sharedIndex])->buffer);
 
             //readPtr points to the current packet in the local buffer
             readPtr = local.buffer;

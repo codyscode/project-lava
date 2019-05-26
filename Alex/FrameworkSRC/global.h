@@ -28,8 +28,8 @@
 //Buffersize for default queues
 #define BUFFERSIZE 512
 
-//Defines how many ticks an algorithm should run for
-#define RUNTIME 10
+//Defines how many seconds an algorithm should run for
+#define RUNTIME 1000
 
 //Size of the packet header without payload
 #define PACKET_HEADER_SIZE 24
