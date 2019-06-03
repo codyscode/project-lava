@@ -1,5 +1,5 @@
-# project-lava
-Optimized Packet Passing for Virtual Networks
+# Cisco Project Lava
+School sponsered research project for optimized packet passing for virtual networks
 
 Installation Instructions:
 
