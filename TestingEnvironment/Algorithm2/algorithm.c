@@ -1,6 +1,5 @@
 #include "../FrameworkSRC/global.h"
 #include "../FrameworkSRC/wrapper.h"
-//#include "../FrameworkSRC/rte_memcpy.h"
 
 #define ALGNAME "Algorithm2"
 
@@ -47,7 +46,7 @@ void * input_thread(void * args){
     register unsigned int g_seed0 = (unsigned int)time(NULL);
     register unsigned int g_seed1 = (unsigned int)time(NULL);
 	
-	unsigned int mask; //currFlow, length;
+	unsigned int mask; 
 	unsigned int outMask;
 	unsigned int flowNum[FLOWS_PER_THREAD] = {0};
 	unsigned int offset = (core - 2)*FLOWS_PER_THREAD;
@@ -62,7 +61,6 @@ void * input_thread(void * args){
 	else//(outCount >= 1)
 		mask = 1;
 		
-	//tsc_t start, end;
 	int outIndx = outCount - 1;
 	packet_t currPkt;
 	
@@ -92,23 +90,11 @@ void * input_thread(void * args){
 		while(pktQueue[outMask][toWrite[outMask]].flow != 0); // wait for space in partition
  
 		memcpy(&pktQueue[outMask][toWrite[outMask]].payload, &currPkt.payload, currPkt.length);
-		//rte_memcpy(pktQueue[outMask][toWrite[outMask]].payload, &currPkt.payload, currPkt.length);
-		
-		/*
-		counter = 141;
-		while(counter){
-			rte_mov64((uint8_t *) pktQueue[outMask][toWrite[outMask]].payload, (uint8_t *) &currPkt.payload);
-			counter--;
-			
-		}
-		*/
 		
 		pktQueue[outMask][toWrite[outMask]].length = currPkt.length;
 		pktQueue[outMask][toWrite[outMask]].order = currPkt.order;
 		pktQueue[outMask][toWrite[outMask]].flow = currPkt.flow;
-		
-		//rte_mov32((uint8_t *) &pktQueue[outMask][toWrite[outMask]], (uint8_t *) &currPkt);
-		
+				
 		toWrite[outMask]++;
 		
 		if(toWrite[outMask] > endPart)
@@ -176,9 +162,9 @@ void * output_thread(void * args){
 		currFlow = currPkt.flow;
 		
 		if(expected[currFlow] != currPkt.order){
-            fprintf(stderr,"ERROR: Packet out of order in queue %d for flow %ld\n", outNum, currPkt.flow);						
-            fprintf(stderr,"Expected: %d\n", expected[currFlow]);			
-            fprintf(stderr,"Actual: %ld\n", currPkt.order);
+            		fprintf(stderr,"ERROR: Packet out of order in queue %d for flow %ld\n", outNum, currPkt.flow);						
+           		fprintf(stderr,"Expected: %d\n", expected[currFlow]);			
+            		fprintf(stderr,"Actual: %ld\n", currPkt.order);
 			exit(0);
 		}
 		
@@ -209,7 +195,7 @@ void * output_thread(void * args){
 pthread_t * run(void *argsv){
     int inCount = inputThreadCount;
 	
-	//Initialize thread attributes
+    //Initialize thread attributes
     pthread_attr_t attrs;
     pthread_attr_init(&attrs);
 
@@ -217,7 +203,6 @@ pthread_t * run(void *argsv){
     Pthread_attr_setinheritsched(&attrs, PTHREAD_EXPLICIT_SCHED);
 	
 	// calculate cache lined partitions based on 1024 sized queue
-	
 	if((1024/inCount % 64) == 0)
 		partSize = 1024/inCount;
 	else
