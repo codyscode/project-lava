@@ -74,11 +74,12 @@ void * input_thread(void * args){
     size_t currFlow, currLength;
     size_t offset = threadNum * FLOWS_PER_THREAD;
 	
-    //Continuously generate input numbers until the buffer fills up. 
-    //Once it hits an entry that is not empty, it will wait until the 
-    //input is grabbed.
+    //Index for the corresponding buffer and the index within the buffer
+    //to write to
     size_t dataIndex = 0;
     size_t qIndex = 0;
+
+    //Used to randomly generate packets and their headers
     register unsigned int seed0 = (unsigned int)time(NULL);
     register unsigned int seed1 = (unsigned int)time(NULL);
 
