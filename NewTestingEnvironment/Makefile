@@ -32,9 +32,13 @@ ifneq ("$(wildcard $(AP))","")
 all: clean $(TARGET)
 else
 all: 
-	$(info Need to specify a path to your algorithm folder.)
+	$(info )
+	$(info ***********************************************)
+	$(info Need to specify a path to your algorithm folder)
 	$(info Example: make AP=Algorithm1/)
 	$(info For all arguments, run: make help)
+	$(info ***********************************************)
+	$(info )
 	$(error )
 endif
 
@@ -47,8 +51,12 @@ $(OBJS): $(addprefix $(FWF), $(SRCS)) $(AP)*.c $(addprefix $(FWF), $(DEPS))
 
 ifeq ($(AP),)
 clean:
+	$(info )
+	$(info ****************************************************************)
 	$(info To clean the algorithm folder, you need to specify a path to the)
 	$(info makefile. Example: make AM=Algorithm1/)
+	$(info ****************************************************************)
+	$(info )
 	$(MAKE) clean -C $(FWF)
 	find . -name $(TARGET) -type f -delete
 else
@@ -59,6 +67,7 @@ clean:
 endif
 
 help:	
+	$(info )
 	$(info - make [options])
 	$(info -)
 	$(info - Options:)
@@ -82,5 +91,5 @@ help:
 	$(info - Algorithm1/)
 	$(info -    |_ algorithm.c)
 	$(info -    |_ Makefile)
-	$(info -)
+	$(info )
 	exit

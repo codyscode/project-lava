@@ -35,11 +35,12 @@ function get_output_thread(){
 /*
 The job of the input threads is to make packets to populate the buffers.
 As of now the packets are stored in a buffer.
+
 Attributes:
 -   Each input thread generates a packet and writes it to its 
 -   corresponding queue based on the flow which is modded with the number
 -   of flows a thread is instructed to generate (defined in global.h). 
--   When the buffer the input queue is attempting to write to is full
+-   When the buffer the input thread is attempting to write to is full
 -   it sits on a spin lock until the buffer is free to write to again. Due
 -   to testing for absolute performance we used spinlocks to avoid context
 -   switches as much as possible. In a real world scenario this would be

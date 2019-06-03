@@ -70,11 +70,12 @@ function get_output_thread(){
 /*
 The job of the input threads is to make packets to populate the buffers.
 As of now the packets are stored in a buffer.
+
 Attributes:
 -   Each input thread generates a packet and writes it to its 
 -   corresponding queue that the thread is assigned at creation. This
 -   static mapping allows extremely fast packet passing at the cost
--   of unused output threads. When the buffer the input queue is 
+-   of unused output threads. When the buffer the input thread is 
 -   attempting to write to is full it sits on a spin lock until the buffer
 -   is free to write to again. Due to testing for absolute performance we
 -   used spinlocks to avoid context switches as much as possible. In a 
