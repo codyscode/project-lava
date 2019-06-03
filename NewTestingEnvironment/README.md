@@ -7,14 +7,14 @@
     4. Runs make   
 
 # Testing (How to Run)  
-- As of now to run a specific algorithm:  
+- To run a specific algorithm:  
     1. Switch to that algorithms folder and run: make  
     2. Switch to /Framework directory and run ./Framework x y  
         -x and y are integers between 1 and 8 (inclusive) 
     Or
     1. Call ./mainScript.sh -s "algorithm name"
 
--To run all algorithms  
+- To run all algorithms  
     1. go to upper level directory in repo and call ./mainScript.h [args]  
     2. [args]:  
   <ul>  <li>   -h 	     Print help</li>
