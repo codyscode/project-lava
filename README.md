@@ -1,5 +1,5 @@
 # Cisco Project Lava
-School sponsored research project for optimized packet passing for virtual networks
+School sponsored research project for optimized packet passing within virtual networks
 
 ## Introduction
 
