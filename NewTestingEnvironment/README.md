@@ -14,9 +14,11 @@
     Or
     1. Call ./mainScript.sh -s "algorithm name"
 
-- To run all algorithms  
-    1. go to upper level directory in repo and call ./mainScript.h [args]  
-    2. [args]:  
+- To run all algorithms:  
+    - go to upper level directory in repo and call ./mainScript.h [args] 
+    
+- Args to enter for differen run scenarios:
+    - [args]:  
   <ul>  <li>   -h 	     Print help</li>
       <ul><li>        - This command will bring up this list.</li></ul>
 	<li>    -t	     Run tests on all algorithms</li>
