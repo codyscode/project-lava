@@ -70,9 +70,9 @@ testSpecificAlgorithm(){
 		fi
 		cd ..
 	done
-	cd /home/$NON_ROOT_USER/project-lava/NewTestingEnvironment/
+	cd /home/$NON_ROOT_USER/project-lava/TestingEnvironment/
 	echo $PWD
-	if [[ "$PWD" = "/home/$NON_ROOT_USER/project-lava/NewTestingEnvironment"  &&  "$inputT" -gt 0 ]]; then
+	if [[ "$PWD" = "/home/$NON_ROOT_USER/project-lava/TestingEnvironment"  &&  "$inputT" -gt 0 ]]; then
     	echo "CLEARING CSV FILES" 
 		rm -f *.csv
 	else 
@@ -86,7 +86,7 @@ runVisualization()
 	NON_ROOT_USER=$(who am i | awk '{print $1}');
 	cd /home/$NON_ROOT_USER/project-lava.wiki/
 	pwd
-	python /home/$NON_ROOT_USER/project-lava/NewTestingEnvironment/visualization.py /home/$NON_ROOT_USER/project-lava.wiki/Data/
+	python /home/$NON_ROOT_USER/project-lava/TestingEnvironment/visualization.py /home/$NON_ROOT_USER/project-lava.wiki/Data/
 }
 
 #runs all 64 iteration of each algorithm being made
@@ -145,7 +145,7 @@ repeatedRuns(){
 	for i in 1 2 3 4 5; do
 		echo ">>>>>>>>>>>>>>> START OF RUN $i <<<<<<<<<<<<<<<"
 		testAllAlgorithms
-		cd /home/$NON_ROOT_USER/project-lava/NewTestingEnvironment/
+		cd /home/$NON_ROOT_USER/project-lava/TestingEnvironment/
 		pushWiki
 	done
 	runVisualization
