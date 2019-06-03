@@ -9,5 +9,5 @@ env:
 sudo: true
 
 script:
-        - cd NewTestingEnvironment/
+        - cd TestingEnvironment/
         - ./mainScript.sh -q
