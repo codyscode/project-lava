@@ -13,7 +13,7 @@ Last Modified: 3 June 2019
 -   This allows output threads to not be wasted in every case of m x n 
 -   threads. It uses one set of queues that the input threads write to 
 -   directly and the output threads read from. Packets are grouped into 
--   vecotrs before being passed to output threads. and as soon as it is 
+-   vectors before being passed to output threads. and as soon as it is 
 -   placed in the buffer and the output thread is ready to read it, the 
 -   packet is processed.
 
@@ -35,14 +35,17 @@ size_t inputNumQueues[MAX_NUM_INPUT_THREADS];
 size_t outputBaseQueues[MAX_NUM_OUTPUT_THREADS];
 size_t outputNumQueues[MAX_NUM_OUTPUT_THREADS];
 
+//Standard interface to framework for returning the algorithm name
 char* get_name(){
     return ALGNAME;
 }
 
+//Standard interface to framework for returning the input method
 function get_input_thread(){
     return input_thread;
 }
 
+//Standard interface to framework for returning the output method
 function get_output_thread(){
     return output_thread;
 }

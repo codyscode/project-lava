@@ -1,13 +1,36 @@
 /*
-In this algorithm, each input thread writes packets contiguously to a local 
-buffer creating a vector. The full vector is memcpyd to shared memory. An output
-thread then memcpys the vector to its local buffer where it's processed. Even 
-though each byte gets memcpyd twice as many times, it's significantly faster.
-Presumably because caches aren't thrashing.
+Created By: Alex Widmann
+Last Modified: 3 June 2019
 
-This builds off of algorithm 6 and segments the buffer into 2 separate buffers
-The algorithm can be sped up by unraveling the for loop, however it is currently like
-this to allow testing of the optimal number of segments
+-   This algorithm takes algorithm 6 and algorithm 2 and combines them
+-   into one to leverage the optimizations of algorithm 6, while also
+-   implementing the efficient hashing implemented in algorithm 2 to
+-   allow all output threads to be used.
+
+-   The algorithm uses 3 sets of queues were one set is shared, one set
+-   belongs to only input threads and one set only applies to output
+-   threads. Input threads write a vector of packets to the single local
+-   queue they were assigned at created and upon filling the local queue
+-   and checking if the segment in the shared queues they want to write to
+-   is free, the input thread memcpys the vector over and goes back to
+-   writing in its local buffer again.
+
+-   Each thread that is assigned to an output thread is partitioned into
+-   a certain number of blocks which is equal to the number of input 
+-   threads. Each block is restricted to a single input thread for writing
+-   allowing for less locking. each block is then partitioned into 2
+-   segments to allow concurrent reads and writes for input and output
+-   threads.
+
+-   The shared buffer that each input thread copies its local buffer into
+-   is defined using a static map similar to algorithm 3 to reduce the
+-   overhead of flow hashing per packet.
+
+-   Output threads wait for the current buffer to be filled with a vector
+-   and then they copy it into its local buffer, marks the shared buffer 
+-   as free and then starts to process the packets.
+
+-   Notes: queue and buffer share the same definition in the comments
 */
 
 #include "../FrameworkSRC/global.h"
@@ -19,27 +42,43 @@ this to allow testing of the optimal number of segments
 //adjusted. For example, buffers half this size were only 1 Gbps slower for 8 to 8.
 #define BUFFSIZEBYTES 65536
 
+/*
+struct VBSegment
+-   buffer (unsigned char array) -  where all the data is written to.
+-   ptr (unsigned char *) - where we currently are in the buffer.
+*/
 typedef struct VBSeg{
     unsigned char buffer[BUFFSIZEBYTES];
     unsigned char *ptr;
 } vbseg_t;
 
+/*
+struct VSegment
+-   Padding - used to avoid invalidating other threads cache lines
+-   segment (vseg_t array) - a portion of the queue. The number of
+                             segments is fixed
+-   Padding - used to avoid invalidating other threads cache lines
+*/
 typedef struct VBQueue{
     size_t paddingF[8];
     vbseg_t seg[2];
     size_t paddingR[8];
 } vbqueue_t;
 
+//Shared queues
 vbqueue_t queues[MAX_NUM_OUTPUT_THREADS][MAX_NUM_INPUT_THREADS];
 
+//Standard interface to framework for returning the algorithm name
 char* get_name(){
     return ALGNAME;
 }
 
+//Standard interface to framework for returning the input method
 function get_input_thread(){
     return input_thread;
 }
 
+//Standard interface to framework for returning the output method
 function get_output_thread(){
     return output_thread;
 }
@@ -126,6 +165,7 @@ void * input_thread(void * args){
         if(qIndex > maxIndex)
             qIndex = qIndex >> 1;
 
+        //Write the packet to the local buffer
         memcpy(local[qIndex].ptr, &currFlow, 8);
         local[qIndex].ptr += 8;
         memcpy(local[qIndex].ptr, &currLength, 8);
@@ -166,6 +206,45 @@ void * input_thread(void * args){
     return NULL;
 }
 
+/*
+The job of the processing threads is to ensure that the packets are being 
+delivered in proper order by going through output queues and reading the 
+order
+
+Attributes:
+-   Each output thread is assigned certain buffers to read from using
+-   Base and limit numbers which allow the constraints of the problem to
+-   be followed while also avoiding locking between output threads
+-   When the buffer the output queue is attempting to read from is empty
+-   it sits on a spin lock until the buffer is free to write to again. Due
+-   to testing for absolute performance we used spinlocks to avoid context
+-   switches as much as possible. In a real world scenario this would be
+-   using semaphores or other sleep based locking methods.
+
+-   Output threads check the shared memory segments, searching for one
+-   with a complete vector of packets. When it is found, the output
+-   thread copies the vector in shared memory to its local buffer, marks
+-   the position in shared memory as free, and starts processing the
+-   vector in its local buffer.
+
+-   Each shared queue that the output thread is paritioned using a 2d 
+-   array, This means all input threads are communicating (passing data) 
+-   with all output threads. The output thread cycles through these 
+-   partitions checking for complete vectors to process.
+
+-   The output thread indexes through the array using ptrs and using the
+-   length member of the packet to determine the index of the next packet.
+
+-   Each output thead ensures the flows given to it are passed in order.
+-   The order is checked using a static array that defines the total 
+-   number threads being generated per thread times the number of input 
+-   threads. This is because we dont know which flow is being passed to
+-   which output thread allowing freedom.
+
+-   If a packet is recieved out of order the corresponding thread prints
+-   the out of order packet, the buffer it came from, and signals the 
+-   framework to exit.
+*/
 void * output_thread(void * args){
     //Get arguments for input threads
     threadArgs_t *outputArgs = (threadArgs_t *)args;

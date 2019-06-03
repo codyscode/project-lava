@@ -28,7 +28,7 @@ Last Modified: 3 June 2019
 
 /*
 struct VSegment
--   isOccupied (size_t0) -  Whether all the data there is ready to copy 
+-   isOccupied (size_t) -  Whether all the data there is ready to copy 
 -                           or not
 -   data (packet_t array) - Space for packets in the queue. Size defined
                             by macro VBUFFERSIZE
