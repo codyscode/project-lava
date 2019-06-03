@@ -279,16 +279,16 @@ void monitor_threads(){
             for(int i = 0; i < outputThreadCount; i++){
                 count += output[i].byteCount;
             }
-            printf("\x1b[A\rEstimated: \t %'lu bits per second          \n", ((count - prevCount) * 4));
-            printf("Time Remaining:  %d Seconds  ", timer);
-            fflush(NULL);
+            //printf("\x1b[A\rEstimated: \t %'lu bits per second          \n", ((count - prevCount) * 4));
+            //printf("Time Remaining:  %d Seconds  ", timer);
+            //fflush(NULL);
             prevCount = count;
             count = 0;
             timer--;    
         }   
         else{
-            printf("\rTime Remaining:  %d Seconds  ", timer);
-            fflush(NULL);
+            //printf("\rTime Remaining:  %d Seconds  ", timer);
+            //fflush(NULL);
             timer--;  
         }
         usleep(1000000);

@@ -42,6 +42,8 @@ vqueue_t ** freeHeads[MAX_NUM_INPUT_THREADS];
 //The tails of the free list of buffers to allow the output threads to append to when they are done
 vqueue_t ** freeTails[MAX_NUM_INPUT_THREADS];
 
+unsigned char resetPtr;
+
 char* get_name(){
     return ALGNAME;
 }
@@ -86,6 +88,7 @@ void init_shared(){
     //Have the initial heads point to empty buffers
     for (int i = 0; i < inputThreadCount; i++){
         sharedHeads[i] = (vqueue_t **)Malloc(sizeof(vqueue_t *));
+        *sharedHeads[i] = NULL;
     }
 }
 
@@ -97,11 +100,13 @@ void * input_thread(void * args){
     set_thread_props(inputArgs->coreNum, 2);
 
     //Each input thread is assigned a single shared queue to append buffers to
-    vqueue_t * sharedList = *sharedHeads[inputArgs->threadNum];
+    vqueue_t ** sharedList = sharedHeads[inputArgs->threadNum];
     vqueue_t ** freeListHead = freeHeads[inputArgs->threadNum];
 
     //Create a pointer to the first buffer we start with
     vqueue_t * local = *(freeListHead);
+    freeListHead = (**freeListHead).next;
+    *(local->next) = NULL;
 
     //Set the ptr to the beginning of the buffer to begin writing
     local->ptr = local->buffer;
@@ -157,8 +162,8 @@ void * input_thread(void * args){
         //ensures proper access
         if ((local->ptr - local->buffer + MAX_PACKET_SIZE) >= BUFFSIZEBYTES) {
             //Append the buffer to the shared list to increase the list the output thread has to process
-            sharedList = local;
-            sharedList = *(sharedList->next);
+            *sharedList = local;
+            sharedList = (**sharedList).next;
 
             //Find the next free buffer from the free list to fill up.
             //if the free list is empty, then malloc a buffer.
@@ -170,14 +175,16 @@ void * input_thread(void * args){
             if(*freeListHead == NULL){
                 local = (vqueue_t *)Malloc(sizeof(vqueue_t));
                 local->next = (vqueue_t **)Malloc(sizeof(vqueue_t *));
+                *(local->next) = NULL;
             }
             else{
                 local = *freeListHead;
                 freeListHead = (**freeListHead).next;
+                *(local->next) = NULL;
             }
-
             //Reset the local queue to start working on it again
             local->ptr = local->buffer;
+            sleep(1);
         }
     }
 
@@ -207,15 +214,17 @@ void * output_thread(void * args){
 
     //After an output thread is finished with copying its buffer it puts it back on the free list
     size_t fIndex = 0;
+    qIndex = outputArgs->threadNum;
     for(; qIndex < inputThreadCount; qIndex += outputThreadCount){
         freeList[fIndex] = *freeTails[qIndex];
         fIndex++;
     }
 
+    qIndex = outputArgs->threadNum;
+
     //Initialize local queue that we will use to process locally away from the free queue to allow
     //the free buffers to be freed faster
     vqueue_t local;
-    local.ptr = local.buffer;
 
     //Used to read packets from local buffer
     packet_t packet;
@@ -245,16 +254,15 @@ void * output_thread(void * args){
             //Copy the entire vector from shared to local memory
             memcpy(local.buffer, (*shared[sharedIndex])->buffer, ((*shared[sharedIndex])->ptr - (*shared[sharedIndex])->buffer));
 
-            //Move to the next pointer pointing to the next buffer
-            shared[sharedIndex] = (*shared[sharedIndex])->next;
+            //local.ptr marks where data ends in the buffer
+            local.ptr = local.buffer + ((*shared[sharedIndex])->ptr - (*shared[sharedIndex])->buffer);
 
             //Put the shared buffer back on the free list as we are done with it and it can be written to again
             freeList[sharedIndex]->next = shared[sharedIndex];
             freeList[sharedIndex] = *(freeList[sharedIndex]->next);
-            *(freeList[sharedIndex]->next) = NULL;
 
-            //local.ptr marks where data ends in the buffer
-            local.ptr = local.buffer + ((*shared[sharedIndex])->ptr - (*shared[sharedIndex])->buffer);
+            //Move to the next pointer pointing to the next buffer
+            shared[sharedIndex] = (*shared[sharedIndex])->next;
 
             //readPtr points to the current packet in the local buffer
             readPtr = local.buffer;
