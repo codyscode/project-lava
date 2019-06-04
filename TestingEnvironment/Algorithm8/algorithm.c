@@ -7,7 +7,7 @@ Last Modified: 3 June 2019
 -   implementing the efficient hashing implemented in algorithm 2 to
 -   allow all output threads to be used.
 
--   The algorithm uses 3 sets of queues were one set is shared, one set
+-   The algorithm uses 3 sets of queues where one set is shared, one set
 -   belongs to only input threads and one set only applies to output
 -   threads. Input threads write a vector of packets to the single local
 -   queue they were assigned at created and upon filling the local queue
@@ -93,6 +93,38 @@ void initializeCustomQueues(){
     }
 }
 
+/*
+The job of the input threads is to make packets to populate the buffers.
+As of now the packets are stored in a buffer.
+
+Attributes:
+-   Each input thread computes a bitmask to determine which queue a packet
+-   should be passed to. The bitmask is applied to the flow to determine
+-   which queue it should go to. Then the packet is written to the
+-   appropriate block in the queue (dependent on the thread number).
+-   When the buffer the intput thread is attempting to write to is full
+-   it sits on a spin lock until the buffer is free to write to again. Due
+-   to testing for absolute performance we used spinlocks to avoid context
+-   switches as much as possible. In a real world scenario this would be
+-   using semaphores or other sleep based locking methods.
+
+-   Input threads have a number of local buffers to write to which is
+-   equal to the number of output threads. The bitmask is also equivalent
+-   to the number of output threads. When a local buffer fills up, that
+-   vector is memcopied into the appropriate buffer in the corresponding
+-   block and the output thread copies this into its local buffer to
+-   process when it is ready.
+
+-   The input thread indexes through the array using ptrs and using the
+-   length member of the packet to determine the index of the next packet.
+
+-   To increase speed, shared buffers are divided into segments so that 
+-   when the number of segments is greater than 1, theoretically the 
+-   input thread can write to one side of the buffer while the output 
+-   thread reads from the other side. Upon testing it seems that any 
+-   number of segments above 2 has no impact on performance for that 
+-   buffersize listed above.
+*/
 void * input_thread(void * args){
     //Get arguments for input threads
     threadArgs_t *inputArgs = (threadArgs_t *)args;
