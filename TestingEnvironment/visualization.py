@@ -40,6 +40,7 @@ Takes in:
     directory: folder to move content into
 """
 def SwarmSubPlot( fd, input, baseName, directory):
+    #fd['Bits'] = fd['Bits']/(1000000000) #changes units from bits to Gigabits
     sns.swarmplot(x="Output" , y= "Bits",hue ="Algorithm", dodge = True, data= fd[fd['Input']==input] )
     title = 'Plot ' + baseName +' Queue' + str(input)      
     plt.figure.set_title(title)
@@ -80,14 +81,16 @@ Takes in:
     Directory: folder to move content into
 """
 def barSubPlot( fd, input, fileCount,directory):
-
+    sns.set_style("whitegrid")
+    
+    #fd['Bits'] = fd['Bits']/(1000000000) #changes units from bits to Gigabits
     plt.ticklabel_format(style='plain', axis='y')
     figNum = input+ fileCount
     plt.figure(figNum, figsize=(10, 10))
     title = 'Input Queue Count: ' + str(input)  
     sns.barplot(x="Output" , y= "Bits",hue ="Algorithm", dodge = True, data= fd[fd['Input']==input]).set_title(title)
-    plt.xlabel("Output Queue Count")
-    plt.ylabel("Bits Per Second")
+    plt.xlabel("Output Thread Count")
+    plt.ylabel("Gigabits Per Second(Gbs)")
     filename = 'bar_collection_'+str(input)+".png"
     plt.figure(figNum).savefig(filename)
     CWD = os.getcwd()
@@ -105,24 +108,30 @@ Takes in:
     Directory: folder to move content into
 """
 def posterPlot( big_frame, directory, fileCount):
-
+    sns.set_style("whitegrid")
     posterColors =  ["#db4437", "#4285f4", "#0f9d58"]
     plt.ticklabel_format(style='plain', axis='y')
-    qData = big_frame.query('((Input == "2") and (Output == "2")) or ((Input =="2") and (Output =="4")) or ((Input =="4") and (Output =="2"))').copy()
+    qData = big_frame.query('((Input == "8") and (Output == "8")) or ((Input =="4") and (Output =="8")) or ((Input =="8") and (Output =="4"))').copy()
     qData.loc[qData.Input < qData.Output, 'Condition'] = 0
     qData.loc[qData.Input == qData.Output, 'Condition'] = 1
     qData.loc[qData.Input > qData.Output, 'Condition'] = -1
 
-    print(qData)
+    
     figNum = fileCount
-
+    #qData['Bits'] = qData['Bits']/(1000000000) #changes units from bits to Gigabits
+    newDB = qData.copy()
+    newDB['Bits'] = newDB['Bits']/(1000000000) #changes units from bits to Gigabits
+    print(newDB)
+    
     plt.figure(figNum, figsize=(10, 10))
     title = 'Performance in Certain Test Cases'  
-    sns.barplot(x="Algorithm" , y= "Bits",hue ="Condition", dodge = True, data= qData, palette = posterColors).set_title(title)
+    plot = sns.barplot(x="Algorithm" , y= "Bits",hue ="Condition", dodge = True, data= newDB, palette = posterColors).set_title(title)
+    plot.axes.set_xticklabels(["1","2","3","4","5","6","7","8"])
+    #plot.axes.set_xticklabels([0,1,2,3,4,5,6,7])
     plt.xlabel("Algorithms")
     plt.ylabel("Gigabits Per Second (Gbs)")
 
-    lgd = plt.legend(title= "Performance Type" , loc='center left', bbox_to_anchor=(1, 0.5), labels=["4x4", "2x4","4x2"])
+    lgd = plt.legend(title= "Performance Type" , loc='center left', bbox_to_anchor=(1, 0.5), labels=["8x4", "4x8","8x8"])
     for i in range(0,3):
         lgd.legendHandles[i].set_color(posterColors[i])
     
@@ -149,15 +158,31 @@ Takes in:
     directory: folder to move content into
 """
 def lineSubPlot( fd, fileNum, baseName, directory):
-    fig = plt.figure(fileNum, figsize=(8,8))
+    #sns.set(rc={'axes.facecolor':'white', 'figure.facecolor':'white'})  
+    #sns.set(rc={'axes.facecolor':'cornflowerblue', 'figure.facecolor':'cornflowerblue'})
+    newDB = fd.copy()
+    newDB['Bits'] = newDB['Bits']/(1000000000) #changes units from bits to Gigabits
+
+    #fig = plt.figure(fileNum, figsize=(8,8))
+    sns.set(font_scale =10)
+    fig = plt.figure(fileNum, figsize=(10,10))
     markerArray = ['1', "x", "*","o","d","^","s","8"]
     markColors = ['blue', 'orange', 'green','red','purple','brown','pink','grey']
+    linePlotLabel = []
+    for i in range(0,8):
+        if i == 0:
+            linePlotLabel.append(str(i+1) + " Output Thread" )
+        else:
+            linePlotLabel.append(str(i+1) + " Output Threads" ) 
+
+
     sns.set( rc={"lines.linewidth": 0.7})
-    cat = sns.pointplot(x="Input" , y= "Bits",hue ="Output", ci = None, dodge = False, errwidth=None, data= fd, markers="", scale = 1)
+    cat = sns.pointplot(x="Input" , y= "Bits",hue ="Output", ci = None, dodge = False, errwidth=None, palette= markColors, data= newDB, markers="", scale = 1)
+   # cat.set(axis_bgcolor='k')
     
-    cat = sns.pointplot(x="Input" , y= "Bits",hue ="Output",
-    ci = None, dodge = False, linestyles = " ", errwidth=None, data= fd,
-    markers=markerArray, scale = 1.8).set_title(baseName)
+    
+    sns.set_style('darkgrid')
+    cat = sns.pointplot(x="Input" , y= "Bits",hue ="Output",ci = None, dodge = False, linestyles = " ", errwidth=None, palette= markColors,     data= newDB, markers=markerArray, scale = 2.1).set_title(baseName)
 
     plt.ticklabel_format(style='plain', axis='y')
     
@@ -165,11 +190,12 @@ def lineSubPlot( fd, fileNum, baseName, directory):
     for i in range (0,8):
         symbol.append( matplotlib.lines.Line2D([], [], color=markColors[i], marker=markerArray[i], linestyle='None', markersize=6, label=str(i+1)))
 
-    lgd = plt.legend(title= "Output Queue Count" , loc='center left', bbox_to_anchor=(1, 0.5),
-    handles=[symbol[0], symbol[1], symbol[2],symbol[3],symbol[4],symbol[5],symbol[6],symbol[7]])
+    lgd = plt.legend(title= "Legend" , loc='center left', bbox_to_anchor=(1, 0.5),
+    #handles=[symbol[0], symbol[1], symbol[2],symbol[3],symbol[4],symbol[5],symbol[6],symbol[7]], labels = linePlotLabel)
+    handles=symbol, labels = linePlotLabel)
 
-    plt.xlabel("Input Queue Count")
-    plt.ylabel("Bits Per Second")    
+    plt.xlabel("Input Thread Count")
+    plt.ylabel("Gigabits Per Second (Gb/s)")    
     filename = 'point_'+ baseName+".png"
     fig.savefig(filename, bbox_extra_artists=(lgd,), bbox_inches='tight')
     matplotlib.pyplot.close(fig)
@@ -271,6 +297,41 @@ def posterRun(directoryPath, fileCount):
     posterPlot(big_frame,directoryPath, fileCount)
 
     
+def algorithmComparison(directoryPath, fileCount):
+    csvlist = []
+    #sns.color_palette("bright")
+
+    for root,dirs,files in os.walk(directoryPath):
+        for file in files:
+            if file.endswith(".csv"):
+                folderPath = os.path.join(os.getcwd(),sys.argv[1])
+                filePath = os.path.join(folderPath,file)
+                df = pd.read_csv(filePath)
+                csvlist.append(df)
+
+    big_frame = pd.concat(csvlist, axis = 0, ignore_index = True)
+    #posterPlot(big_frame,directoryPath, fileCount)
+    newDB = big_frame.copy()
+    newDB['Bits'] = newDB['Bits']/(1000000000) #changes units from bits to Gigabits
+
+   
+    sns.set_style("whitegrid")
+    
+    
+    #plt.ticklabel_format(style='plain', axis='y')
+    figNum = fileCount
+    plt.figure(figNum, figsize=(20, 20))
+    sns.set(font_scale =2)
+    title = 'Average Algorithm Performance '  
+    sns.barplot(x="Algorithm" , y= "Bits",dodge = True, data= newDB, palette= "bright").set_title(title)
+    plt.xlabel("")
+    plt.ylabel("Gigabits Per Second(Gbs)")
+    filename = 'Final_Comparison'+".png"
+    plt.figure(figNum).savefig(filename)
+    CWD = os.getcwd()
+    shutil.copy(os.path.join(CWD,filename), directory)
+    os.remove(os.path.join(CWD,filename))
+
 """
 Efficiently Run's all the 3 functions together:
     singleRun
@@ -278,10 +339,10 @@ Efficiently Run's all the 3 functions together:
     PosterRun
 """
 def efficientRun(directoryPath):
+    plotFolder = os.path.join(os.getcwd(), 'Plots')
     fileCount = 0
     csvlist = []
     outBar = [8]
-
     for root,dirs,files in os.walk(directoryPath):
         for file in files:
             if file.endswith(".csv"):
@@ -296,11 +357,14 @@ def efficientRun(directoryPath):
     big_frame = pd.concat(csvlist, axis = 0, ignore_index = True)
     image = np.arange(100).reshape((10,10))
     for i in range(1, 9):
-        barSubPlot(big_frame, i,fileCount, os.path.join(os.getcwd(), 'Plots'))
+        barSubPlot(big_frame, i,fileCount,plotFolder)
 
-    posterPlot(big_frame,directoryPath, fileCount+9)
+    posterPlot(big_frame,plotFolder, fileCount+9)
                 
 
 directory = os.path.join(os.getcwd(),sys.argv[1])          
 checkDirectory()
+#singleRun(directory)
 efficientRun(directory)
+posterRun(directory,10)
+algorithmComparison(directory, 11)
