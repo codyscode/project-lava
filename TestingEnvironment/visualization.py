@@ -115,13 +115,11 @@ def posterPlot( big_frame, directory, fileCount):
     qData.loc[qData.Input < qData.Output, 'Condition'] = 0
     qData.loc[qData.Input == qData.Output, 'Condition'] = 1
     qData.loc[qData.Input > qData.Output, 'Condition'] = -1
-
     
     figNum = fileCount
     #qData['Bits'] = qData['Bits']/(1000000000) #changes units from bits to Gigabits
     newDB = qData.copy()
     newDB['Bits'] = newDB['Bits']/(1000000000) #changes units from bits to Gigabits
-    print(newDB)
     
     plt.figure(figNum, figsize=(10, 10))
     title = 'Performance in Certain Test Cases'  
@@ -276,6 +274,7 @@ def collectionRun(directoryPath, fileCount):
                 csvlist.append(df)
 
     big_frame = pd.concat(csvlist, axis = 0, ignore_index = True)
+    big_frame = big_frame.sort_values(by=['Algorithm'])
     image = np.arange(100).reshape((10,10))
     for i in range(1, 9):
         barSubPlot(big_frame, i,fileCount, os.path.join(os.getcwd(), 'Plots'))
@@ -294,6 +293,7 @@ def posterRun(directoryPath, fileCount):
                 csvlist.append(df)
 
     big_frame = pd.concat(csvlist, axis = 0, ignore_index = True)
+    big_frame = big_frame.sort_values(by=['Algorithm'])
     posterPlot(big_frame,directoryPath, fileCount)
 
     
@@ -310,6 +310,7 @@ def algorithmComparison(directoryPath, fileCount):
                 csvlist.append(df)
 
     big_frame = pd.concat(csvlist, axis = 0, ignore_index = True)
+    big_frame = big_frame.sort_values(by=['Algorithm'])
     #posterPlot(big_frame,directoryPath, fileCount)
     newDB = big_frame.copy()
     newDB['Bits'] = newDB['Bits']/(1000000000) #changes units from bits to Gigabits
@@ -355,6 +356,7 @@ def efficientRun(directoryPath):
                 csvlist.append(df)
 
     big_frame = pd.concat(csvlist, axis = 0, ignore_index = True)
+    big_frame = big_frame.sort_values(by=['Algorithm'])
     image = np.arange(100).reshape((10,10))
     for i in range(1, 9):
         barSubPlot(big_frame, i,fileCount,plotFolder)
