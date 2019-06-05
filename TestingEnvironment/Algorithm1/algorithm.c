@@ -206,7 +206,7 @@ void * output_thread(void * args){
 		
         //Packets order must be equal to the expected order.
         if(expected[currFlow] != mainQueues[qIndex].data[dataIndex].packet.order){
-            Print out the contents of the processing queue that caused an error
+            //Print out the contents of the processing queue that caused an error
             for(int i = 0; i < BUFFERSIZE; i++){
                 printf("Position: %d, Flow: %ld, Order: %ld\n", i, mainQueues[qIndex].data[i].packet.flow, mainQueues[qIndex].data[i].packet.order);
             }
