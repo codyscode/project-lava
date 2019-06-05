@@ -182,7 +182,7 @@ Attributes:
 -   Base and limit numbers which allow the constraints of the problem to
 -   be followed while also avoiding locking between output threads
 -   When the buffer the output queue is attempting to read from is empty
--   it sits on a spin lock until the buffer is free to write to again. Due
+-   it sits on a spin lock until the buffer is free to read from again. Due
 -   to testing for absolute performance we used spinlocks to avoid context
 -   switches as much as possible. In a real world scenario this would be
 -   using semaphores or other sleep based locking methods.

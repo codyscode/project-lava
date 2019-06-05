@@ -46,7 +46,7 @@ Attributes:
 -   switches as much as possible. In a real world scenario this would be
 -   using semaphores or other sleep based locking methods.
 
--   Each input thead generates 5 flows:
+-   Each input thead generates x flows:
 -   (i.e input 1: 1, 2, 3, 4, 5; input 2: 6, 7, 8, 9, 10)
 -   The flows can be scrambled coming from a single input:
 -   (i.e stream: 1, 2, 1, 3, 4, 4, 3, 3, 5)
