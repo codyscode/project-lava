@@ -1,11 +1,24 @@
 /*
+Created by: Cody Cunningham
+
+Algorithm 6 was originally intended to explore the benefits of writing packets 
+contiguously in memory and what other optimizations that might enable. It was 
+then discovered that creating contiguous vectors of packets in exclusive local 
+buffers then copying them to and from shared memory allowed us to fully exploit 
+the cache, resulting in our largest performance gain over previous 
+optimizations. 
+
 In this algorithm, each input thread writes packets contiguously to a local 
-buffer creating a vector. The full vector is memcpyd to shared memory. An output
-thread then memcpys the vector to its local buffer where it's processed. Even 
-though each byte gets memcpyd twice as many times, it's significantly faster.
-Local writes stay in the input thread's cache until it's full, making them very
-fast. There are fewer but larger memcpys through shared memory. Local reads in 
-the output threads also have a full cache.
+buffer creating a vector. The full vector is memcpyd to shared memory. An 
+output thread then memcpys the vector to its local buffer where it's processed. 
+Even though each byte gets memcpyd twice as many times, it's significantly 
+faster. Since local buffers are exclusive to the thread, local writes stay in 
+the input thread's cache until it's full, making them very fast. Local reads in 
+the output threads also have a full cache. There are fewer but larger memcpys 
+through shared memory. Writing packets contiguously insures we fill our caches 
+with as much data as possible and that our memcpys don't contain any empty 
+space. Input queues are merged into output queues with a simple static mapping 
+(described in algorithm 4) that avoids flow hashing.
 */
 
 #include "../FrameworkSRC/global.h"
@@ -13,8 +26,9 @@ the output threads also have a full cache.
 
 #define ALGNAME "Algorithm6"
 
-//This buffer size had the best throughput but if latency is considered it could be 
-//adjusted. For example, buffers half this size were only 1 Gbps slower for 8 to 8.
+//This buffer size had the best throughput since it matches the cache size
+//on our test system but buffers half this size only performed slightly worse.
+//Change this to match the cache size on your system.
 #define BUFFSIZEBYTES 65536
 
 typedef struct custom_queue_t{
