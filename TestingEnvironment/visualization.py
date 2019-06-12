@@ -130,7 +130,7 @@ def lineSubPlot( fd, fileNum, baseName, directory):
     newDB = fd.copy()
     sns.set_style('darkgrid')
     newDB['Bits'] = newDB['Bits']/(1000000000) #changes units from bits to Gigabits
-    sns.set(font_scale =10)
+    #sns.set(font_scale =2)
     fig = plt.figure(fileNum, figsize=(10,10))
     markerArray = ['1', "x", "*","o","d","^","s","8"]
     markColors = ['blue', 'orange', 'green','red','purple','brown','pink','grey']
