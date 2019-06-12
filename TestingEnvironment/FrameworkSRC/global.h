@@ -87,7 +87,7 @@ typedef struct Packet{
     size_t flow; 
     size_t length;
     size_t order;
-    unsigned char payload[1500];
+    unsigned char payload[MAX_PAYLOAD_SIZE];
 }packet_t;
 
 //Data field for the queue
@@ -121,7 +121,7 @@ typedef struct threadArgs{
 //threadArgs (threadArgs_t) - Arguments to be passed to input/output threads
 //queue (queue_t) - built in queues for passing
 //readyFlag (size_t) - Flag signaling thead is ready
-//count (size_t) - amount of data passed
+//byteCount (size_t) - amount of data passed
 typedef struct io{
     threadArgs_t threadArgs;
     pthread_t threadID;

@@ -1,9 +1,14 @@
 /*
-This algorithm uses a single set of queues rather than input queues and output queues. 
-The number of queues matches the number of input threads, i.e. each input thread writes to it's
-own queue. The merging happends on the output side where each output thread figures out
-which queues(s) it needs to read from. This is a simple algorithm where entire queues are
-pidgeon-holed into output threads rather than individual flows being pidgeon-holed
+Created by: Cody Cunningham
+
+Algorithm 4 is meant to explore two main ideas: having a single set of 
+intermediary shared queues and using a simple static assignment of input 
+threads to output threads rather than parsing/hashing flows. The number of 
+shared queues matches the number of input threads so input threads always 
+know where to write. Merging happens on the output side. If there are more 
+input threads than output threads some output threads will have to read from 
+multiple queues.
+
 */
 
 #include "../FrameworkSRC/global.h"
